@@ -773,7 +773,10 @@ function animate() {
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
       heading += steer * travelSign * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
-      const desired = forwardVector().multiplyScalar(currentSpeed);
+      // Redirect momentum toward the active travel direction. Using the
+      // board's nose vector here while rolling backwards would fight the
+      // existing velocity every frame and steadily bleed speed.
+      const desired = travelForwardVector().multiplyScalar(currentSpeed);
       // Preserve momentum during a manual pivot so it feels like a kickturn,
       // rather than instantly redirecting the whole board like a normal carve.
       const redirectRate = manualActive ? 0.48 : (0.95 + currentSpeed * 0.10);
