@@ -315,6 +315,7 @@ let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
 let flipVelocity = 0;
+let flipTarget = 0;
 let shuvitVelocity = 0;
 let shuvitRotation = 0;
 let shuvitTarget = 0;
@@ -362,18 +363,32 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   board.rotation.x = 0;
   board.rotation.z = popDirection * 0.12;
 }
-function flick(direction, distance = 45, flickSpeed = 500) {
+function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0, touchX = 0) {
   if (!airborne || airTime > 0.48) return;
-  // A sideways flick spins the board around its vertical axis.
-  // Rotation speed scales with the actual finger speed and swipe distance.
-  if (Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
-    const doubleShuvit = distance >= 82;
-    const speedFactor = THREE.MathUtils.clamp((flickSpeed - 180) / 820, 0, 1.6);
-    const distanceFactor = THREE.MathUtils.clamp(distance / 55, 0.75, 1.35);
-    const baseSpeed = doubleShuvit ? 21 : 16;
-    const spinSpeed = baseSpeed * (0.45 + speedFactor * 0.9) * distanceFactor;
-    shuvitTarget = (doubleShuvit ? Math.PI * 4 : Math.PI * 2) * direction;
+  // Treat the finger as applying an impulse at the point it contacts the deck.
+  // Faster, longer flicks add more angular momentum; touching nearer the nose
+  // or tail gives the same force more leverage for a horizontal-axis shuvit.
+  const fingerSpeed = THREE.MathUtils.clamp(flickSpeed / 900, 0.15, 2.4);
+  const alongDeck = THREE.MathUtils.clamp(Math.abs(touchX) / 1.13, 0, 1);
+  const yawLeverage = 0.72 + alongDeck * 0.58;
+  if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
+    const impulse = fingerSpeed * (4.8 + distance * 0.105) * yawLeverage;
+    const spinSpeed = THREE.MathUtils.clamp(impulse, 5.5, 27);
+    const rotations = THREE.MathUtils.clamp(0.72 + spinSpeed / 15 + distance / 180, 1, 2.25);
+    shuvitTarget = Math.PI * 2 * rotations * direction;
     shuvitVelocity = direction * spinSpeed;
+  }
+  // A flick across the board's width creates a kickflip/heelflip.
+  // Its direction comes from the swipe, and its leverage from the touch point.
+  if (Math.abs(verticalDistance) > 22 && Math.abs(flipVelocity) < 0.1 &&
+      Math.abs(board.rotation.x) < 0.1) {
+    const flipDirection = verticalDistance > 0 ? 1 : -1;
+    const flipImpulse = fingerSpeed * (5.2 + Math.abs(verticalDistance) * 0.11) *
+      (0.78 + alongDeck * 0.42);
+    const flipSpeed = THREE.MathUtils.clamp(flipImpulse, 5.5, 25);
+    const rotations = THREE.MathUtils.clamp(0.72 + flipSpeed / 16 + Math.abs(verticalDistance) / 190, 1, 2.1);
+    flipTarget = Math.PI * 2 * rotations * flipDirection;
+    flipVelocity = flipDirection * flipSpeed;
   }
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
@@ -554,6 +569,7 @@ function resetBoard() {
   board.rotation.z = 0;
   verticalVelocity = 0;
   flipVelocity = 0;
+  flipTarget = 0;
   shuvitVelocity = 0;
   shuvitRotation = 0;
   shuvitTarget = 0;
@@ -580,7 +596,7 @@ canvas.style.touchAction = 'none';
 // triggers ollies/nollies; the surrounding ground area is for pushing.
 const touchRaycaster = new THREE.Raycaster();
 const touchNdc = new THREE.Vector2();
-function deckTouchLocalX(clientX, clientY) {
+function deckTouchLocalPoint(clientX, clientY) {
   touchNdc.set(
     (clientX / innerWidth) * 2 - 1,
     -(clientY / innerHeight) * 2 + 1
@@ -589,7 +605,11 @@ function deckTouchLocalX(clientX, clientY) {
   touchRaycaster.setFromCamera(touchNdc, camera);
   const hit = touchRaycaster.intersectObject(deck, false)[0];
   if (!hit) return null;
-  return board.worldToLocal(hit.point.clone()).x;
+  return board.worldToLocal(hit.point.clone());
+}
+function deckTouchLocalX(clientX, clientY) {
+  const point = deckTouchLocalPoint(clientX, clientY);
+  return point ? point.x : null;
 }
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -608,6 +628,7 @@ canvas.addEventListener('pointerdown', event => {
     startTime: performance.now(),
     lastMoveTime: performance.now(),
     deckLocalX: deckTouchLocalX(event.clientX, event.clientY),
+    deckLocalZ: (() => { const p = deckTouchLocalPoint(event.clientX, event.clientY); return p ? p.z : 0; })(),
     manualGesture: false,
     manualPopTriggered: false
   };
@@ -664,11 +685,13 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
-  if (airborne && quick && Math.abs(dx) > 30 &&
-      (g.manualPopTriggered || Math.abs(dx) > Math.abs(dy) * 1.15)) {
-    // A horizontal flick after a manual pop, or a standalone air flick,
-    // spins the board as a shuvit.
-    flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.abs(dx) / elapsed * 1000));
+  if (airborne && quick && Math.hypot(dx, dy) > 30 &&
+      (g.manualPopTriggered || Math.hypot(dx, dy) > 35)) {
+    // The full flick vector determines the trick: sideways adds shuvit torque,
+    // vertical adds kickflip/heelflip torque, and diagonal flicks combine them.
+    const flickDirection = Math.abs(dx) > 4 ? screenTurnDirection(dx) : (dy > 0 ? 1 : -1);
+    flick(flickDirection, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
+      dy, g.deckLocalX || 0);
   } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
@@ -676,7 +699,8 @@ function finishGesture(event) {
     if (dy > 0) pop('ollie', tailFlickSpeed);
     else pop('nollie', tailFlickSpeed);
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
-      flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000));
+      flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
+        dy, g.deckLocalX || 0);
     }
   } else if (!airborne && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
@@ -792,8 +816,24 @@ function animate() {
       heading += steer * 0.32 * dt;
       velocity.multiplyScalar(Math.exp(-0.02 * dt));
       airTime += dt;
-      flipVelocity *= Math.exp(-0.12 * dt);
-      board.rotation.x += flipVelocity * dt;
+      if (Math.abs(flipVelocity) > 0.01) {
+        const remainingFlip = flipTarget - board.rotation.x;
+        const flipDirection = Math.sign(flipTarget || flipVelocity);
+        const flipBrakingDistance = (flipVelocity * flipVelocity) / (2 * 42);
+        if (Math.abs(remainingFlip) < 0.08) {
+          board.rotation.x = flipTarget;
+          flipVelocity = 0;
+        } else {
+          if (Math.abs(remainingFlip) <= flipBrakingDistance) {
+            flipVelocity -= flipDirection * 42 * dt;
+          }
+          board.rotation.x += flipVelocity * dt;
+          if (Math.sign(flipTarget - board.rotation.x) !== flipDirection) {
+            board.rotation.x = flipTarget;
+            flipVelocity = 0;
+          }
+        }
+      }
       // Shuvit rotation spins the whole deck around its vertical axis.
       if (Math.abs(shuvitVelocity) > 0.01) {
         const remaining = shuvitTarget - shuvitRotation;
@@ -827,13 +867,14 @@ function animate() {
       verticalVelocity -= gravity * dt;
       if (board.position.y <= 0 && verticalVelocity < 0) {
         board.position.y = 0;
-        const completedFlip = Math.abs(board.rotation.x) > Math.PI * 1.55;
+        const completedFlip = Math.abs(board.rotation.x) >= Math.abs(flipTarget) * 0.94;
         const flipAligned = Math.abs(Math.sin(board.rotation.x / 2)) < 0.38;
+        const flipComplete = !flipTarget || (completedFlip && flipAligned);
         const pitchAligned = Math.abs(board.rotation.z) < 0.48;
         const shuvitComplete = !shuvitTarget ||
           (Math.abs(shuvitRotation) >= Math.abs(shuvitTarget) * 0.94 &&
            Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-        if ((!flipVelocity || (completedFlip && flipAligned)) && pitchAligned && shuvitComplete) {
+        if (flipComplete && pitchAligned && shuvitComplete) {
           board.rotation.x = 0;
           board.rotation.z = 0;
           manualActive = false;
@@ -841,6 +882,7 @@ function animate() {
           airborne = false;
           verticalVelocity = 0;
           flipVelocity = 0;
+          flipTarget = 0;
           shuvitVelocity = 0;
           shuvitRotation = 0;
           shuvitTarget = 0;
