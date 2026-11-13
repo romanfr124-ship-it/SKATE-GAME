@@ -367,7 +367,10 @@ canvas.addEventListener('pointermove', event => {
     manualActive = true;
     manualAngle = THREE.MathUtils.clamp((gesture.dy - 12) / 125, 0, 0.48);
   }
-  if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
+  if (!airborne && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
+    // During a manual, horizontal movement controls a sharper rear-wheel pivot.
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58, -1, 1);
+  } else if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
     touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78, -1, 1);
   }
 });
@@ -460,16 +463,21 @@ function animate() {
     // rather than moving the board sideways like a character controller.
     const currentSpeed = velocity.length();
     if (!airborne) {
-      // More finger drag gives more steering input; speed adds further turning response.
-      heading += steer * (0.30 + currentSpeed * 0.105) * dt;
+      // A manual kickturn pivots sharply around the rear wheels while the
+      // tail stays lifted; normal carving keeps its usual, smoother response.
+      const kickturnMultiplier = manualActive ? 2.35 : 1;
+      heading += steer * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       const desired = forwardVector().multiplyScalar(currentSpeed);
-      // Keep more of the board's existing momentum while carving.
-      velocity.lerp(desired, 1 - Math.exp(-(0.95 + currentSpeed * 0.10) * dt));
+      // Preserve momentum during a manual pivot so it feels like a kickturn,
+      // rather than instantly redirecting the whole board like a normal carve.
+      const redirectRate = manualActive ? 0.48 : (0.95 + currentSpeed * 0.10);
+      velocity.lerp(desired, 1 - Math.exp(-redirectRate * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
       else velocity.multiplyScalar(Math.exp(-0.14 * dt));
       const targetDeckPitch = (manualActive ? manualAngle : 0) - steer * 0.075;
       board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
-      board.rotation.x = THREE.MathUtils.damp(board.rotation.x, steer * 0.035, 7, dt);
+      const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
+      board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
     } else {
       // Limited air control; momentum remains mostly conserved.
       heading += steer * 0.32 * dt;
