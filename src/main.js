@@ -374,6 +374,7 @@ function flick(direction, distance = 45, flickSpeed = 500) {
 const boardLocalBounds = new THREE.Box3();
 const boardLocalCenter = new THREE.Vector3();
 const boardHalfSize = new THREE.Vector3();
+const obstacleHalfSize = new THREE.Vector3();
 const boardWorldCenter = new THREE.Vector3();
 const obstacleLocalBounds = new THREE.Box3();
 const obstacleWorldCenter = new THREE.Vector3();
