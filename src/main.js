@@ -154,33 +154,46 @@ const deckOutline = new THREE.LineSegments(
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// Build the grip directly from the deck's original Shape. This keeps
-// triangulation identical and avoids broken triangles at the nose and tail.
-const gripGeometry = new THREE.ShapeGeometry(deckShape, 32);
-const gripPositions = gripGeometry.attributes.position;
-for (let i = 0; i < gripPositions.count; i++) {
-  // A narrow, even inset: preserve the deck's complete outline and kick shape.
-  gripPositions.setX(i, gripPositions.getX(i) * 0.985);
-  gripPositions.setY(i, gripPositions.getY(i) * 0.94);
+// The deck itself has a black top with a very slim exposed white rim.
+// Both top layers are generated from the exact deck outline, so the edges
+// follow the nose, tail and side curves without separate grip-tape geometry.
+function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
+  const geometry = new THREE.ShapeGeometry(deckShape, 48);
+  const positions = geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    positions.setX(i, positions.getX(i) * scaleX);
+    positions.setY(i, positions.getY(i) * scaleZ);
+  }
+  positions.needsUpdate = true;
+  geometry.rotateX(Math.PI / 2);
+  curveDeckGeometry(geometry);
+  const surface = new THREE.Mesh(geometry, material);
+  surface.position.y = deck.position.y + yOffset;
+  surface.renderOrder = renderOrder;
+  board.add(surface);
+  return surface;
 }
-gripPositions.needsUpdate = true;
-gripGeometry.rotateX(Math.PI / 2);
-curveDeckGeometry(gripGeometry);
 
-const grip = new THREE.Mesh(
-  gripGeometry,
-  new THREE.MeshBasicMaterial({
-    color: 0x050505,
-    side: THREE.DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1,
-    depthWrite: false
-  })
-);
-grip.position.y = deck.position.y + 0.006;
-grip.renderOrder = 2;
-board.add(grip);
+const deckTopWhite = new THREE.MeshBasicMaterial({
+  color: 0xd8d8d8,
+  side: THREE.DoubleSide,
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -1,
+  depthWrite: false
+});
+const deckTopBlack = new THREE.MeshBasicMaterial({
+  color: 0x030303,
+  side: THREE.DoubleSide,
+  polygonOffset: true,
+  polygonOffsetFactor: -2,
+  polygonOffsetUnits: -2,
+  depthWrite: false
+});
+
+// White underlayer leaves only a fine border visible around the black top.
+makeDeckTop(0.992, 0.985, deckTopWhite, 0.006, 2);
+makeDeckTop(0.972, 0.955, deckTopBlack, 0.009, 3);
 
 // Trucks: base plates, hangers, axles and kingpins.
 for (const x of [-0.69, 0.69]) {
