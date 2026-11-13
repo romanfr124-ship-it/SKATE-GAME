@@ -211,16 +211,16 @@ function updateFollowCamera(dt) {
     board.position.z - forwardZ * 4.8
   );
   cameraTarget.set(
-    board.position.x + forwardX * 24.0,
+    board.position.x + forwardX * 9.5,
     0.25,
-    board.position.z + forwardZ * 24.0
+    board.position.z + forwardZ * 9.5
   );
   const smooth = 1 - Math.exp(-7 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
 camera.position.set(0, 5.2, -4.8);
-camera.lookAt(0, 0.25, 25.5);
+camera.lookAt(0, 0.25, 11.0);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
