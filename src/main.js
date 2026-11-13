@@ -140,20 +140,20 @@ function updateFollowCamera(dt) {
   const forwardZ = Math.cos(heading);
   cameraOffset.set(
     board.position.x - forwardX * 4.4,
-    board.position.y + 6.2,
-    board.position.z - forwardZ * 4.4
+    board.position.y + 8.8,
+    board.position.z - forwardZ * 4.8
   );
   cameraTarget.set(
     board.position.x + forwardX * 6.0,
     0.25,
-    board.position.z + forwardZ * 6.0
+    board.position.z + forwardZ * 3.8
   );
   const smooth = 1 - Math.exp(-7 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 6.2, -4.4);
-camera.lookAt(0, 0.25, 7.5);
+camera.position.set(0, 8.8, -4.8);
+camera.lookAt(0, 0.25, 5.3);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
