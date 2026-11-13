@@ -252,6 +252,9 @@ let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
 let flipVelocity = 0;
+let shuvitVelocity = 0;
+let shuvitRotation = 0;
+let shuvitTarget = 0;
 let pitchVelocity = 0;
 let airTime = 0;
 let bailTimer = 0;
@@ -282,11 +285,14 @@ function pop(kind = 'ollie') {
   board.rotation.x = 0;
   board.rotation.z = popDirection * 0.12;
 }
-function flick(direction) {
+function flick(direction, distance = 45) {
   if (!airborne || airTime > 0.48) return;
-  // A fast sideways finger flick adds one controlled board flip.
-  if (Math.abs(flipVelocity) < 0.1) {
-    flipVelocity = direction * 10.5;
+  // A sideways flick spins the board around its vertical axis:
+  // normal flick = shuvit; a longer flick = double shuvit.
+  if (Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
+    const doubleShuvit = distance >= 82;
+    shuvitTarget = (doubleShuvit ? Math.PI * 4 : Math.PI * 2) * direction;
+    shuvitVelocity = direction * (doubleShuvit ? 21 : 16);
   }
 }
 function resetBoard() {
@@ -295,6 +301,9 @@ function resetBoard() {
   board.rotation.z = 0;
   verticalVelocity = 0;
   flipVelocity = 0;
+  shuvitVelocity = 0;
+  shuvitRotation = 0;
+  shuvitTarget = 0;
   pitchVelocity = 0;
   airborne = false;
   bailTimer = 0.8;
@@ -358,7 +367,7 @@ function finishGesture(event) {
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
-    flick(dx > 0 ? 1 : -1);
+    flick(dx > 0 ? 1 : -1, Math.abs(dx));
   } else if (!airborne && g.startedOnDeck && quick && Math.abs(dy) > 38) {
     // Only a quick flick that begins on the deck can pop the board.
     // Flick down = ollie; flick up = nollie.
@@ -448,6 +457,25 @@ function animate() {
       airTime += dt;
       flipVelocity *= Math.exp(-0.12 * dt);
       board.rotation.x += flipVelocity * dt;
+      // Shuvit rotation spins the whole deck around its vertical axis.
+      if (Math.abs(shuvitVelocity) > 0.01) {
+        const remaining = shuvitTarget - shuvitRotation;
+        const direction = Math.sign(shuvitTarget || shuvitVelocity);
+        if (Math.abs(remaining) < 0.08) {
+          shuvitRotation = shuvitTarget;
+          shuvitVelocity = 0;
+        } else {
+          const brakingDistance = (shuvitVelocity * shuvitVelocity) / (2 * 34);
+          if (Math.abs(remaining) <= brakingDistance) {
+            shuvitVelocity -= direction * 34 * dt;
+          }
+          shuvitRotation += shuvitVelocity * dt;
+          if (Math.sign(shuvitTarget - shuvitRotation) !== direction) {
+            shuvitRotation = shuvitTarget;
+            shuvitVelocity = 0;
+          }
+        }
+      }
       // Let the pop impulse pitch the deck, then naturally settle it toward level.
       pitchVelocity += (-board.rotation.z * 8 - pitchVelocity * 3) * dt;
       board.rotation.z += pitchVelocity * dt;
@@ -465,12 +493,18 @@ function animate() {
         const completedFlip = Math.abs(board.rotation.x) > Math.PI * 1.55;
         const flipAligned = Math.abs(Math.sin(board.rotation.x / 2)) < 0.38;
         const pitchAligned = Math.abs(board.rotation.z) < 0.48;
-        if ((!flipVelocity || (completedFlip && flipAligned)) && pitchAligned) {
+        const shuvitComplete = !shuvitTarget ||
+          (Math.abs(shuvitRotation) >= Math.abs(shuvitTarget) * 0.94 &&
+           Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
+        if ((!flipVelocity || (completedFlip && flipAligned)) && pitchAligned && shuvitComplete) {
           board.rotation.x = 0;
           board.rotation.z = 0;
           airborne = false;
           verticalVelocity = 0;
           flipVelocity = 0;
+          shuvitVelocity = 0;
+          shuvitRotation = 0;
+          shuvitTarget = 0;
           pitchVelocity = 0;
           lastLandTime = clock.elapsedTime;
           velocity.multiplyScalar(0.97);
@@ -481,7 +515,7 @@ function animate() {
     }
   }
 
-  board.rotation.y = heading - Math.PI / 2;
+  board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
   for (const wheel of wheelMeshes) {
