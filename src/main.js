@@ -110,15 +110,32 @@ deckShape.lineTo(-0.78, -0.37);
 deckShape.bezierCurveTo(-1.00, -0.37, -1.13, -0.22, -1.13, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
-  depth: 0.13,
+  depth: 0.10,
   bevelEnabled: true,
-  bevelSegments: 3,
+  bevelSegments: 4,
   steps: 1,
-  bevelSize: 0.035,
-  bevelThickness: 0.025,
+  bevelSize: 0.026,
+  bevelThickness: 0.018,
   curveSegments: 12
 });
 deckGeometry.rotateX(Math.PI / 2);
+
+// A subtle skateboard kick: both ends rise gently from the wheelbase.
+function deckKick(x) {
+  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.66) / 0.47, 0, 1);
+  const eased = t * t * (3 - 2 * t);
+  return eased * 0.115;
+}
+function curveDeckGeometry(geometry) {
+  const position = geometry.attributes.position;
+  for (let i = 0; i < position.count; i++) {
+    const x = position.getX(i);
+    position.setY(i, position.getY(i) + deckKick(x));
+  }
+  position.needsUpdate = true;
+  geometry.computeVertexNormals();
+}
+curveDeckGeometry(deckGeometry);
 const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.43;
 board.add(deck);
@@ -146,6 +163,7 @@ const grip = new THREE.Mesh(
 );
 grip.rotation.x = Math.PI / 2;
 grip.position.y = 0.432;
+curveDeckGeometry(grip.geometry);
 board.add(grip);
 
 // Trucks: base plates, hangers, axles and kingpins.
