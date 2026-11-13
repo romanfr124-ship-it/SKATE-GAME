@@ -154,22 +154,19 @@ const deckOutline = new THREE.LineSegments(
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// Generate grip tape from the exact deck outline, then inset it slightly.
-// This guarantees the nose, tail and side curves always match the deck.
-const gripShape = new THREE.Shape();
-const deckPerimeter = deckShape.getPoints(128);
-deckPerimeter.forEach((point, index) => {
-  const x = point.x * 0.985;
-  const z = point.y * 0.955;
-  if (index === 0) gripShape.moveTo(x, z);
-  else gripShape.lineTo(x, z);
-});
-gripShape.closePath();
-
-const gripGeometry = new THREE.ShapeGeometry(gripShape, 32);
+// Build the grip directly from the deck's original Shape. This keeps
+// triangulation identical and avoids broken triangles at the nose and tail.
+const gripGeometry = new THREE.ShapeGeometry(deckShape, 32);
+const gripPositions = gripGeometry.attributes.position;
+for (let i = 0; i < gripPositions.count; i++) {
+  // A narrow, even inset: preserve the deck's complete outline and kick shape.
+  gripPositions.setX(i, gripPositions.getX(i) * 0.985);
+  gripPositions.setY(i, gripPositions.getY(i) * 0.94);
+}
+gripPositions.needsUpdate = true;
 gripGeometry.rotateX(Math.PI / 2);
-// Apply the same nose/tail kick as the deck so the grip sits flush.
 curveDeckGeometry(gripGeometry);
+
 const grip = new THREE.Mesh(
   gripGeometry,
   new THREE.MeshBasicMaterial({
@@ -181,7 +178,7 @@ const grip = new THREE.Mesh(
     depthWrite: false
   })
 );
-grip.position.y = 0.437;
+grip.position.y = deck.position.y + 0.006;
 grip.renderOrder = 2;
 board.add(grip);
 
