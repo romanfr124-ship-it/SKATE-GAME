@@ -212,7 +212,7 @@ function updateFollowCamera(dt) {
   );
   cameraTarget.set(
     board.position.x + forwardX * 4.5,
-    0.25,
+    -0.75,
     board.position.z + forwardZ * 4.5
   );
   const smooth = 1 - Math.exp(-7 * dt);
@@ -220,7 +220,7 @@ function updateFollowCamera(dt) {
   camera.lookAt(cameraTarget);
 }
 camera.position.set(0, 4.4, -4.8);
-camera.lookAt(0, 0.25, 6.0);
+camera.lookAt(0, -0.75, 6.0);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
