@@ -5,7 +5,7 @@ const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 scene.fog = new THREE.Fog(0x202020, 38, 115);
-const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 180);
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
@@ -92,7 +92,7 @@ outlinedBox(scene, 6.5, 1, 1.35, mats.concrete, 7, 0.5, 11);
 outlinedBox(scene, 4.5, 0.55, 1.1, mats.concrete, -22, 0.275, 5);
 outlinedBox(scene, 4.5, 0.55, 1.1, mats.concrete, 22, 0.275, -2);
 rail(0, -8, 8, 0.78);
-rail(0, 8, 8, 0.78);
+rail(-8, 8, 8, 0.78);
 rail(-10, 3, 5, 0.62);
 rail(10, -2, 5, 0.62);
 
@@ -207,20 +207,20 @@ function updateFollowCamera(dt) {
   const forwardZ = Math.cos(heading);
   cameraOffset.set(
     board.position.x - forwardX * 4.4,
-    board.position.y + 8.8,
+    board.position.y + 5.2,
     board.position.z - forwardZ * 4.8
   );
   cameraTarget.set(
-    board.position.x + forwardX * 6.0,
+    board.position.x + forwardX * 24.0,
     0.25,
-    board.position.z + forwardZ * 3.8
+    board.position.z + forwardZ * 24.0
   );
   const smooth = 1 - Math.exp(-7 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 8.8, -4.8);
-camera.lookAt(0, 0.25, 5.3);
+camera.position.set(0, 5.2, -4.8);
+camera.lookAt(0, 0.25, 25.5);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
