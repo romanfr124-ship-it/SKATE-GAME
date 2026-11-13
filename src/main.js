@@ -344,15 +344,18 @@ function finishGesture(event) {
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
     flick(dx > 0 ? 1 : -1);
-  } else if (!airborne && quick && dy > 38 && g.y > innerHeight * 0.28) {
-    // Downward flick = regular tail-pop ollie.
-    pop('ollie');
-  } else if (!airborne && quick && dy < -38 && g.y > innerHeight * 0.28) {
-    // Upward flick = nose-pop nollie.
-    pop('nollie');
-  } else if (!airborne && !quick && dy > 38 && g.y > innerHeight * 0.28) {
-    // A slower downward drag remains the push gesture.
-    push(2.8);
+  } else if (!airborne && quick && Math.abs(dy) > 38 && g.y > innerHeight * 0.28) {
+    // Quick vertical flicks are reserved for pops: down = ollie, up = nollie.
+    if (dy > 0) pop('ollie');
+    else pop('nollie');
+  } else if (!airborne && Math.abs(dy) > 38 && g.y > innerHeight * 0.28) {
+    // Slower vertical strokes push along the board's current forward axis.
+    // Drag down propels forward; drag up propels backward.
+    const direction = dy > 0 ? 1 : -1;
+    const forward = forwardVector();
+    velocity.addScaledVector(forward, direction * 2.8);
+    const current = velocity.length();
+    if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
   }
   // Steering is only applied while the finger is held down; release returns
   // the board to neutral instead of leaving it carving in a permanent circle.
