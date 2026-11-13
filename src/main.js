@@ -7,7 +7,15 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 scene.fog = new THREE.Fog(0x202020, 38, 115);
 const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 180);
-let renderer;\ntry {\n  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });\n} catch (error) {\n  const panel = document.getElementById('load-error');\n  panel.textContent = 'This browser could not create a WebGL graphics context. Try enabling hardware acceleration or updating iOS. Details: ' + (error.message || error);\n  panel.style.display = 'grid';\n  throw error;\n}
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
+} catch (error) {
+  const panel = document.getElementById('load-error');
+  panel.textContent = 'This browser could not create a WebGL graphics context. Try enabling hardware acceleration or updating iOS. Details: ' + (error.message || error);
+  panel.style.display = 'grid';
+  throw error;
+}
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = false;
@@ -161,7 +169,9 @@ function animate() {
       airborne = false;
     }
   }
-  renderer.render(scene, camera);\n  const errorPanel = document.getElementById('load-error');\n  if (errorPanel) errorPanel.style.display = 'none';
+  renderer.render(scene, camera);
+  const errorPanel = document.getElementById('load-error');
+  if (errorPanel) errorPanel.style.display = 'none';
 }
 animate();
 
