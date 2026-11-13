@@ -1,5 +1,4 @@
-import * as THREE from 'three';
-import './style.css';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
 
 // Minimal monochrome blockout: only the 3D skatepark and skateboard are shown.
 const mount = document.getElementById('game');
