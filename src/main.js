@@ -346,9 +346,10 @@ function finishGesture(event) {
     pop();
   } else if (!airborne && quick && dy > 38 && g.y > innerHeight * 0.28) {
     push(2.8);
-  } else if (!airborne && Math.abs(dx) > 20) {
-    touchSteer = THREE.MathUtils.clamp(dx / 100, -1, 1);
   }
+  // Steering is only applied while the finger is held down; release returns
+  // the board to neutral instead of leaving it carving in a permanent circle.
+  touchSteer = 0;
   gesture = null;
 }
 canvas.addEventListener('pointerup', finishGesture);
