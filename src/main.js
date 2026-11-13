@@ -196,6 +196,7 @@ makeDeckTop(0.992, 0.985, deckTopWhite, 0.006, 2);
 makeDeckTop(0.972, 0.955, deckTopBlack, 0.009, 3);
 
 // Trucks: base plates, hangers, axles and kingpins.
+const wheelMeshes = [];
 for (const x of [-0.69, 0.69]) {
   const base = new THREE.Mesh(
     new THREE.BoxGeometry(0.25, 0.05, 0.25),
@@ -228,6 +229,7 @@ for (const x of [-0.69, 0.69]) {
     wheel.rotation.x = Math.PI / 2;
     wheel.position.set(x, 0.17, z);
     board.add(wheel);
+    wheelMeshes.push(wheel);
 
     const hub = new THREE.Mesh(
       new THREE.CylinderGeometry(0.052, 0.052, 0.125, 16),
@@ -239,13 +241,129 @@ for (const x of [-0.69, 0.69]) {
   }
 }
 board.position.set(0, 0, 1.5);
+board.rotation.order = 'YXZ';
 
-// Low follow-camera POV: the board fills the lower foreground while the
-// park opens up ahead. The board's long axis is aligned with its travel.
+// Skate physics: horizontal momentum, push impulses, carving, pop and
+// independent board rotation in the air. The board model's long axis is X.
 const keys = new Set();
+const velocity = new THREE.Vector3(0, 0, 0);
 let speed = 0;
 let heading = 0;
-board.rotation.y = heading - Math.PI / 2;
+let airborne = false;
+let verticalVelocity = 0;
+let flipVelocity = 0;
+let pitchVelocity = 0;
+let airTime = 0;
+let bailTimer = 0;
+let steerInput = 0;
+let lastLandTime = -10;
+const gravity = 13.5;
+const maxSpeed = 10.5;
+
+function forwardVector() {
+  return new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
+}
+function push(power = 2.7) {
+  if (airborne || bailTimer > 0) return;
+  const forward = forwardVector();
+  velocity.addScaledVector(forward, power);
+  const current = velocity.length();
+  if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
+}
+function pop() {
+  if (airborne || bailTimer > 0 || velocity.length() < 0.25) return;
+  airborne = true;
+  airTime = 0;
+  verticalVelocity = 4.65 + Math.min(velocity.length() * 0.055, 0.55);
+  flipVelocity = 0;
+  pitchVelocity = -1.8;
+  board.rotation.x = 0;
+  board.rotation.z = -0.13;
+}
+function flick(direction) {
+  if (!airborne || airTime > 0.48) return;
+  // A fast sideways finger flick adds one controlled board flip.
+  if (Math.abs(flipVelocity) < 0.1) {
+    flipVelocity = direction * 10.5;
+  }
+}
+function resetBoard() {
+  board.position.y = 0;
+  board.rotation.x = 0;
+  board.rotation.z = 0;
+  verticalVelocity = 0;
+  flipVelocity = 0;
+  pitchVelocity = 0;
+  airborne = false;
+  bailTimer = 0.8;
+  velocity.multiplyScalar(0.25);
+}
+
+// Touch gestures:
+// - swipe down beside the board = push
+// - quick upward flick in the lower-middle screen = pop
+// - horizontal drag while grounded = carve/turn
+// - horizontal flick while airborne = kickflip/heelflip
+let gesture = null;
+let touchSteer = 0;
+const canvas = renderer.domElement;
+canvas.style.touchAction = 'none';
+canvas.addEventListener('pointerdown', event => {
+  if (event.pointerType === 'mouse' && event.button !== 0) return;
+  canvas.setPointerCapture?.(event.pointerId);
+  gesture = {
+    id: event.pointerId,
+    x: event.clientX,
+    y: event.clientY,
+    lastX: event.clientX,
+    lastY: event.clientY,
+    dx: 0,
+    dy: 0,
+    startTime: performance.now()
+  };
+  touchSteer = 0;
+});
+canvas.addEventListener('pointermove', event => {
+  if (!gesture || gesture.id !== event.pointerId) return;
+  gesture.dx = event.clientX - gesture.x;
+  gesture.dy = event.clientY - gesture.y;
+  gesture.lastX = event.clientX;
+  gesture.lastY = event.clientY;
+  if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
+    touchSteer = THREE.MathUtils.clamp(gesture.dx / 115, -1, 1);
+  }
+});
+function finishGesture(event) {
+  if (!gesture || gesture.id !== event.pointerId) return;
+  const g = gesture;
+  const elapsed = Math.max(1, performance.now() - g.startTime);
+  const dx = event.clientX - g.x;
+  const dy = event.clientY - g.y;
+  const quick = elapsed < 420;
+  if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+    flick(dx > 0 ? 1 : -1);
+  } else if (!airborne && quick && dy < -38 && g.y > innerHeight * 0.42) {
+    pop();
+  } else if (!airborne && quick && dy > 38 && g.y > innerHeight * 0.28) {
+    push(2.8);
+  } else if (!airborne && Math.abs(dx) > 20) {
+    touchSteer = THREE.MathUtils.clamp(dx / 100, -1, 1);
+  }
+  gesture = null;
+}
+canvas.addEventListener('pointerup', finishGesture);
+canvas.addEventListener('pointercancel', () => { gesture = null; touchSteer = 0; });
+
+// Keyboard fallback for desktop testing.
+addEventListener('keydown', event => {
+  const key = event.key.toLowerCase();
+  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
+  keys.add(key);
+  if (key === ' ' && !event.repeat) pop();
+  if ((key === 'j' || key === 'k') && airborne && !event.repeat) flick(key === 'j' ? -1 : 1);
+  if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.2);
+});
+addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
 
 const cameraOffset = new THREE.Vector3();
 const cameraTarget = new THREE.Vector3();
@@ -259,52 +377,87 @@ function updateFollowCamera(dt) {
   );
   cameraTarget.set(
     board.position.x + forwardX * 4.5,
-    -0.75,
+    board.position.y - 0.75,
     board.position.z + forwardZ * 4.5
   );
-  const smooth = 1 - Math.exp(-7 * dt);
+  const smooth = 1 - Math.exp(-6.5 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
 camera.position.set(0, 4.4, -4.8);
 camera.lookAt(0, -0.75, 6.0);
 
-// Basic keyboard movement remains available; no on-screen controls.
-let verticalVelocity = 0;
-let airborne = false;
-addEventListener('keydown', event => {
-  const key = event.key.toLowerCase();
-  if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
-  keys.add(key);
-  if (key === ' ' && !airborne) { verticalVelocity = 4.2; airborne = true; }
-});
-addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
-
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.033);
-  const throttle = keys.has('w') || keys.has('arrowup');
-  const brake = keys.has('s') || keys.has('arrowdown');
-  const turn = (keys.has('d') || keys.has('arrowright') ? 1 : 0) - (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
-  speed += (throttle ? 5.5 : 0) * dt;
-  speed -= (brake ? 8 : 0) * dt;
-  speed = THREE.MathUtils.clamp(speed * Math.pow(0.985, dt * 60), 0, 12);
-  heading += turn * Math.min(speed * 0.11, 1.2) * dt;
-  board.rotation.y = heading - Math.PI / 2;
-  board.position.x += Math.sin(heading) * speed * dt;
-  board.position.z += Math.cos(heading) * speed * dt;
-  if (airborne) {
-    board.position.y += verticalVelocity * dt;
-    verticalVelocity -= 12 * dt;
-    if (board.position.y <= 0) {
-      board.position.y = 0;
-      verticalVelocity = 0;
-      airborne = false;
+  const dt = Math.min(clock.getDelta(), 0.025);
+  const keyboardTurn = (keys.has('d') || keys.has('arrowright') ? 1 : 0) -
+    (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+  const steer = Math.abs(keyboardTurn) > 0 ? keyboardTurn : touchSteer;
+  const braking = keys.has('s') || keys.has('arrowdown');
+
+  if (bailTimer > 0) {
+    bailTimer = Math.max(0, bailTimer - dt);
+    board.rotation.x *= Math.exp(-5 * dt);
+    board.rotation.z *= Math.exp(-5 * dt);
+  } else {
+    // Ground steering changes heading and gradually redirects momentum,
+    // rather than moving the board sideways like a character controller.
+    const currentSpeed = velocity.length();
+    if (!airborne) {
+      heading += steer * (0.22 + currentSpeed * 0.075) * dt;
+      const desired = forwardVector().multiplyScalar(currentSpeed);
+      velocity.lerp(desired, 1 - Math.exp(-(1.8 + currentSpeed * 0.18) * dt));
+      if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
+      else velocity.multiplyScalar(Math.exp(-0.34 * dt));
+      board.rotation.z = THREE.MathUtils.damp(board.rotation.z, -steer * 0.075, 7, dt);
+      board.rotation.x = THREE.MathUtils.damp(board.rotation.x, steer * 0.035, 7, dt);
+    } else {
+      // Limited air control; momentum remains mostly conserved.
+      heading += steer * 0.32 * dt;
+      velocity.multiplyScalar(Math.exp(-0.045 * dt));
+      airTime += dt;
+      flipVelocity *= Math.exp(-0.12 * dt);
+      board.rotation.x += flipVelocity * dt;
+      board.rotation.z += pitchVelocity * dt;
+      pitchVelocity += 2.8 * dt;
     }
+
+    board.position.x += velocity.x * dt;
+    board.position.z += velocity.z * dt;
+    speed = velocity.length();
+
+    if (airborne) {
+      board.position.y += verticalVelocity * dt;
+      verticalVelocity -= gravity * dt;
+      if (board.position.y <= 0 && verticalVelocity < 0) {
+        board.position.y = 0;
+        const completedFlip = Math.abs(board.rotation.x) > Math.PI * 1.55;
+        const flipAligned = Math.abs(Math.sin(board.rotation.x / 2)) < 0.38;
+        const pitchAligned = Math.abs(board.rotation.z) < 0.48;
+        if ((!flipVelocity || (completedFlip && flipAligned)) && pitchAligned) {
+          board.rotation.x = 0;
+          board.rotation.z = 0;
+          airborne = false;
+          verticalVelocity = 0;
+          flipVelocity = 0;
+          pitchVelocity = 0;
+          lastLandTime = clock.elapsedTime;
+          velocity.multiplyScalar(0.97);
+        } else {
+          resetBoard();
+        }
+      }
+    }
+  }
+
+  board.rotation.y = heading - Math.PI / 2;
+  for (const wheel of wheelMeshes) {
+    wheel.rotation.z += speed * dt * 2.2;
   }
   updateFollowCamera(dt);
   renderer.render(scene, camera);
+
   const errorPanel = document.getElementById('load-error');
   if (errorPanel) errorPanel.style.display = 'none';
 }
