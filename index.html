@@ -3,11 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-  <meta name="theme-color" content="#171717" />
+  <meta name="theme-color" content="#202020" />
   <title>SKATE — Park Blockout</title>
+  <style>
+    html,body,#game{width:100%;height:100%;margin:0;overflow:hidden;background:#202020}
+    body{touch-action:none;overscroll-behavior:none}
+    #game{position:fixed;inset:0}
+    canvas{display:block;width:100%;height:100%;outline:none}
+    #load-error{position:fixed;inset:0;display:none;place-items:center;padding:28px;color:#eee;background:#202020;font:14px/1.5 system-ui;text-align:center}
+  </style>
 </head>
 <body>
   <main id="game" aria-label="3D skatepark"></main>
+  <div id="load-error" role="alert"></div>
   <script type="module" src="./src/main.js"></script>
+  <script>
+    window.addEventListener('error', function(e) {
+      var box = document.getElementById('load-error');
+      if (!box || box.style.display === 'grid') return;
+      box.textContent = 'The 3D game could not start: ' + (e.message || 'JavaScript loading error');
+      box.style.display = 'grid';
+    });
+    window.addEventListener('unhandledrejection', function(e) {
+      var box = document.getElementById('load-error');
+      if (!box || box.style.display === 'grid') return;
+      box.textContent = 'The 3D game could not start: ' + (e.reason && e.reason.message ? e.reason.message : 'Module loading error');
+      box.style.display = 'grid';
+    });
+  </script>
 </body>
 </html>
