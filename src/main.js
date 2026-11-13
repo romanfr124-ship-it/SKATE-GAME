@@ -8,14 +8,14 @@ scene.fog = new THREE.Fog(0x202020, 38, 115);
 const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
-  renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
+  renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
 } catch (error) {
   const panel = document.getElementById('load-error');
   panel.textContent = 'This browser could not create a WebGL graphics context. Try enabling hardware acceleration or updating iOS. Details: ' + (error.message || error);
   panel.style.display = 'grid';
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
+renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = false;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -96,29 +96,96 @@ rail(0, 8, 8, 0.78);
 rail(-10, 3, 5, 0.62);
 rail(10, -2, 5, 0.62);
 
-// Skateboard model in the foreground.
+// Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
 scene.add(board);
-outlinedBox(board, 2.15, 0.14, 0.62, mats.board, 0, 0.36, 0);
-const capGeometry = new THREE.SphereGeometry(0.31, 12, 8);
-for (const x of [-1, 1]) {
-  const cap = new THREE.Mesh(capGeometry, mats.board);
-  cap.scale.set(0.55, 0.22, 1);
-  cap.position.set(x, 0.36, 0);
-  board.add(cap);
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(capGeometry), mats.outline);
-  edge.scale.copy(cap.scale);
-  edge.position.copy(cap.position);
-  board.add(edge);
-}
-for (const x of [-0.68, 0.68]) {
-  outlinedBox(board, 0.16, 0.12, 0.76, mats.metal, x, 0.22, 0);
-  for (const z of [-0.39, 0.39]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.17, 0.13, 12), mats.rubber);
+
+const deckShape = new THREE.Shape();
+deckShape.moveTo(-1.13, 0);
+deckShape.bezierCurveTo(-1.13, 0.22, -1.00, 0.37, -0.78, 0.37);
+deckShape.lineTo(0.78, 0.37);
+deckShape.bezierCurveTo(1.00, 0.37, 1.13, 0.22, 1.13, 0);
+deckShape.bezierCurveTo(1.13, -0.22, 1.00, -0.37, 0.78, -0.37);
+deckShape.lineTo(-0.78, -0.37);
+deckShape.bezierCurveTo(-1.00, -0.37, -1.13, -0.22, -1.13, 0);
+
+const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
+  depth: 0.13,
+  bevelEnabled: true,
+  bevelSegments: 3,
+  steps: 1,
+  bevelSize: 0.035,
+  bevelThickness: 0.025,
+  curveSegments: 12
+});
+deckGeometry.rotateX(Math.PI / 2);
+const deck = new THREE.Mesh(deckGeometry, mats.board);
+deck.position.y = 0.43;
+board.add(deck);
+
+// Fine deck outline, following the rounded skateboard silhouette.
+const deckOutline = new THREE.LineSegments(
+  new THREE.EdgesGeometry(deckGeometry, 24),
+  mats.outline
+);
+deckOutline.position.copy(deck.position);
+board.add(deckOutline);
+
+// Dark grip-tape surface, inset slightly from the deck edge.
+const gripShape = new THREE.Shape();
+gripShape.moveTo(-1.075, 0);
+gripShape.bezierCurveTo(-1.075, 0.19, -0.96, 0.325, -0.76, 0.325);
+gripShape.lineTo(0.76, 0.325);
+gripShape.bezierCurveTo(0.96, 0.325, 1.075, 0.19, 1.075, 0);
+gripShape.bezierCurveTo(1.075, -0.19, 0.96, -0.325, 0.76, -0.325);
+gripShape.lineTo(-0.76, -0.325);
+gripShape.bezierCurveTo(-0.96, -0.325, -1.075, -0.19, -1.075, 0);
+const grip = new THREE.Mesh(
+  new THREE.ShapeGeometry(gripShape, 16),
+  new THREE.MeshStandardMaterial({ color: 0x191919, roughness: 1, side: THREE.DoubleSide })
+);
+grip.rotation.x = Math.PI / 2;
+grip.position.y = 0.432;
+board.add(grip);
+
+// Trucks: base plates, hangers, axles and kingpins.
+for (const x of [-0.69, 0.69]) {
+  const base = new THREE.Mesh(
+    new THREE.BoxGeometry(0.27, 0.055, 0.30),
+    mats.metal
+  );
+  base.position.set(x, 0.265, 0);
+  board.add(base);
+
+  const hanger = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.055, 0.055, 0.78, 12),
+    mats.metal
+  );
+  hanger.rotation.x = Math.PI / 2;
+  hanger.position.set(x, 0.205, 0);
+  board.add(hanger);
+
+  const kingpin = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8),
+    mats.dark
+  );
+  kingpin.position.set(x, 0.22, 0);
+  board.add(kingpin);
+
+  // Four soft-edged wheels with visible inner hubs.
+  for (const z of [-0.43, 0.43]) {
+    const wheel = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.18, 0.18, 0.145, 20, 1),
+      new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.88 })
+    );
     wheel.rotation.x = Math.PI / 2;
     wheel.position.set(x, 0.17, z);
     board.add(wheel);
-    const hub = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.135, 10), mats.metal);
+
+    const hub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.065, 0.065, 0.15, 16),
+      new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: 0.45, roughness: 0.48 })
+    );
     hub.rotation.x = Math.PI / 2;
     hub.position.copy(wheel.position);
     board.add(hub);
