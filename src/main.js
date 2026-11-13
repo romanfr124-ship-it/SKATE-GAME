@@ -377,17 +377,18 @@ canvas.addEventListener('pointermove', event => {
     manualSide = pullingTail ? 1 : -1;
     manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 12) / 125, 0, 0.48);
   }
-  // A fast downward finger flick during either manual pops an ollie immediately.
-  // It works while carving into a kickturn too, and is deliberately distinct
-  // from the slow pull used to enter or deepen the manual.
+  // A quick flick pops directly out of a manual: tail manual = ollie,
+  // nose manual = nollie. The pop flick is separate from the slower manual pull.
+  // Either pop can also be triggered while kickturning.
+  const manualPopDirection = manualSide === 1 ? moveDy > 28 : moveDy < -28;
   if (!airborne && manualActive && gesture.manualGesture && !gesture.manualPopTriggered &&
-      moveDy > 28 && moveDuration <= 180 && moveTime - gesture.startTime > 300) {
+      manualPopDirection && moveDuration <= 180 && moveTime - gesture.startTime > 300) {
     gesture.manualPopTriggered = true;
     gesture.manualGesture = true;
     manualActive = false;
     manualAngle = 0;
     touchSteer = 0;
-    pop('ollie');
+    pop(manualSide === 1 ? 'ollie' : 'nollie');
   }
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
