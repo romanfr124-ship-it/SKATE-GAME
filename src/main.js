@@ -161,9 +161,9 @@ const grip = new THREE.Mesh(
   new THREE.ShapeGeometry(gripShape, 16),
   new THREE.MeshStandardMaterial({ color: 0x191919, roughness: 1, side: THREE.DoubleSide })
 );
-grip.rotation.x = Math.PI / 2;
-grip.position.y = 0.432;
+grip.geometry.rotateX(Math.PI / 2);
 curveDeckGeometry(grip.geometry);
+grip.position.y = 0.432;
 board.add(grip);
 
 // Trucks: base plates, hangers, axles and kingpins.
