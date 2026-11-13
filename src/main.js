@@ -369,104 +369,172 @@ function flick(direction, distance = 45, flickSpeed = 500) {
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
 // This includes the deck, trucks and wheels, so nose/tail/side impacts are detected.
-const boardBounds = new THREE.Box3();
-const obstacleBounds = new THREE.Box3();
-const collisionCenter = new THREE.Vector3();
+// Oriented-box collision: each obstacle keeps its real rotation and dimensions,
+// and the skateboard is tested using its own transformed model bounds.
+const boardLocalBounds = new THREE.Box3();
+const boardLocalCenter = new THREE.Vector3();
+const boardHalfSize = new THREE.Vector3();
+const boardWorldCenter = new THREE.Vector3();
+const obstacleLocalBounds = new THREE.Box3();
+const obstacleWorldCenter = new THREE.Vector3();
+const satTranslation = new THREE.Vector3();
+const boardAxes = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+const obstacleAxes = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()];
+const satAxes = [];
+for (let i = 0; i < 15; i++) satAxes.push(new THREE.Vector3());
+const collisionNormal = new THREE.Vector3();
+
+function buildBoardLocalBounds() {
+  boardLocalBounds.makeEmpty();
+  board.updateMatrix();
+  for (const child of board.children) {
+    if (!child.isMesh || !child.geometry) continue;
+    child.updateMatrix();
+    if (!child.geometry.boundingBox) child.geometry.computeBoundingBox();
+    boardLocalBounds.union(child.geometry.boundingBox.clone().applyMatrix4(child.matrix));
+  }
+  boardLocalBounds.getCenter(boardLocalCenter);
+  boardLocalBounds.getSize(boardHalfSize).multiplyScalar(0.5);
+  // A tiny margin includes soft wheel/deck edges without making the board
+  // feel as though it has an invisible oversized collision shell.
+  boardHalfSize.add(new THREE.Vector3(0.012, 0.012, 0.012));
+}
+buildBoardLocalBounds();
+
+function getWorldObb(mesh, localBounds, center, axes, halfSize) {
+  mesh.updateWorldMatrix(true, false);
+  const e = mesh.matrixWorld.elements;
+  axes[0].set(e[0], e[1], e[2]).normalize();
+  axes[1].set(e[4], e[5], e[6]).normalize();
+  axes[2].set(e[8], e[9], e[10]).normalize();
+  localBounds.getCenter(center);
+  center.applyMatrix4(mesh.matrixWorld);
+  localBounds.getSize(halfSize).multiplyScalar(0.5);
+}
+
+function getObbContact() {
+  board.updateMatrixWorld(true);
+  const boardMatrix = board.matrixWorld;
+  const be = boardMatrix.elements;
+  boardAxes[0].set(be[0], be[1], be[2]).normalize();
+  boardAxes[1].set(be[4], be[5], be[6]).normalize();
+  boardAxes[2].set(be[8], be[9], be[10]).normalize();
+  boardWorldCenter.copy(boardLocalCenter).applyMatrix4(boardMatrix);
+
+  let bestOverlap = Infinity;
+  let bestAxis = null;
+
+  for (const obstacle of solidObstacles) {
+    if (!obstacle.geometry) continue;
+    if (!obstacle.geometry.boundingBox) obstacle.geometry.computeBoundingBox();
+    getWorldObb(obstacle, obstacle.geometry.boundingBox, obstacleWorldCenter, obstacleAxes, obstacleHalfSize);
+    satTranslation.subVectors(boardWorldCenter, obstacleWorldCenter);
+
+    satAxes[0].copy(boardAxes[0]);
+    satAxes[1].copy(boardAxes[1]);
+    satAxes[2].copy(boardAxes[2]);
+    satAxes[3].copy(obstacleAxes[0]);
+    satAxes[4].copy(obstacleAxes[1]);
+    satAxes[5].copy(obstacleAxes[2]);
+    let axisIndex = 6;
+    for (let a = 0; a < 3; a++) {
+      for (let b = 0; b < 3; b++) {
+        satAxes[axisIndex++].crossVectors(boardAxes[a], obstacleAxes[b]);
+      }
+    }
+
+    let separated = false;
+    let localBest = Infinity;
+    let localNormal = null;
+    for (const axis of satAxes) {
+      const lengthSq = axis.lengthSq();
+      if (lengthSq < 1e-8) continue;
+      axis.multiplyScalar(1 / Math.sqrt(lengthSq));
+
+      const boardRadius =
+        boardHalfSize.x * Math.abs(axis.dot(boardAxes[0])) +
+        boardHalfSize.y * Math.abs(axis.dot(boardAxes[1])) +
+        boardHalfSize.z * Math.abs(axis.dot(boardAxes[2]));
+      const obstacleRadius =
+        obstacleHalfSize.x * Math.abs(axis.dot(obstacleAxes[0])) +
+        obstacleHalfSize.y * Math.abs(axis.dot(obstacleAxes[1])) +
+        obstacleHalfSize.z * Math.abs(axis.dot(obstacleAxes[2]));
+      const signedDistance = satTranslation.dot(axis);
+      const overlap = boardRadius + obstacleRadius - Math.abs(signedDistance);
+      if (overlap <= 0) {
+        separated = true;
+        break;
+      }
+      if (overlap < localBest) {
+        localBest = overlap;
+        localNormal = axis.clone().multiplyScalar(signedDistance >= 0 ? 1 : -1);
+      }
+    }
+
+    if (!separated && localNormal && localBest < bestOverlap) {
+      bestOverlap = localBest;
+      bestAxis = localNormal;
+    }
+  }
+
+  if (!bestAxis) return null;
+  collisionNormal.copy(bestAxis);
+  return bestOverlap;
+}
 
 function resolveObstacleContacts() {
-  board.updateMatrixWorld(true);
-  let contacts = 0;
-
-  // A couple of passes handle corners where the board touches two obstacles.
+  // Two passes resolve corners where the deck meets two surfaces at once.
   for (let pass = 0; pass < 2; pass++) {
-    boardBounds.setFromObject(board);
-    if (boardBounds.isEmpty()) break;
+    const penetration = getObbContact();
+    if (penetration === null) break;
 
-    for (const obstacle of solidObstacles) {
-      obstacle.updateWorldMatrix(true, false);
-      obstacleBounds.setFromObject(obstacle);
-      if (!boardBounds.intersectsBox(obstacleBounds)) continue;
+    const separation = penetration + 0.004;
+    board.position.addScaledVector(collisionNormal, separation);
 
-      const overlapX = Math.min(boardBounds.max.x, obstacleBounds.max.x) -
-        Math.max(boardBounds.min.x, obstacleBounds.min.x);
-      const overlapY = Math.min(boardBounds.max.y, obstacleBounds.max.y) -
-        Math.max(boardBounds.min.y, obstacleBounds.min.y);
-      const overlapZ = Math.min(boardBounds.max.z, obstacleBounds.max.z) -
-        Math.max(boardBounds.min.z, obstacleBounds.min.z);
-      if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) continue;
+    const normalSpeed = velocity.x * collisionNormal.x +
+      velocity.z * collisionNormal.z +
+      verticalVelocity * collisionNormal.y;
+    const impactSpeed = Math.abs(normalSpeed);
+    const isTopContact = collisionNormal.y > 0.62;
 
-      boardBounds.getCenter(collisionCenter);
-      const obstacleCenter = obstacleBounds.getCenter(new THREE.Vector3());
-      const penetration = Math.min(overlapX, overlapY, overlapZ);
-      let nx = 0, ny = 0, nz = 0;
-
-      // Only resolve vertically when the board is actually above or below
-      // the obstacle. While beside a ledge, resolve horizontally instead.
-      const onTop = boardBounds.min.y >= obstacleBounds.max.y - 0.16;
-      const underneath = boardBounds.max.y <= obstacleBounds.min.y + 0.12;
-      if (onTop || underneath) {
-        ny = onTop ? 1 : -1;
-      } else if (overlapX <= overlapZ) {
-        nx = collisionCenter.x >= obstacleCenter.x ? 1 : -1;
-      } else {
-        nz = collisionCenter.z >= obstacleCenter.z ? 1 : -1;
+    if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
+      const landingStable = Math.abs(board.rotation.x) < 0.48 &&
+        Math.abs(board.rotation.z) < 0.48 &&
+        (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
+      if (airborne && landingStable) {
+        airborne = false;
+        verticalVelocity = 0;
+        board.rotation.x = 0;
+        board.rotation.z = 0;
+        flipVelocity = 0;
+        shuvitVelocity = 0;
+        shuvitRotation = 0;
+        shuvitTarget = 0;
+        pitchVelocity = 0;
+        manualActive = false;
+        manualAngle = 0;
+        lastLandTime = clock.elapsedTime;
+      } else if (airborne) {
+        resetBoard();
+        break;
       }
+    } else if (impactSpeed > 0.02) {
+      const restitution = impactSpeed > 5.5 ? 0.12 : 0.22;
+      const impulse = (1 + restitution) * normalSpeed;
+      velocity.x -= impulse * collisionNormal.x;
+      velocity.z -= impulse * collisionNormal.z;
+      verticalVelocity -= impulse * collisionNormal.y;
 
-      // Separate the entire board from the obstacle before applying an impact response.
-      const separation = penetration + 0.003;
-      board.position.x += nx * separation;
-      board.position.y += ny * separation;
-      board.position.z += nz * separation;
-      contacts++;
+      // Friction acts along the surface, not through the contact normal.
+      const tangentDamping = impactSpeed > 5.5 ? 0.62 : 0.86;
+      if (Math.abs(collisionNormal.x) > 0.2) velocity.z *= tangentDamping;
+      if (Math.abs(collisionNormal.z) > 0.2) velocity.x *= tangentDamping;
 
-      const normalSpeed = velocity.x * nx + velocity.y * ny + velocity.z * nz;
-      const impactSpeed = Math.abs(normalSpeed);
-
-      if (ny > 0 && impactSpeed < 7.5) {
-        // A downward contact on an obstacle's upper surface becomes a rideable landing.
-        if (airborne && verticalVelocity < 0) {
-          const landingStable = Math.abs(board.rotation.x) < 0.48 &&
-            Math.abs(board.rotation.z) < 0.48 &&
-            (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-          if (landingStable) {
-            airborne = false;
-            verticalVelocity = 0;
-            board.rotation.x = 0;
-            board.rotation.z = 0;
-            flipVelocity = 0;
-            shuvitVelocity = 0;
-            shuvitRotation = 0;
-            shuvitTarget = 0;
-            pitchVelocity = 0;
-            manualActive = false;
-            manualAngle = 0;
-            lastLandTime = clock.elapsedTime;
-          } else {
-            resetBoard();
-          }
-        }
-        velocity.y = 0;
-      } else if (Math.abs(normalSpeed) > 0.02) {
-        // Hard side/underside impacts lose speed and can throw the skater.
-        const restitution = impactSpeed > 5.5 ? 0.12 : 0.24;
-        if (nx) velocity.x -= (1 + restitution) * normalSpeed * nx;
-        if (nz) velocity.z -= (1 + restitution) * normalSpeed * nz;
-        if (ny) verticalVelocity = Math.max(0, -verticalVelocity * restitution);
-
-        const tangentDamping = impactSpeed > 5.5 ? 0.58 : 0.82;
-        if (nx) velocity.z *= tangentDamping;
-        if (nz) velocity.x *= tangentDamping;
-
-        if (impactSpeed > 5.5) {
-          resetBoard();
-          break;
-        }
+      if (impactSpeed > 5.5) {
+        resetBoard();
+        break;
       }
-
-      board.updateMatrixWorld(true);
-      boardBounds.setFromObject(board);
     }
-    if (!contacts) break;
   }
 }
 
