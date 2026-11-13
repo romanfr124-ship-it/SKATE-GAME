@@ -102,12 +102,12 @@ scene.add(board);
 
 const deckShape = new THREE.Shape();
 deckShape.moveTo(-1.13, 0);
-deckShape.bezierCurveTo(-1.13, 0.22, -1.00, 0.37, -0.78, 0.37);
-deckShape.lineTo(0.78, 0.37);
-deckShape.bezierCurveTo(1.00, 0.37, 1.13, 0.22, 1.13, 0);
-deckShape.bezierCurveTo(1.13, -0.22, 1.00, -0.37, 0.78, -0.37);
-deckShape.lineTo(-0.78, -0.37);
-deckShape.bezierCurveTo(-1.00, -0.37, -1.13, -0.22, -1.13, 0);
+deckShape.bezierCurveTo(-1.13, 0.20, -1.00, 0.34, -0.78, 0.34);
+deckShape.lineTo(0.78, 0.34);
+deckShape.bezierCurveTo(1.00, 0.34, 1.13, 0.20, 1.13, 0);
+deckShape.bezierCurveTo(1.13, -0.20, 1.00, -0.34, 0.78, -0.34);
+deckShape.lineTo(-0.78, -0.34);
+deckShape.bezierCurveTo(-1.00, -0.34, -1.13, -0.20, -1.13, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
@@ -116,21 +116,20 @@ const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   steps: 1,
   bevelSize: 0.022,
   bevelThickness: 0.014,
-  curveSegments: 20
+  curveSegments: 24
 });
 deckGeometry.rotateX(Math.PI / 2);
 
-// Subtle concave kick at both ends, with the deck becoming thinner and
-// flatter as it rises into the rounded nose and tail.
+// Gentle, even kick at the nose and tail; the deck subtly thins toward each tip.
 function deckKick(x) {
   const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
   const eased = t * t * (3 - 2 * t);
-  return eased * 0.105;
+  return eased * 0.095;
 }
 function deckThicknessAt(x) {
   const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
   const eased = t * t * (3 - 2 * t);
-  return 1 - eased * 0.38;
+  return 1 - eased * 0.32;
 }
 function curveDeckGeometry(geometry, taperThickness = false) {
   const position = geometry.attributes.position;
@@ -148,7 +147,6 @@ const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.43;
 board.add(deck);
 
-// Fine deck outline, following the rounded skateboard silhouette.
 const deckOutline = new THREE.LineSegments(
   new THREE.EdgesGeometry(deckGeometry, 30),
   mats.outline
@@ -156,18 +154,17 @@ const deckOutline = new THREE.LineSegments(
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// Grip tape is deliberately inset from every edge, leaving a visible
-// strip of deck around the entire perimeter. The shape follows the deck.
+// Grip tape closely follows the deck, leaving only a narrow, even wood rim.
 const gripShape = new THREE.Shape();
-gripShape.moveTo(-1.035, 0);
-gripShape.bezierCurveTo(-1.035, 0.17, -0.93, 0.295, -0.73, 0.295);
-gripShape.lineTo(0.73, 0.295);
-gripShape.bezierCurveTo(0.93, 0.295, 1.035, 0.17, 1.035, 0);
-gripShape.bezierCurveTo(1.035, -0.17, 0.93, -0.295, 0.73, -0.295);
-gripShape.lineTo(-0.73, -0.295);
-gripShape.bezierCurveTo(-0.93, -0.295, -1.035, -0.17, -1.035, 0);
+gripShape.moveTo(-1.095, 0);
+gripShape.bezierCurveTo(-1.095, 0.185, -0.98, 0.315, -0.76, 0.315);
+gripShape.lineTo(0.76, 0.315);
+gripShape.bezierCurveTo(0.98, 0.315, 1.095, 0.185, 1.095, 0);
+gripShape.bezierCurveTo(1.095, -0.185, 0.98, -0.315, 0.76, -0.315);
+gripShape.lineTo(-0.76, -0.315);
+gripShape.bezierCurveTo(-0.98, -0.315, -1.095, -0.185, -1.095, 0);
 
-const gripGeometry = new THREE.ShapeGeometry(gripShape, 24);
+const gripGeometry = new THREE.ShapeGeometry(gripShape, 32);
 gripGeometry.rotateX(Math.PI / 2);
 curveDeckGeometry(gripGeometry);
 const grip = new THREE.Mesh(
@@ -180,20 +177,20 @@ const grip = new THREE.Mesh(
     polygonOffsetUnits: -1
   })
 );
-grip.position.y = 0.455;
+grip.position.y = 0.435;
 board.add(grip);
 
 // Trucks: base plates, hangers, axles and kingpins.
 for (const x of [-0.69, 0.69]) {
   const base = new THREE.Mesh(
-    new THREE.BoxGeometry(0.27, 0.055, 0.30),
+    new THREE.BoxGeometry(0.25, 0.05, 0.25),
     mats.metal
   );
   base.position.set(x, 0.265, 0);
   board.add(base);
 
   const hanger = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.055, 0.055, 0.78, 12),
+    new THREE.CylinderGeometry(0.048, 0.048, 0.66, 12),
     mats.metal
   );
   hanger.rotation.x = Math.PI / 2;
@@ -208,9 +205,9 @@ for (const x of [-0.69, 0.69]) {
   board.add(kingpin);
 
   // Four soft-edged wheels with visible inner hubs.
-  for (const z of [-0.43, 0.43]) {
+  for (const z of [-0.34, 0.34]) {
     const wheel = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.18, 0.18, 0.145, 20, 1),
+      new THREE.CylinderGeometry(0.145, 0.145, 0.12, 24, 1),
       new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.88 })
     );
     wheel.rotation.x = Math.PI / 2;
@@ -218,7 +215,7 @@ for (const x of [-0.69, 0.69]) {
     board.add(wheel);
 
     const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.065, 0.065, 0.15, 16),
+      new THREE.CylinderGeometry(0.052, 0.052, 0.125, 16),
       new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: 0.45, roughness: 0.48 })
     );
     hub.rotation.x = Math.PI / 2;
