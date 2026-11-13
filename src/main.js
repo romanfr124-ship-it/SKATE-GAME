@@ -350,20 +350,26 @@ canvas.addEventListener('pointerdown', event => {
     dx: 0,
     dy: 0,
     startTime: performance.now(),
+    lastMoveTime: performance.now(),
     deckLocalX: deckTouchLocalX(event.clientX, event.clientY),
-    manualGesture: false
+    manualGesture: false,
+    manualPopTriggered: false
   };
   touchSteer = 0;
 });
 canvas.addEventListener('pointermove', event => {
   if (!gesture || gesture.id !== event.pointerId) return;
+  const moveTime = performance.now();
+  const moveDy = event.clientY - gesture.lastY;
+  const moveDuration = Math.max(1, moveTime - gesture.lastMoveTime);
   gesture.dx = event.clientX - gesture.x;
   gesture.dy = event.clientY - gesture.y;
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
+  gesture.lastMoveTime = moveTime;
   const pullingTail = gesture.deckLocalX !== null && gesture.deckLocalX < -0.22 && gesture.dy > 12;
   const pullingNose = gesture.deckLocalX !== null && gesture.deckLocalX > 0.22 && gesture.dy < -12;
-  if (!airborne && (pullingTail || pullingNose) && performance.now() - gesture.startTime > 260) {
+  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 && moveTime - gesture.startTime > 260) {
     // Pull slowly away from the centre: down on the tail for a manual,
     // up/forward on the nose for a nose manual. Both use the same travel scale.
     gesture.manualGesture = true;
@@ -371,7 +377,19 @@ canvas.addEventListener('pointermove', event => {
     manualSide = pullingTail ? 1 : -1;
     manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 12) / 125, 0, 0.48);
   }
-  if (!airborne && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
+  // A fast downward finger flick during either manual pops an ollie immediately.
+  // It works while carving into a kickturn too, and is deliberately distinct
+  // from the slow pull used to enter or deepen the manual.
+  if (!airborne && manualActive && gesture.manualGesture && !gesture.manualPopTriggered &&
+      moveDy > 28 && moveDuration <= 180 && moveTime - gesture.startTime > 300) {
+    gesture.manualPopTriggered = true;
+    gesture.manualGesture = true;
+    manualActive = false;
+    manualAngle = 0;
+    touchSteer = 0;
+    pop('ollie');
+  }
+  if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
     touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58, -1, 1);
   } else if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
