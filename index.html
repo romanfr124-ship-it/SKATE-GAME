@@ -2,32 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#171717" />
-  <title>SKATE — Prototype</title>
+  <title>SKATE — Park Blockout</title>
 </head>
 <body>
-  <div id="game"></div>
-  <div id="hud">
-    <div class="brand">SKATE<span>/</span>01</div>
-    <div class="stats"><span id="speed">0</span><small>KM/H</small><i></i><span id="stance">REGULAR</span></div>
-    <div class="top-actions"><button id="resetBtn">RESET</button><button id="customBtn">BOARD SETUP</button></div>
-  </div>
-  <div id="trickLabel">PUSH TO ROLL</div>
-  <div id="controls-hint">WASD / ARROWS MOVE · SPACE POP · J / K FLICK · R RESET</div>
-  <section id="customizer" class="panel hidden">
-    <div class="panel-head"><div><small>WORKSHOP / 001</small><h2>BOARD SETUP</h2></div><button id="closeCustom">×</button></div>
-    <div class="board-preview" id="boardPreview"><div class="preview-deck"></div><div class="preview-trucks"></div><div class="preview-wheels"></div></div>
-    <label>DECK LENGTH <output id="lengthOut">8.0"</output><input id="deckLength" type="range" min="7.5" max="8.75" step=".05" value="8"></label>
-    <label>DECK WIDTH <output id="widthOut">8.25"</output><input id="deckWidth" type="range" min="7.75" max="8.75" step=".05" value="8.25"></label>
-    <label>WHEEL SIZE <output id="wheelOut">54 MM</output><input id="wheelSize" type="range" min="50" max="60" step="1" value="54"></label>
-    <label>TRUCK WIDTH <output id="truckOut">8.25"</output><input id="truckWidth" type="range" min="7.75" max="8.75" step=".05" value="8.25"></label>
-    <div class="panel-note">MONOCHROME BLOCKOUT · VISUAL FINISH COMING LATER</div>
-  </section>
-  <div id="touch-ui">
-    <div class="touch-left"><button data-key="a">◀</button><button data-key="d">▶</button></div>
-    <div class="touch-right"><button data-key="j">FLICK</button><button data-key=" ">POP</button><button data-key="w">PUSH</button></div>
-  </div>
-  <script type="module" src="/src/main.js"></script>
+  <main id="game" aria-label="3D skatepark"></main>
+  <script type="module" src="./src/main.js"></script>
 </body>
 </html>
