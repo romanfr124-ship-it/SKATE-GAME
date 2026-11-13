@@ -336,11 +336,16 @@ function push(power = 2.7) {
   const current = velocity.length();
   if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
 }
-function pop(kind = 'ollie') {
+function pop(kind = 'ollie', flickSpeed = 650) {
   if (airborne || bailTimer > 0 || velocity.length() < 0.25) return;
   airborne = true;
   airTime = 0;
-  verticalVelocity = 4.65 + Math.min(velocity.length() * 0.055, 0.55);
+  // A sharper tail/nose flick transfers more impulse into the pop.
+  // Pixel speed is normalized so gentle flicks stay controllable while
+  // fast, deliberate flicks have enough height to clear park obstacles.
+  const flickPower = THREE.MathUtils.clamp((flickSpeed - 220) / 1180, 0, 1);
+  const popImpulse = 4.35 + flickPower * 3.35;
+  verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   const popDirection = kind === 'nollie' ? -1 : 1;
@@ -565,7 +570,7 @@ canvas.addEventListener('pointermove', event => {
     manualActive = false;
     manualAngle = 0;
     touchSteer = 0;
-    pop(manualSide === 1 ? 'ollie' : 'nollie');
+    pop(manualSide === 1 ? 'ollie' : 'nollie', gesture.lastMoveSpeed || 650);
   }
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
@@ -589,8 +594,9 @@ function finishGesture(event) {
   } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
-    if (dy > 0) pop('ollie');
-    else pop('nollie');
+    const tailFlickSpeed = g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000);
+    if (dy > 0) pop('ollie', tailFlickSpeed);
+    else pop('nollie', tailFlickSpeed);
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
       flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000));
     }
