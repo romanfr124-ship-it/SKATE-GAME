@@ -276,9 +276,10 @@ function pop() {
   airTime = 0;
   verticalVelocity = 4.65 + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
-  pitchVelocity = -1.8;
+  // Pop from the tail: lift the nose into a normal ollie (not a nollie).
+  pitchVelocity = 1.8;
   board.rotation.x = 0;
-  board.rotation.z = -0.13;
+  board.rotation.z = 0.13;
 }
 function flick(direction) {
   if (!airborne || airTime > 0.48) return;
