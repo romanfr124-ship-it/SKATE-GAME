@@ -330,7 +330,7 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
   if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
-    touchSteer = THREE.MathUtils.clamp(gesture.dx / 115, -1, 1);
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 115, -1, 1);
   }
 });
 function finishGesture(event) {
@@ -392,8 +392,8 @@ const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.025);
-  const keyboardTurn = (keys.has('d') || keys.has('arrowright') ? 1 : 0) -
-    (keys.has('a') || keys.has('arrowleft') ? 1 : 0);
+  const keyboardTurn = (keys.has('a') || keys.has('arrowleft') ? 1 : 0) -
+    (keys.has('d') || keys.has('arrowright') ? 1 : 0);
   const steer = Math.abs(keyboardTurn) > 0 ? keyboardTurn : touchSteer;
   const braking = keys.has('s') || keys.has('arrowdown');
 
@@ -453,8 +453,10 @@ function animate() {
   }
 
   board.rotation.y = heading - Math.PI / 2;
+  // Keep wheel roll animation off for now; only give the wheels a subtle
+  // steering angle when the board is carving, so they don't spin constantly.
   for (const wheel of wheelMeshes) {
-    wheel.rotation.z += speed * dt * 2.2;
+    wheel.rotation.y = THREE.MathUtils.damp(wheel.rotation.y, steer * 0.12, 8, dt);
   }
   updateFollowCamera(dt);
   renderer.render(scene, camera);
