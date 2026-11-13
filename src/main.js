@@ -319,6 +319,7 @@ let gesture = null;
 let touchSteer = 0;
 let manualActive = false;
 let manualAngle = 0;
+let manualSide = 1; // +1 = tail manual, -1 = nose manual
 const canvas = renderer.domElement;
 canvas.style.touchAction = 'none';
 
@@ -360,12 +361,15 @@ canvas.addEventListener('pointermove', event => {
   gesture.dy = event.clientY - gesture.y;
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
-  if (!airborne && gesture.deckLocalX !== null && gesture.deckLocalX < -0.22 &&
-      gesture.dy > 12 && performance.now() - gesture.startTime > 260) {
-    // A slow backward pull on the tail holds a manual; pull distance sets height.
+  const pullingTail = gesture.deckLocalX !== null && gesture.deckLocalX < -0.22 && gesture.dy > 12;
+  const pullingNose = gesture.deckLocalX !== null && gesture.deckLocalX > 0.22 && gesture.dy < -12;
+  if (!airborne && (pullingTail || pullingNose) && performance.now() - gesture.startTime > 260) {
+    // Pull slowly away from the centre: down on the tail for a manual,
+    // up/forward on the nose for a nose manual. Both use the same travel scale.
     gesture.manualGesture = true;
     manualActive = true;
-    manualAngle = THREE.MathUtils.clamp((gesture.dy - 12) / 125, 0, 0.48);
+    manualSide = pullingTail ? 1 : -1;
+    manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 12) / 125, 0, 0.48);
   }
   if (!airborne && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
@@ -466,7 +470,7 @@ function animate() {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
-      heading += steer * (manualActive ? -1 : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
+      heading += steer * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       const desired = forwardVector().multiplyScalar(currentSpeed);
       // Preserve momentum during a manual pivot so it feels like a kickturn,
       // rather than instantly redirecting the whole board like a normal carve.
