@@ -317,6 +317,8 @@ function resetBoard() {
 // - horizontal flick while airborne = kickflip/heelflip
 let gesture = null;
 let touchSteer = 0;
+let manualActive = false;
+let manualAngle = 0;
 const canvas = renderer.domElement;
 canvas.style.touchAction = 'none';
 
@@ -324,14 +326,16 @@ canvas.style.touchAction = 'none';
 // triggers ollies/nollies; the surrounding ground area is for pushing.
 const touchRaycaster = new THREE.Raycaster();
 const touchNdc = new THREE.Vector2();
-function startedOnDeck(clientX, clientY) {
+function deckTouchLocalX(clientX, clientY) {
   touchNdc.set(
     (clientX / innerWidth) * 2 - 1,
     -(clientY / innerHeight) * 2 + 1
   );
   board.updateMatrixWorld(true);
   touchRaycaster.setFromCamera(touchNdc, camera);
-  return touchRaycaster.intersectObject(deck, false).length > 0;
+  const hit = touchRaycaster.intersectObject(deck, false)[0];
+  if (!hit) return null;
+  return board.worldToLocal(hit.point.clone()).x;
 }
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -345,7 +349,8 @@ canvas.addEventListener('pointerdown', event => {
     dx: 0,
     dy: 0,
     startTime: performance.now(),
-    startedOnDeck: startedOnDeck(event.clientX, event.clientY)
+    deckLocalX: deckTouchLocalX(event.clientX, event.clientY),
+    manualGesture: false
   };
   touchSteer = 0;
 });
@@ -355,6 +360,13 @@ canvas.addEventListener('pointermove', event => {
   gesture.dy = event.clientY - gesture.y;
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
+  if (!airborne && gesture.deckLocalX !== null && gesture.deckLocalX < -0.22 &&
+      gesture.dy > 12 && performance.now() - gesture.startTime > 260) {
+    // A slow backward pull on the tail holds a manual; pull distance sets height.
+    gesture.manualGesture = true;
+    manualActive = true;
+    manualAngle = THREE.MathUtils.clamp((gesture.dy - 12) / 125, 0, 0.48);
+  }
   if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
     touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78, -1, 1);
   }
@@ -368,12 +380,12 @@ function finishGesture(event) {
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
     flick(dx > 0 ? 1 : -1, Math.abs(dx));
-  } else if (!airborne && g.startedOnDeck && quick && Math.abs(dy) > 38) {
+  } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // Only a quick flick that begins on the deck can pop the board.
     // Flick down = ollie; flick up = nollie.
     if (dy > 0) pop('ollie');
     else pop('nollie');
-  } else if (!airborne && !g.startedOnDeck && Math.abs(dy) > 38) {
+  } else if (!airborne && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
@@ -384,10 +396,17 @@ function finishGesture(event) {
   // Steering is only applied while the finger is held down; release returns
   // the board to neutral instead of leaving it carving in a permanent circle.
   touchSteer = 0;
+  manualActive = false;
+  manualAngle = 0;
   gesture = null;
 }
 canvas.addEventListener('pointerup', finishGesture);
-canvas.addEventListener('pointercancel', () => { gesture = null; touchSteer = 0; });
+canvas.addEventListener('pointercancel', () => {
+  gesture = null;
+  touchSteer = 0;
+  manualActive = false;
+  manualAngle = 0;
+});
 
 // Keyboard fallback for desktop testing.
 addEventListener('keydown', event => {
@@ -448,7 +467,8 @@ function animate() {
       velocity.lerp(desired, 1 - Math.exp(-(0.95 + currentSpeed * 0.10) * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
       else velocity.multiplyScalar(Math.exp(-0.14 * dt));
-      board.rotation.z = THREE.MathUtils.damp(board.rotation.z, -steer * 0.075, 7, dt);
+      const targetDeckPitch = (manualActive ? manualAngle : 0) - steer * 0.075;
+      board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
       board.rotation.x = THREE.MathUtils.damp(board.rotation.x, steer * 0.035, 7, dt);
     } else {
       // Limited air control; momentum remains mostly conserved.
@@ -499,6 +519,8 @@ function animate() {
         if ((!flipVelocity || (completedFlip && flipAligned)) && pitchAligned && shuvitComplete) {
           board.rotation.x = 0;
           board.rotation.z = 0;
+          manualActive = false;
+          manualAngle = 0;
           airborne = false;
           verticalVelocity = 0;
           flipVelocity = 0;
