@@ -41,7 +41,7 @@ function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.position.set(x, y, z);
   parent.add(mesh);
-  if (w >= 4.5 && d >= 1) {
+  if (w >= 4.5 && d >= 1 && w < 90) {
     const surface = new THREE.Group();
     surface.position.set(x, y + h / 2, z);
     parent.add(surface);
