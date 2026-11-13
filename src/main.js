@@ -41,6 +41,12 @@ function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.position.set(x, y, z);
   parent.add(mesh);
+  if (w >= 4.5 && d >= 1) {
+    const surface = new THREE.Group();
+    surface.position.set(x, y + h / 2, z);
+    parent.add(surface);
+    addSurfaceGrid(surface, w, d, 1, 0.012, 4);
+  }
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
   edge.position.copy(mesh.position);
   parent.add(edge);
@@ -52,6 +58,13 @@ function ramp(w, h, d, x, z, angle = 0) {
   mesh.position.set(x, h / 2 - 0.02, z);
   mesh.rotation.z = angle;
   scene.add(mesh);
+  // A matching 1m grid on the ramp surface makes the obstacle's size and
+  // orientation clear as the camera follows the skater.
+  const surface = new THREE.Group();
+  surface.position.copy(mesh.position);
+  surface.rotation.copy(mesh.rotation);
+  scene.add(surface);
+  addSurfaceGrid(surface, w, d, 1, h / 2 + 0.012, 4);
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
   edge.position.copy(mesh.position);
   edge.rotation.copy(mesh.rotation);
@@ -72,15 +85,60 @@ function rail(x, z, length, height = 0.82) {
   }
 }
 
-// Park floor and subtle construction grid.
+// Park floor with a readable world-coordinate grid. Minor lines mark 1m,
+// brighter major lines mark every 4m, making position and travel direction easier to judge.
 outlinedBox(scene, 100, 0.45, 100, mats.floor, 0, -0.25, 0);
-const gridPoints = [];
-for (let i = -10; i <= 10; i++) {
-  gridPoints.push(-48, 0, i * 4, 48, 0, i * 4, i * 4, 0, -48, i * 4, 0, 48);
+function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4) {
+  const minor = [];
+  const major = [];
+  for (let x = -width / 2; x <= width / 2 + 0.001; x += spacing) {
+    const target = Math.round((x + width / 2) / spacing) % majorEvery === 0 ? major : minor;
+    target.push(x, y, -depth / 2, x, y, depth / 2);
+  }
+  for (let z = -depth / 2; z <= depth / 2 + 0.001; z += spacing) {
+    const target = Math.round((z + depth / 2) / spacing) % majorEvery === 0 ? major : minor;
+    target.push(-width / 2, y, z, width / 2, y, z);
+  }
+  for (const [points, color, opacity] of [
+    [minor, 0x555555, 0.48],
+    [major, 0x858585, 0.78]
+  ]) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
+      color, transparent: true, opacity, depthWrite: false
+    }));
+    parent.add(lines);
+  }
 }
-const gridGeometry = new THREE.BufferGeometry();
-gridGeometry.setAttribute('position', new THREE.Float32BufferAttribute(gridPoints, 3));
-scene.add(new THREE.LineSegments(gridGeometry, new THREE.LineBasicMaterial({ color: 0x3b3b3b })));
+addSurfaceGrid(scene, 96, 96, 1, -0.022, 4);
+
+// Coordinate labels around the perimeter give the grid a consistent X/Z reference.
+function coordinateLabel(text, x, z) {
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 96;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = 'rgba(8,8,8,0.72)';
+  ctx.fillRect(4, 4, 248, 88);
+  ctx.font = 'bold 42px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#d0d0d0';
+  ctx.fillText(text, 128, 48);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+  const label = new THREE.Sprite(material);
+  label.position.set(x, 0.025, z);
+  label.scale.set(2.8, 1.05, 1);
+  scene.add(label);
+}
+for (let coordinate = -40; coordinate <= 40; coordinate += 8) {
+  coordinateLabel(`X ${coordinate > 0 ? '+' : ''}${coordinate}`, coordinate, -46.1);
+  coordinateLabel(`Z ${coordinate > 0 ? '+' : ''}${coordinate}`, -46.1, coordinate);
+}
 
 // Skatepark obstacles.
 ramp(13, 1.45, 8, -15, -5, 0.17);
