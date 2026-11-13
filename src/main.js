@@ -329,9 +329,18 @@ const maxSpeed = 13.125; // 25% higher top speed
 function forwardVector() {
   return new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
 }
+// The control frame follows the direction of travel. When rolling backwards,
+// screen-left/right and forward/back controls are mirrored with the camera.
+let travelSign = 1;
+function travelForwardVector() {
+  return forwardVector().multiplyScalar(travelSign);
+}
+function screenTurnDirection(dx) {
+  return (dx > 0 ? 1 : -1) * travelSign;
+}
 function push(power = 2.7) {
   if (airborne || bailTimer > 0) return;
-  const forward = forwardVector();
+  const forward = travelForwardVector();
   velocity.addScaledVector(forward, power);
   const current = velocity.length();
   if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
@@ -643,9 +652,9 @@ canvas.addEventListener('pointermove', event => {
   }
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58, -1, 1);
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58 * travelSign, -1, 1);
   } else if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78, -1, 1);
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78 * travelSign, -1, 1);
   }
 });
 function finishGesture(event) {
@@ -659,7 +668,7 @@ function finishGesture(event) {
       (g.manualPopTriggered || Math.abs(dx) > Math.abs(dy) * 1.15)) {
     // A horizontal flick after a manual pop, or a standalone air flick,
     // spins the board as a shuvit.
-    flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.abs(dx) / elapsed * 1000));
+    flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.abs(dx) / elapsed * 1000));
   } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
@@ -667,13 +676,13 @@ function finishGesture(event) {
     if (dy > 0) pop('ollie', tailFlickSpeed);
     else pop('nollie', tailFlickSpeed);
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
-      flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000));
+      flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000));
     }
   } else if (!airborne && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
-    velocity.addScaledVector(forwardVector(), direction * 2.8);
+    velocity.addScaledVector(travelForwardVector(), direction * 2.8);
     const current = velocity.length();
     if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
   }
@@ -706,9 +715,18 @@ addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
 
 const cameraOffset = new THREE.Vector3();
 const cameraTarget = new THREE.Vector3();
+let cameraHeading = heading;
 function updateFollowCamera(dt) {
-  const forwardX = Math.sin(heading);
-  const forwardZ = Math.cos(heading);
+  // Rotate the camera through the full half-turn when momentum changes
+  // direction, rather than abruptly flipping its position.
+  const targetHeading = heading + (travelSign < 0 ? Math.PI : 0);
+  const angleDelta = Math.atan2(
+    Math.sin(targetHeading - cameraHeading),
+    Math.cos(targetHeading - cameraHeading)
+  );
+  cameraHeading += angleDelta * (1 - Math.exp(-4.8 * dt));
+  const forwardX = Math.sin(cameraHeading);
+  const forwardZ = Math.cos(cameraHeading);
   cameraOffset.set(
     board.position.x - forwardX * 4.4,
     board.position.y + 4.4,
@@ -743,11 +761,18 @@ function animate() {
     // Ground steering changes heading and gradually redirects momentum,
     // rather than moving the board sideways like a character controller.
     const currentSpeed = velocity.length();
+    // Keep the POV/control frame facing the actual direction of motion.
+    // A small dead zone prevents the camera oscillating when nearly stopped.
+    if (currentSpeed > 0.45) {
+      const alongBoard = velocity.dot(forwardVector());
+      if (alongBoard < -0.12) travelSign = -1;
+      else if (alongBoard > 0.12) travelSign = 1;
+    }
     if (!airborne) {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
-      heading += steer * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
+      heading += steer * travelSign * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       const desired = forwardVector().multiplyScalar(currentSpeed);
       // Preserve momentum during a manual pivot so it feels like a kickturn,
       // rather than instantly redirecting the whole board like a normal carve.
