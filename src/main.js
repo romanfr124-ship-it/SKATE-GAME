@@ -258,7 +258,7 @@ let bailTimer = 0;
 let steerInput = 0;
 let lastLandTime = -10;
 const gravity = 13.5;
-const maxSpeed = 10.5;
+const maxSpeed = 13.125; // 25% higher top speed
 
 function forwardVector() {
   return new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
@@ -347,7 +347,7 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
   if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 115, -1, 1);
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78, -1, 1);
   }
 });
 function finishGesture(event) {
@@ -432,17 +432,19 @@ function animate() {
     // rather than moving the board sideways like a character controller.
     const currentSpeed = velocity.length();
     if (!airborne) {
-      heading += steer * (0.22 + currentSpeed * 0.075) * dt;
+      // More finger drag gives more steering input; speed adds further turning response.
+      heading += steer * (0.30 + currentSpeed * 0.105) * dt;
       const desired = forwardVector().multiplyScalar(currentSpeed);
-      velocity.lerp(desired, 1 - Math.exp(-(1.8 + currentSpeed * 0.18) * dt));
+      // Keep more of the board's existing momentum while carving.
+      velocity.lerp(desired, 1 - Math.exp(-(0.95 + currentSpeed * 0.10) * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
-      else velocity.multiplyScalar(Math.exp(-0.34 * dt));
+      else velocity.multiplyScalar(Math.exp(-0.14 * dt));
       board.rotation.z = THREE.MathUtils.damp(board.rotation.z, -steer * 0.075, 7, dt);
       board.rotation.x = THREE.MathUtils.damp(board.rotation.x, steer * 0.035, 7, dt);
     } else {
       // Limited air control; momentum remains mostly conserved.
       heading += steer * 0.32 * dt;
-      velocity.multiplyScalar(Math.exp(-0.045 * dt));
+      velocity.multiplyScalar(Math.exp(-0.02 * dt));
       airTime += dt;
       flipVelocity *= Math.exp(-0.12 * dt);
       board.rotation.x += flipVelocity * dt;
