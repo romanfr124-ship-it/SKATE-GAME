@@ -126,15 +126,36 @@ for (const x of [-0.68, 0.68]) {
 }
 board.position.set(0, 0, 1.5);
 
-// Establishing camera: board prominent, park visible behind it.
-camera.position.set(13.5, 11.5, -19);
-camera.lookAt(0, 0.1, 0);
-board.rotation.y = -0.22;
-
-// Basic keyboard movement remains available; no on-screen controls.
+// Low follow-camera POV: the board fills the lower foreground while the
+// park opens up ahead. The board's long axis is aligned with its travel.
 const keys = new Set();
 let speed = 0;
-let heading = -0.22;
+let heading = 0;
+board.rotation.y = heading - Math.PI / 2;
+
+const cameraOffset = new THREE.Vector3();
+const cameraTarget = new THREE.Vector3();
+function updateFollowCamera(dt) {
+  const forwardX = Math.sin(heading);
+  const forwardZ = Math.cos(heading);
+  cameraOffset.set(
+    board.position.x - forwardX * 5.4,
+    board.position.y + 6.0,
+    board.position.z - forwardZ * 5.4
+  );
+  cameraTarget.set(
+    board.position.x + forwardX * 17.0,
+    0.25,
+    board.position.z + forwardZ * 17.0
+  );
+  const smooth = 1 - Math.exp(-7 * dt);
+  camera.position.lerp(cameraOffset, smooth);
+  camera.lookAt(cameraTarget);
+}
+camera.position.set(0, 6.0, -3.9);
+camera.lookAt(0, 0.25, 18);
+
+// Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
 let airborne = false;
 addEventListener('keydown', event => {
@@ -156,7 +177,7 @@ function animate() {
   speed -= (brake ? 8 : 0) * dt;
   speed = THREE.MathUtils.clamp(speed * Math.pow(0.985, dt * 60), 0, 12);
   heading += turn * Math.min(speed * 0.11, 1.2) * dt;
-  board.rotation.y = heading;
+  board.rotation.y = heading - Math.PI / 2;
   board.position.x += Math.sin(heading) * speed * dt;
   board.position.z += Math.cos(heading) * speed * dt;
   if (airborne) {
@@ -168,6 +189,7 @@ function animate() {
       airborne = false;
     }
   }
+  updateFollowCamera(dt);
   renderer.render(scene, camera);
   const errorPanel = document.getElementById('load-error');
   if (errorPanel) errorPanel.style.display = 'none';
