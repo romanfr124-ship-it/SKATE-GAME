@@ -154,18 +154,21 @@ const deckOutline = new THREE.LineSegments(
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// Grip tape closely follows the deck, leaving only a narrow, even wood rim.
+// Generate grip tape from the exact deck outline, then inset it slightly.
+// This guarantees the nose, tail and side curves always match the deck.
 const gripShape = new THREE.Shape();
-gripShape.moveTo(-1.095, 0);
-gripShape.bezierCurveTo(-1.095, 0.185, -0.98, 0.315, -0.76, 0.315);
-gripShape.lineTo(0.76, 0.315);
-gripShape.bezierCurveTo(0.98, 0.315, 1.095, 0.185, 1.095, 0);
-gripShape.bezierCurveTo(1.095, -0.185, 0.98, -0.315, 0.76, -0.315);
-gripShape.lineTo(-0.76, -0.315);
-gripShape.bezierCurveTo(-0.98, -0.315, -1.095, -0.185, -1.095, 0);
+const deckPerimeter = deckShape.getPoints(128);
+deckPerimeter.forEach((point, index) => {
+  const x = point.x * 0.985;
+  const z = point.y * 0.955;
+  if (index === 0) gripShape.moveTo(x, z);
+  else gripShape.lineTo(x, z);
+});
+gripShape.closePath();
 
 const gripGeometry = new THREE.ShapeGeometry(gripShape, 32);
 gripGeometry.rotateX(Math.PI / 2);
+// Apply the same nose/tail kick as the deck so the grip sits flush.
 curveDeckGeometry(gripGeometry);
 const grip = new THREE.Mesh(
   gripGeometry,
@@ -174,10 +177,12 @@ const grip = new THREE.Mesh(
     side: THREE.DoubleSide,
     polygonOffset: true,
     polygonOffsetFactor: -1,
-    polygonOffsetUnits: -1
+    polygonOffsetUnits: -1,
+    depthWrite: false
   })
 );
-grip.position.y = 0.435;
+grip.position.y = 0.437;
+grip.renderOrder = 2;
 board.add(grip);
 
 // Trucks: base plates, hangers, axles and kingpins.
