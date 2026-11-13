@@ -285,14 +285,18 @@ function pop(kind = 'ollie') {
   board.rotation.x = 0;
   board.rotation.z = popDirection * 0.12;
 }
-function flick(direction, distance = 45) {
+function flick(direction, distance = 45, flickSpeed = 500) {
   if (!airborne || airTime > 0.48) return;
-  // A sideways flick spins the board around its vertical axis:
-  // normal flick = shuvit; a longer flick = double shuvit.
+  // A sideways flick spins the board around its vertical axis.
+  // Rotation speed scales with the actual finger speed and swipe distance.
   if (Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     const doubleShuvit = distance >= 82;
+    const speedFactor = THREE.MathUtils.clamp((flickSpeed - 180) / 820, 0, 1.6);
+    const distanceFactor = THREE.MathUtils.clamp(distance / 55, 0.75, 1.35);
+    const baseSpeed = doubleShuvit ? 21 : 16;
+    const spinSpeed = baseSpeed * (0.45 + speedFactor * 0.9) * distanceFactor;
     shuvitTarget = (doubleShuvit ? Math.PI * 4 : Math.PI * 2) * direction;
-    shuvitVelocity = direction * (doubleShuvit ? 21 : 16);
+    shuvitVelocity = direction * spinSpeed;
   }
 }
 function resetBoard() {
@@ -349,6 +353,9 @@ canvas.addEventListener('pointerdown', event => {
     lastY: event.clientY,
     dx: 0,
     dy: 0,
+    lastMoveDx: 0,
+    lastMoveDy: 0,
+    lastMoveSpeed: 0,
     startTime: performance.now(),
     lastMoveTime: performance.now(),
     deckLocalX: deckTouchLocalX(event.clientX, event.clientY),
@@ -360,8 +367,12 @@ canvas.addEventListener('pointerdown', event => {
 canvas.addEventListener('pointermove', event => {
   if (!gesture || gesture.id !== event.pointerId) return;
   const moveTime = performance.now();
+  const moveDx = event.clientX - gesture.lastX;
   const moveDy = event.clientY - gesture.lastY;
   const moveDuration = Math.max(1, moveTime - gesture.lastMoveTime);
+  gesture.lastMoveDx = moveDx;
+  gesture.lastMoveDy = moveDy;
+  gesture.lastMoveSpeed = Math.hypot(moveDx, moveDy) / moveDuration * 1000;
   gesture.dx = event.clientX - gesture.x;
   gesture.dy = event.clientY - gesture.y;
   gesture.lastX = event.clientX;
@@ -405,7 +416,7 @@ function finishGesture(event) {
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
-    flick(dx > 0 ? 1 : -1, Math.abs(dx));
+    flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.abs(dx) / elapsed * 1000));
   } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // Only a quick flick that begins on the deck can pop the board.
     // Flick down = ollie; flick up = nollie.
