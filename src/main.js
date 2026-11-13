@@ -5,7 +5,7 @@ const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x202020);
 scene.fog = new THREE.Fog(0x202020, 38, 115);
-const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 180);
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
@@ -139,21 +139,21 @@ function updateFollowCamera(dt) {
   const forwardX = Math.sin(heading);
   const forwardZ = Math.cos(heading);
   cameraOffset.set(
-    board.position.x - forwardX * 5.4,
-    board.position.y + 6.0,
-    board.position.z - forwardZ * 5.4
+    board.position.x - forwardX * 4.4,
+    board.position.y + 6.2,
+    board.position.z - forwardZ * 4.4
   );
   cameraTarget.set(
-    board.position.x + forwardX * 17.0,
+    board.position.x + forwardX * 6.0,
     0.25,
-    board.position.z + forwardZ * 17.0
+    board.position.z + forwardZ * 6.0
   );
   const smooth = 1 - Math.exp(-7 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 6.0, -3.9);
-camera.lookAt(0, 0.25, 18);
+camera.position.set(0, 6.2, -4.4);
+camera.lookAt(0, 0.25, 7.5);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
