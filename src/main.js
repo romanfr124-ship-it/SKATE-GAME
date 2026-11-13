@@ -395,9 +395,13 @@ function resolveObstacleContacts() {
       const penetration = Math.min(overlapX, overlapY, overlapZ);
       let nx = 0, ny = 0, nz = 0;
 
-      if (penetration === overlapY) {
-        ny = collisionCenter.y >= obstacleCenter.y ? 1 : -1;
-      } else if (penetration === overlapX) {
+      // Only resolve vertically when the board is actually above or below
+      // the obstacle. While beside a ledge, resolve horizontally instead.
+      const onTop = boardBounds.min.y >= obstacleBounds.max.y - 0.16;
+      const underneath = boardBounds.max.y <= obstacleBounds.min.y + 0.12;
+      if (onTop || underneath) {
+        ny = onTop ? 1 : -1;
+      } else if (overlapX <= overlapZ) {
         nx = collisionCenter.x >= obstacleCenter.x ? 1 : -1;
       } else {
         nz = collisionCenter.z >= obstacleCenter.z ? 1 : -1;
