@@ -112,58 +112,75 @@ deckShape.bezierCurveTo(-1.00, -0.37, -1.13, -0.22, -1.13, 0);
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
   bevelEnabled: true,
-  bevelSegments: 4,
+  bevelSegments: 5,
   steps: 1,
-  bevelSize: 0.026,
-  bevelThickness: 0.018,
-  curveSegments: 12
+  bevelSize: 0.022,
+  bevelThickness: 0.014,
+  curveSegments: 20
 });
 deckGeometry.rotateX(Math.PI / 2);
 
-// A subtle skateboard kick: both ends rise gently from the wheelbase.
+// Subtle concave kick at both ends, with the deck becoming thinner and
+// flatter as it rises into the rounded nose and tail.
 function deckKick(x) {
-  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.66) / 0.47, 0, 1);
+  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
   const eased = t * t * (3 - 2 * t);
-  return eased * 0.115;
+  return eased * 0.105;
 }
-function curveDeckGeometry(geometry) {
+function deckThicknessAt(x) {
+  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
+  const eased = t * t * (3 - 2 * t);
+  return 1 - eased * 0.38;
+}
+function curveDeckGeometry(geometry, taperThickness = false) {
   const position = geometry.attributes.position;
   for (let i = 0; i < position.count; i++) {
     const x = position.getX(i);
-    position.setY(i, position.getY(i) + deckKick(x));
+    const baseY = position.getY(i);
+    const thickness = taperThickness ? deckThicknessAt(x) : 1;
+    position.setY(i, baseY * thickness + deckKick(x));
   }
   position.needsUpdate = true;
   geometry.computeVertexNormals();
 }
-curveDeckGeometry(deckGeometry);
+curveDeckGeometry(deckGeometry, true);
 const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.43;
 board.add(deck);
 
 // Fine deck outline, following the rounded skateboard silhouette.
 const deckOutline = new THREE.LineSegments(
-  new THREE.EdgesGeometry(deckGeometry, 24),
+  new THREE.EdgesGeometry(deckGeometry, 30),
   mats.outline
 );
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// Dark grip-tape surface, inset slightly from the deck edge.
+// Grip tape is deliberately inset from every edge, leaving a visible
+// strip of deck around the entire perimeter. The shape follows the deck.
 const gripShape = new THREE.Shape();
-gripShape.moveTo(-1.075, 0);
-gripShape.bezierCurveTo(-1.075, 0.19, -0.96, 0.325, -0.76, 0.325);
-gripShape.lineTo(0.76, 0.325);
-gripShape.bezierCurveTo(0.96, 0.325, 1.075, 0.19, 1.075, 0);
-gripShape.bezierCurveTo(1.075, -0.19, 0.96, -0.325, 0.76, -0.325);
-gripShape.lineTo(-0.76, -0.325);
-gripShape.bezierCurveTo(-0.96, -0.325, -1.075, -0.19, -1.075, 0);
+gripShape.moveTo(-1.035, 0);
+gripShape.bezierCurveTo(-1.035, 0.17, -0.93, 0.295, -0.73, 0.295);
+gripShape.lineTo(0.73, 0.295);
+gripShape.bezierCurveTo(0.93, 0.295, 1.035, 0.17, 1.035, 0);
+gripShape.bezierCurveTo(1.035, -0.17, 0.93, -0.295, 0.73, -0.295);
+gripShape.lineTo(-0.73, -0.295);
+gripShape.bezierCurveTo(-0.93, -0.295, -1.035, -0.17, -1.035, 0);
+
+const gripGeometry = new THREE.ShapeGeometry(gripShape, 24);
+gripGeometry.rotateX(Math.PI / 2);
+curveDeckGeometry(gripGeometry);
 const grip = new THREE.Mesh(
-  new THREE.ShapeGeometry(gripShape, 16),
-  new THREE.MeshStandardMaterial({ color: 0x191919, roughness: 1, side: THREE.DoubleSide })
+  gripGeometry,
+  new THREE.MeshBasicMaterial({
+    color: 0x181818,
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1
+  })
 );
-grip.geometry.rotateX(Math.PI / 2);
-curveDeckGeometry(grip.geometry);
-grip.position.y = 0.432;
+grip.position.y = 0.435;
 board.add(grip);
 
 // Trucks: base plates, hangers, axles and kingpins.
