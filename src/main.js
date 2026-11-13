@@ -270,16 +270,17 @@ function push(power = 2.7) {
   const current = velocity.length();
   if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
 }
-function pop() {
+function pop(kind = 'ollie') {
   if (airborne || bailTimer > 0 || velocity.length() < 0.25) return;
   airborne = true;
   airTime = 0;
   verticalVelocity = 4.65 + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
-  // Pop from the tail: lift the nose into a normal ollie (not a nollie).
-  pitchVelocity = 1.8;
+  // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
+  const popDirection = kind === 'nollie' ? -1 : 1;
+  pitchVelocity = popDirection * 2.0;
   board.rotation.x = 0;
-  board.rotation.z = 0.13;
+  board.rotation.z = popDirection * 0.12;
 }
 function flick(direction) {
   if (!airborne || airTime > 0.48) return;
@@ -343,9 +344,14 @@ function finishGesture(event) {
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
     flick(dx > 0 ? 1 : -1);
-  } else if (!airborne && quick && dy < -38 && g.y > innerHeight * 0.42) {
-    pop();
   } else if (!airborne && quick && dy > 38 && g.y > innerHeight * 0.28) {
+    // Downward flick = regular tail-pop ollie.
+    pop('ollie');
+  } else if (!airborne && quick && dy < -38 && g.y > innerHeight * 0.28) {
+    // Upward flick = nose-pop nollie.
+    pop('nollie');
+  } else if (!airborne && !quick && dy > 38 && g.y > innerHeight * 0.28) {
+    // A slower downward drag remains the push gesture.
     push(2.8);
   }
   // Steering is only applied while the finger is held down; release returns
@@ -361,7 +367,8 @@ addEventListener('keydown', event => {
   const key = event.key.toLowerCase();
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
   keys.add(key);
-  if (key === ' ' && !event.repeat) pop();
+  if (key === ' ' && !event.repeat) pop('ollie');
+  if (key === 'n' && !event.repeat) pop('nollie');
   if ((key === 'j' || key === 'k') && airborne && !event.repeat) flick(key === 'j' ? -1 : 1);
   if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.2);
 });
@@ -421,8 +428,9 @@ function animate() {
       airTime += dt;
       flipVelocity *= Math.exp(-0.12 * dt);
       board.rotation.x += flipVelocity * dt;
+      // Let the pop impulse pitch the deck, then naturally settle it toward level.
+      pitchVelocity += (-board.rotation.z * 8 - pitchVelocity * 3) * dt;
       board.rotation.z += pitchVelocity * dt;
-      pitchVelocity += 2.8 * dt;
     }
 
     board.position.x += velocity.x * dt;
