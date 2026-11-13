@@ -415,13 +415,19 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
-  if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
+  if (airborne && quick && Math.abs(dx) > 30 &&
+      (g.manualPopTriggered || Math.abs(dx) > Math.abs(dy) * 1.15)) {
+    // A horizontal flick after a manual pop, or a standalone air flick,
+    // spins the board as a shuvit.
     flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.abs(dx) / elapsed * 1000));
   } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
-    // Only a quick flick that begins on the deck can pop the board.
-    // Flick down = ollie; flick up = nollie.
+    // A diagonal deck flick combines the pop and shuvit into one motion:
+    // vertical direction selects ollie/nollie, horizontal direction selects spin.
     if (dy > 0) pop('ollie');
     else pop('nollie');
+    if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
+      flick(dx > 0 ? 1 : -1, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000));
+    }
   } else if (!airborne && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
