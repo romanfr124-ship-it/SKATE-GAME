@@ -310,6 +310,20 @@ let gesture = null;
 let touchSteer = 0;
 const canvas = renderer.domElement;
 canvas.style.touchAction = 'none';
+
+// Classify the gesture by where the finger first touches: the deck itself
+// triggers ollies/nollies; the surrounding ground area is for pushing.
+const touchRaycaster = new THREE.Raycaster();
+const touchNdc = new THREE.Vector2();
+function startedOnDeck(clientX, clientY) {
+  touchNdc.set(
+    (clientX / innerWidth) * 2 - 1,
+    -(clientY / innerHeight) * 2 + 1
+  );
+  board.updateMatrixWorld(true);
+  touchRaycaster.setFromCamera(touchNdc, camera);
+  return touchRaycaster.intersectObject(deck, false).length > 0;
+}
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   canvas.setPointerCapture?.(event.pointerId);
@@ -321,7 +335,8 @@ canvas.addEventListener('pointerdown', event => {
     lastY: event.clientY,
     dx: 0,
     dy: 0,
-    startTime: performance.now()
+    startTime: performance.now(),
+    startedOnDeck: startedOnDeck(event.clientX, event.clientY)
   };
   touchSteer = 0;
 });
@@ -344,16 +359,16 @@ function finishGesture(event) {
   const quick = elapsed < 420;
   if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.15) {
     flick(dx > 0 ? 1 : -1);
-  } else if (!airborne && quick && Math.abs(dy) > 38 && g.y > innerHeight * 0.28) {
-    // Quick vertical flicks are reserved for pops: down = ollie, up = nollie.
+  } else if (!airborne && g.startedOnDeck && quick && Math.abs(dy) > 38) {
+    // Only a quick flick that begins on the deck can pop the board.
+    // Flick down = ollie; flick up = nollie.
     if (dy > 0) pop('ollie');
     else pop('nollie');
-  } else if (!airborne && Math.abs(dy) > 38 && g.y > innerHeight * 0.28) {
-    // Slower vertical strokes push along the board's current forward axis.
-    // Drag down propels forward; drag up propels backward.
+  } else if (!airborne && !g.startedOnDeck && Math.abs(dy) > 38) {
+    // Vertical swipes beginning beside the board are pushes, not tricks.
+    // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
-    const forward = forwardVector();
-    velocity.addScaledVector(forward, direction * 2.8);
+    velocity.addScaledVector(forwardVector(), direction * 2.8);
     const current = velocity.length();
     if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
   }
