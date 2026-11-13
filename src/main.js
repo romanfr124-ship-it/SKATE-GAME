@@ -465,7 +465,7 @@ function animate() {
     if (!airborne) {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
-      const kickturnMultiplier = manualActive ? 2.35 : 1;
+      const kickturnMultiplier = manualActive ? 2.0 : 1;
       heading += steer * (manualActive ? -1 : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       const desired = forwardVector().multiplyScalar(currentSpeed);
       // Preserve momentum during a manual pivot so it feels like a kickturn,
