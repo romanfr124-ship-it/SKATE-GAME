@@ -207,20 +207,20 @@ function updateFollowCamera(dt) {
   const forwardZ = Math.cos(heading);
   cameraOffset.set(
     board.position.x - forwardX * 4.4,
-    board.position.y + 5.2,
+    board.position.y + 4.4,
     board.position.z - forwardZ * 4.8
   );
   cameraTarget.set(
-    board.position.x + forwardX * 9.5,
+    board.position.x + forwardX * 4.5,
     0.25,
-    board.position.z + forwardZ * 9.5
+    board.position.z + forwardZ * 4.5
   );
   const smooth = 1 - Math.exp(-7 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 5.2, -4.8);
-camera.lookAt(0, 0.25, 11.0);
+camera.position.set(0, 4.4, -4.8);
+camera.lookAt(0, 0.25, 6.0);
 
 // Basic keyboard movement remains available; no on-screen controls.
 let verticalVelocity = 0;
