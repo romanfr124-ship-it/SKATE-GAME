@@ -36,11 +36,14 @@ const mats = {
   outline: new THREE.LineBasicMaterial({ color: 0xd8d8d8 })
 };
 
+const solidObstacles = [];
+
 function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const geometry = new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.position.set(x, y, z);
   parent.add(mesh);
+  if (w < 90) solidObstacles.push(mesh);
   if (w >= 4.5 && d >= 1 && w < 90) {
     const surface = new THREE.Group();
     surface.position.set(x, y + h / 2, z);
@@ -58,6 +61,7 @@ function ramp(w, h, d, x, z, angle = 0) {
   mesh.position.set(x, h / 2 - 0.02, z);
   mesh.rotation.z = angle;
   scene.add(mesh);
+  solidObstacles.push(mesh);
   // A matching 1m grid on the ramp surface makes the obstacle's size and
   // orientation clear as the camera follows the skater.
   const surface = new THREE.Group();
@@ -76,6 +80,7 @@ function rail(x, z, length, height = 0.82) {
   rod.rotation.x = Math.PI / 2;
   rod.position.set(x, height, z);
   scene.add(rod);
+  solidObstacles.push(rod);
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
   edge.rotation.copy(rod.rotation);
   edge.position.copy(rod.position);
@@ -357,6 +362,105 @@ function flick(direction, distance = 45, flickSpeed = 500) {
     shuvitVelocity = direction * spinSpeed;
   }
 }
+// Resolve contact using the complete skateboard model bounds, not just its centre.
+// This includes the deck, trucks and wheels, so nose/tail/side impacts are detected.
+const boardBounds = new THREE.Box3();
+const obstacleBounds = new THREE.Box3();
+const collisionCenter = new THREE.Vector3();
+
+function resolveObstacleContacts() {
+  board.updateMatrixWorld(true);
+  let contacts = 0;
+
+  // A couple of passes handle corners where the board touches two obstacles.
+  for (let pass = 0; pass < 2; pass++) {
+    boardBounds.setFromObject(board);
+    if (boardBounds.isEmpty()) break;
+
+    for (const obstacle of solidObstacles) {
+      obstacle.updateWorldMatrix(true, false);
+      obstacleBounds.setFromObject(obstacle);
+      if (!boardBounds.intersectsBox(obstacleBounds)) continue;
+
+      const overlapX = Math.min(boardBounds.max.x, obstacleBounds.max.x) -
+        Math.max(boardBounds.min.x, obstacleBounds.min.x);
+      const overlapY = Math.min(boardBounds.max.y, obstacleBounds.max.y) -
+        Math.max(boardBounds.min.y, obstacleBounds.min.y);
+      const overlapZ = Math.min(boardBounds.max.z, obstacleBounds.max.z) -
+        Math.max(boardBounds.min.z, obstacleBounds.min.z);
+      if (overlapX <= 0 || overlapY <= 0 || overlapZ <= 0) continue;
+
+      boardBounds.getCenter(collisionCenter);
+      const obstacleCenter = obstacleBounds.getCenter(new THREE.Vector3());
+      const penetration = Math.min(overlapX, overlapY, overlapZ);
+      let nx = 0, ny = 0, nz = 0;
+
+      if (penetration === overlapY) {
+        ny = collisionCenter.y >= obstacleCenter.y ? 1 : -1;
+      } else if (penetration === overlapX) {
+        nx = collisionCenter.x >= obstacleCenter.x ? 1 : -1;
+      } else {
+        nz = collisionCenter.z >= obstacleCenter.z ? 1 : -1;
+      }
+
+      // Separate the entire board from the obstacle before applying an impact response.
+      const separation = penetration + 0.003;
+      board.position.x += nx * separation;
+      board.position.y += ny * separation;
+      board.position.z += nz * separation;
+      contacts++;
+
+      const normalSpeed = velocity.x * nx + velocity.y * ny + velocity.z * nz;
+      const impactSpeed = Math.abs(normalSpeed);
+
+      if (ny > 0 && impactSpeed < 7.5) {
+        // A downward contact on an obstacle's upper surface becomes a rideable landing.
+        if (airborne && verticalVelocity < 0) {
+          const landingStable = Math.abs(board.rotation.x) < 0.48 &&
+            Math.abs(board.rotation.z) < 0.48 &&
+            (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
+          if (landingStable) {
+            airborne = false;
+            verticalVelocity = 0;
+            board.rotation.x = 0;
+            board.rotation.z = 0;
+            flipVelocity = 0;
+            shuvitVelocity = 0;
+            shuvitRotation = 0;
+            shuvitTarget = 0;
+            pitchVelocity = 0;
+            manualActive = false;
+            manualAngle = 0;
+            lastLandTime = clock.elapsedTime;
+          } else {
+            resetBoard();
+          }
+        }
+        velocity.y = 0;
+      } else if (Math.abs(normalSpeed) > 0.02) {
+        // Hard side/underside impacts lose speed and can throw the skater.
+        const restitution = impactSpeed > 5.5 ? 0.12 : 0.24;
+        if (nx) velocity.x -= (1 + restitution) * normalSpeed * nx;
+        if (nz) velocity.z -= (1 + restitution) * normalSpeed * nz;
+        if (ny) verticalVelocity = Math.max(0, -verticalVelocity * restitution);
+
+        const tangentDamping = impactSpeed > 5.5 ? 0.58 : 0.82;
+        if (nx) velocity.z *= tangentDamping;
+        if (nz) velocity.x *= tangentDamping;
+
+        if (impactSpeed > 5.5) {
+          resetBoard();
+          break;
+        }
+      }
+
+      board.updateMatrixWorld(true);
+      boardBounds.setFromObject(board);
+    }
+    if (!contacts) break;
+  }
+}
+
 function resetBoard() {
   board.position.y = 0;
   board.rotation.x = 0;
@@ -643,6 +747,7 @@ function animate() {
     }
   }
 
+  resolveObstacleContacts();
   board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
