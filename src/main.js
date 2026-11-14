@@ -943,6 +943,7 @@ let grindType = '';
 // Small decaying offset blends the board onto a grind instead of snapping it.
 const grindEntryOffset = new THREE.Vector3();
 let grindEntryBlend = 0;
+let grindBalance = 0;
 let airTime = 0;
 let bailTimer = 0;
 let steerInput = 0;
@@ -981,7 +982,7 @@ function releaseGrind(side = 0, flickSpeed = 500) {
     const boardSide=Math.sign(side);
     velocity.addScaledVector(away,boardSide*(1.7+Math.min(flickSpeed/650,1.5)*1.25));
   }
-  grinding=false;grindRail=null;grindReadout.style.display='none';
+  grinding=false;grindRail=null;grindBalance=0;grindReadout.style.display='none';
   airborne=true;airTime=0;verticalVelocity=3.9+Math.min(flickSpeed/1600,1.1);
   trickCaught=false;trickStance=false;
   board.rotation.x=0;board.rotation.z=0;
@@ -1154,9 +1155,11 @@ function getObbContact() {
 }
 
 function tryStartGrind() {
-  if (!airborne || verticalVelocity >= 0) return false;
+  // A grind is a real descending contact, not a proximity magnet. The board
+  // must be almost centred over the coping/rail and actually reach its height.
+  if (!airborne || verticalVelocity > -0.8) return false;
   const speedNow = velocity.length();
-  if (speedNow < 1.0) return false;
+  if (speedNow < 1.35) return false;
   const boardForward = forwardVector();
   for (const edge of grindEdges) {
     const relative = new THREE.Vector3(board.position.x - edge.start.x, 0, board.position.z - edge.start.z);
@@ -1164,12 +1167,11 @@ function tryStartGrind() {
     const along = THREE.MathUtils.clamp(rawAlong, 0, edge.length);
     const closest = edge.start.clone().addScaledVector(edge.tangent, along);
     const lateral = Math.hypot(board.position.x - closest.x, board.position.z - closest.z);
-    // The deck can bridge a rail/ledge even when its centre is not directly
-    // over it. Allow the board's footprint plus a small landing tolerance.
-    // Generous deck-footprint capture makes rails and ledges easier to lock onto.
-    if (lateral > 1.42) continue;
+    // Require the board centre to genuinely arrive over the edge. This keeps
+    // ollies near a rail from being pulled sideways/up onto it.
+    if (lateral > 0.24) continue;
     const targetY = edge.y - 0.416;
-    if (board.position.y > targetY + 0.48 || board.position.y < targetY - 0.82) continue;
+    if (Math.abs(board.position.y - targetY) > 0.095) continue;
     const boardAlignment = Math.abs(boardForward.dot(edge.tangent));
     const velocityAlong = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
     const velocityAcross = Math.abs(velocity.x * edge.tangent.z - velocity.z * edge.tangent.x);
@@ -1184,7 +1186,8 @@ function tryStartGrind() {
     // Preserve the approach offset and ease it away over a fraction of a second.
     // This avoids the hard positional snap that made grind entries feel choppy.
     grindEntryOffset.copy(entryPosition).sub(board.position);
-    grindEntryBlend = 1;
+    grindEntryBlend = 0.22;
+    grindBalance = 0;
     board.position.copy(entryPosition);
     const parallel = boardAlignment > 0.72;
     const nearEnd = along < 0.75 || along > edge.length - 0.75;
@@ -1302,6 +1305,7 @@ function resetBoard() {
   trickStance = false;
   grinding = false;
   grindRail = null;
+  grindBalance = 0;
   grindReadout.style.display = 'none';
   board.position.y = 0;
   board.rotation.x = 0;
@@ -1723,13 +1727,34 @@ function animate() {
         const entryEase = grindEntryBlend;
         grindEntryBlend *= Math.exp(-18 * dt);
         if (grindEntryBlend < 0.015) grindEntryBlend = 0;
-        board.position.set(
-          next.x + grindEntryOffset.x * entryEase,
-          edge.y - 0.416 + grindEntryOffset.y * entryEase,
-          next.z + grindEntryOffset.z * entryEase
-        );
-        velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
-        velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
+        const across = new THREE.Vector3(-edge.tangent.z, 0, edge.tangent.x);
+        // Manual pressure and steering shift the skater's centre of mass.
+        // Small corrections stay on the rail; sustained over-lean spills off.
+        const balanceInput = (manualActive ? manualAngle * 1.7 : 0) + steer * 0.48;
+        grindBalance = THREE.MathUtils.clamp(grindBalance + balanceInput * dt - grindBalance * 0.32 * dt, -1, 1);
+        if (Math.abs(grindBalance) > 0.72) {
+          const fallSide = Math.sign(grindBalance);
+          grinding = false;
+          grindRail = null;
+          grindReadout.style.display = 'none';
+          airborne = true;
+          verticalVelocity = 0.75;
+          velocity.addScaledVector(across, fallSide * 1.15);
+          board.rotation.x = fallSide * 0.24;
+          board.rotation.z = manualAngle * 0.55;
+          grindBalance = 0;
+        } else {
+          const balanceOffset = grindBalance * 0.12;
+          board.position.set(
+            next.x + across.x * balanceOffset + grindEntryOffset.x * entryEase,
+            edge.y - 0.416 + grindEntryOffset.y * entryEase,
+            next.z + across.z * balanceOffset + grindEntryOffset.z * entryEase
+          );
+          board.rotation.x = THREE.MathUtils.damp(board.rotation.x, grindBalance * 0.30 + steer * 0.07, 10, dt);
+          board.rotation.z = THREE.MathUtils.damp(board.rotation.z, manualActive ? manualAngle : 0, 9, dt);
+          velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
+          velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
+        }
       }
     }
     if (!airborne && !grinding) {
