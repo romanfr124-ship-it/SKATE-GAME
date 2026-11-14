@@ -618,6 +618,7 @@ function addConcreteJoints() {
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
     const mesh = new THREE.Mesh(geometry, jointMaterial);
+    mesh.name = 'Concrete ground joint';
     mesh.receiveShadow = true;
     mesh.renderOrder = 2;
     scene.add(mesh);
@@ -2336,7 +2337,7 @@ mount.appendChild(sectionPanel);
 // The editor reuses the live 3D skateboard, isolating it from the park while
 // the game is paused. The original scene and camera are restored on exit.
 const editorStage=document.createElement('div');
-editorStage.style.cssText='position:absolute;inset:0 0 0 170px;z-index:1;touch-action:none;cursor:grab;';
+editorStage.style.cssText='position:absolute;inset:66px 0 78px 145px;z-index:1;touch-action:none;cursor:grab;';
 const editorHint=document.createElement('div');
 editorHint.textContent='DRAG TO ROTATE  •  LIVE 3D PREVIEW';
 editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
@@ -2347,7 +2348,7 @@ sectionPanel.style.backdropFilter='none';
 sectionPanel.style.webkitBackdropFilter='none';
 sectionPanel.style.alignItems='stretch';
 sectionPanel.style.justifyContent='flex-start';
-sectionCard.style.cssText='position:relative;z-index:3;width:170px;min-width:170px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 10px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
+sectionCard.style.cssText='position:relative;z-index:3;width:145px;min-width:145px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
 let editorPreviewActive=false, editorSavedScene=null, editorSavedCamera=null, editorSavedBoard=null;
 let editorCategory='Deck graphics', editorTargetRotation=null, editorDrag=null;
 function activateBoardEditorPreview(){
@@ -2364,16 +2365,16 @@ function activateBoardEditorPreview(){
   // around the deck itself so it spins in place instead of orbiting in a circle.
   const deckCentreY=0.395;
   for(const child of board.children) child.position.y-=deckCentreY;
-  // The customization preview is a clean floating-board display: hide every
-  // park surface, obstacle, grid and ground mesh, keeping only the board/lights.
-  for(const child of scene.children) child.visible=(child===board||child.isLight);
+  // Keep the actual park concrete, joints and moss visible beneath the
+  // floating board; hide obstacles and gameplay-only scene elements.
+  for(const child of scene.children) child.visible=(child===board||child===terrain||child.name==='Concrete ground joint'||child.name==='Raised natural moss colonies'||child.name==='Subtle damp ground sheen'||child.isLight);
   scene.background=new THREE.Color('#171e20');
-  board.position.set(0,1.45,1.42);
+  board.position.set(0,1.45,0.72);
   board.rotation.set(0,0,Math.PI/2);
   board.scale.setScalar(0.72);
   camera.up.set(0,1,0);
-  camera.position.set(-4.4,1.45,0.48);
-  camera.lookAt(0,1.45,0.48);
+  camera.position.set(-4.4,3.0,0.48);
+  camera.lookAt(0,0.95,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=board.rotation.clone();
   renderer.render(scene,camera);
@@ -2407,8 +2408,9 @@ function aimEditorBoard(category){
   // the previous X rotation was cancelled by the board's Z=90° pose, so it
   // never turned the underside toward the camera.
   camera.position.x=-4.4;
+  camera.position.y=3.0;
   camera.position.z=0.48;
-  camera.lookAt(0,1.45,0.48);
+  camera.lookAt(0,0.95,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
 }
@@ -2488,17 +2490,17 @@ function editorField(label,control) {
   const wrap=document.createElement('div');wrap.append(makeEditorLabel(label),control);return wrap;
 }
 function buildDeckCustomizationUI() {
-  sectionCard.style.cssText='position:relative;z-index:3;width:170px;min-width:170px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
+  sectionCard.style.cssText='position:relative;z-index:3;width:145px;min-width:145px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
   sectionContent.replaceChildren();
   sectionTitle.textContent='BOARD CUSTOMIZATION';
   sectionMessage.textContent='Choose a component. Drag the board to inspect it from any angle.';
   const nav=document.createElement('div');
-  nav.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px;';
+  nav.style.cssText='display:grid;grid-template-columns:1fr;gap:6px;margin:0 0 14px;';
   const categories=['Deck graphics','Deck shape','Wheels','Trucks','Grip tape','Grip tape graphics','Deck colour'];
   for(const name of categories){
     const button=document.createElement('button');
     button.type='button';button.textContent=name;
-    button.style.cssText='min-height:38px;padding:7px 6px;border:1px solid '+(editorCategory===name?'#b8d4ca':'#ffffff22')+';border-radius:8px;background:'+(editorCategory===name?'#dce9e3':'#ffffff0b')+';color:'+(editorCategory===name?'#17211f':'#e6eeeb')+';font:800 10px Arial,sans-serif;letter-spacing:.25px;touch-action:manipulation;';
+    button.style.cssText='min-height:34px;padding:7px 8px;border:1px solid '+(editorCategory===name?'#28e4df':'#36d9e755')+';border-radius:3px;background:'+(editorCategory===name?'#123f48':'#0b171c')+';color:'+(editorCategory===name?'#72fff4':'#d8e6e8')+';font:800 10px Arial,sans-serif;letter-spacing:.35px;text-align:left;touch-action:manipulation;';
     button.addEventListener('click',()=>{editorCategory=name;aimEditorBoard(name);buildDeckCustomizationUI();});
     nav.appendChild(button);
   }
