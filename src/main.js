@@ -679,6 +679,122 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
 });
 makeDeckTop(0.992, 0.985, deckTopMaterial, 0.009, 3);
 
+/* Board graphic customisation: procedural, high-resolution deck artwork. */
+const deckGraphicState = {
+  category: 'Vintage',
+  design: 0,
+  graffitiStyle: 0,
+  message: 'YOUR TEXT',
+  colorA: '#f5c542',
+  colorB: '#e64c35',
+  outline: '#111111',
+  deckColor: '#514078',
+  fade: 'Vertical fade'
+};
+const deckGraphicCatalog = {
+  Vintage: ['Skull & Roses','Flaming Panther','Retro Racing','Broken Heart','Lucky Dice','Desert Sunset','Classic Eagle','Wild Tiger','Vintage Comic','Snake Bite','Old School Star','Distressed Badge'],
+  Japanese: ['Rising Dragon','Koi Current','Oni Mask','Samurai Spirit','Great Wave','Hannya Bloom','Crane & Sun','Tiger Scroll','Lotus Garden','Kabuki Eyes','Mountain Shrine','Serpent Seal'],
+  Psychedelic: ['Liquid Dream','Warped Reality','Melting Smile','Cosmic Garden','Swirl Theory','Electric Daze','Prism Trip','Acid Bloom','Fever Dream','Neon Mirage','Solar Flare','Chromatic Maze','Jelly Vision','Hypnotic Eye','Space Ritual','Colour Collapse','Dream Spiral','Vapor Trails','Freak Scene','Infinity Melt','Magic Mushroom','Sonic Bloom','Kaleidoscope','Lunar Ooze']
+};
+const graffitiStyleNames = ['Wildstyle','Bubble letters','Throw-up','Block letters','Tag script','Chrome burner','Drip letters','3D extrusion','Stencil','Brush marker','Sharpie tag','Blackletter','Rounded bold','Inline racing','Speed slant','Hollow outline','Retro sign','Angular tech','Fat cap','Stacked wildstyle'];
+const graffitiFonts = ['900 142px Impact','900 150px Arial Black,Arial','900 150px Impact','900 142px Arial Black,Arial','italic 900 145px cursive','900 145px Impact','900 145px Impact','900 145px Arial Black,Arial','900 145px Impact','italic 900 145px Georgia','italic 900 145px Arial','900 132px Georgia','900 150px Arial Rounded MT Bold,Arial','italic 900 145px Impact','italic 900 145px Impact','900 145px Arial Black,Arial','900 138px Georgia','900 140px Arial Black,Arial','900 150px Impact','italic 900 140px Impact'];
+const fadeStyles = ['Vertical fade','Dot fade','Metallic fade','Liquid fade','Flame fade','Neon fade','Spray fade','Holographic fade','Checker fade','Cracked fade','Sunburst fade','Striped fade','Halftone fade','Iridescent fade','Marble fade'];
+function graphicRandom(seed) {
+  let n=seed>>>0;
+  return ()=>{n=(n*1664525+1013904223)>>>0;return n/4294967296;};
+}
+function drawDeckGraphic(canvas, topSide) {
+  const ctx=canvas.getContext('2d'), W=canvas.width, H=canvas.height;
+  const st=deckGraphicState, rnd=graphicRandom(92831+st.design*7919+(st.category==='Japanese'?2200:st.category==='Psychedelic'?4400:st.category==='Graffiti'?6600:0));
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle=st.deckColor;ctx.fillRect(0,0,W,H);
+  const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#ffffff18');bg.addColorStop(.5,'#00000008');bg.addColorStop(1,'#00000030');
+  ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+  const palette=[st.colorA,st.colorB,'#f3e6c8','#202020','#e9e1d2'];
+  if(st.category==='Graffiti'){
+    const text=st.message.trim()||'YOUR TEXT';
+    ctx.save();ctx.translate(W/2,H/2);ctx.rotate(-0.045);
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=graffitiFonts[st.graffitiStyle];
+    let size=142;while(ctx.measureText(text).width>W*.82&&size>36){size-=5;ctx.font=graffitiFonts[st.graffitiStyle].replace(/\d+px/,size+'px');}
+    ctx.shadowColor='#000';ctx.shadowBlur=18;ctx.shadowOffsetX=13;ctx.shadowOffsetY=17;
+    ctx.lineJoin='round';ctx.lineWidth=34;ctx.strokeStyle=st.outline;ctx.strokeText(text,0,0,W*.86);
+    ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+    ctx.save();ctx.beginPath();ctx.strokeText(text,0,0,W*.86);ctx.clip();
+    let grad;
+    if(st.fade==='Metallic fade'){
+      grad=ctx.createLinearGradient(0,-110,0,110);grad.addColorStop(0,'#fff');grad.addColorStop(.16,st.colorA);grad.addColorStop(.34,'#fff');grad.addColorStop(.52,st.colorB);grad.addColorStop(.68,'#555');grad.addColorStop(.82,'#fff');grad.addColorStop(1,st.colorA);
+    } else if(st.fade==='Neon fade'||st.fade==='Holographic fade'||st.fade==='Iridescent fade'){
+      grad=ctx.createLinearGradient(-W*.4,-100,W*.4,100);grad.addColorStop(0,st.colorA);grad.addColorStop(.35,st.colorB);grad.addColorStop(.62,'#fff');grad.addColorStop(1,st.colorA);
+    } else if(st.fade==='Sunburst fade'){
+      grad=ctx.createRadialGradient(-80,-30,10,0,0,W*.6);grad.addColorStop(0,st.colorA);grad.addColorStop(1,st.colorB);
+    } else {
+      grad=ctx.createLinearGradient(0,-120,0,120);grad.addColorStop(0,st.colorA);grad.addColorStop(1,st.colorB);
+    }
+    ctx.fillStyle=grad;ctx.fillRect(-W/2,-H/2,W,H);
+    if(st.fade==='Dot fade'||st.fade==='Halftone fade'){
+      for(let y=-H/2;y<H/2;y+=18)for(let x=-W/2;x<W/2;x+=18){const r=2+Math.abs(y)/(H/2)*5;ctx.fillStyle='#111';ctx.globalAlpha=.52;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+    } else if(st.fade==='Checker fade'){
+      for(let y=-H/2;y<H/2;y+=34)for(let x=-W/2;x<W/2;x+=34){if((Math.floor(x/34)+Math.floor(y/34))%2===0){ctx.fillStyle='#fff';ctx.globalAlpha=.25;ctx.fillRect(x,y,34,34);}}ctx.globalAlpha=1;
+    } else if(st.fade==='Striped fade'){
+      ctx.strokeStyle='#fff';ctx.globalAlpha=.35;ctx.lineWidth=10;for(let x=-W/2;x<W/2;x+=36){ctx.beginPath();ctx.moveTo(x,-H/2);ctx.lineTo(x+150,H/2);ctx.stroke();}ctx.globalAlpha=1;
+    } else if(st.fade==='Cracked fade'||st.fade==='Marble fade'||st.fade==='Liquid fade'){
+      ctx.strokeStyle='#fff';ctx.globalAlpha=.42;ctx.lineWidth=5;for(let i=0;i<30;i++){let x=(rnd()-.5)*W,y=(rnd()-.5)*H;ctx.beginPath();ctx.moveTo(x,y);ctx.bezierCurveTo(x+70,y-90,x-80,y+100,x+150,y+30);ctx.stroke();}ctx.globalAlpha=1;
+    } else if(st.fade==='Flame fade'){
+      for(let i=0;i<24;i++){const x=(rnd()-.5)*W;ctx.fillStyle=i%2?st.colorA:st.colorB;ctx.globalAlpha=.42;ctx.beginPath();ctx.moveTo(x,H/2);ctx.quadraticCurveTo(x-55,40,x+20,-H/2*rnd());ctx.quadraticCurveTo(x+75,40,x+42,H/2);ctx.fill();}ctx.globalAlpha=1;
+    } else if(st.fade==='Spray fade'){
+      for(let i=0;i<1100;i++){ctx.fillStyle=i%2?st.colorA:st.colorB;ctx.globalAlpha=.3+rnd()*.55;ctx.beginPath();ctx.arc((rnd()-.5)*W,(rnd()-.5)*H,1+rnd()*8,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
+    } else if(st.fade==='Neon fade'){
+      ctx.strokeStyle='#fff';ctx.globalAlpha=.65;ctx.lineWidth=7;ctx.strokeText(text,0,0,W*.86);ctx.globalAlpha=1;
+    }
+    ctx.restore();
+    ctx.restore();
+    // Fixed natural drop shadow is part of the lettering; outline is only black or white.
+    ctx.textAlign='center';ctx.font='bold 30px Arial';ctx.fillStyle='#ffffffaa';ctx.fillText(st.graffitiStyleNames||'',W/2,H*.84);
+  } else {
+    const cat=st.category, idx=st.design;
+    ctx.save();ctx.translate(W/2,H/2);
+    if(cat==='Vintage'){
+      // Aged poster grain, bold retro badge, flames and hand-drawn stars.
+      ctx.fillStyle=idx%2?'#171717':'#f1dfbd';ctx.globalAlpha=.24;ctx.fillRect(-W/2,-H/2,W,H);ctx.globalAlpha=1;
+      ctx.strokeStyle=palette[idx%2];ctx.lineWidth=22;ctx.beginPath();ctx.ellipse(0,0,520,330,0,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle=palette[(idx+1)%2];ctx.font='900 150px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';
+      const labels=['HOT ROD','NO MERCY','WILD SIDE','BAD LUCK','BURNOUT','OUTLAW','SKULL CLUB','FULL THROTTLE','HELLCAT','RIDE OR DIE','OLD SCHOOL','REBEL'];
+      ctx.fillText(labels[idx],0,15,1000);
+      ctx.font='bold 52px Arial';ctx.fillText('SKATE DEPT.  •  EST. 1994',0,260,1000);
+      for(let i=0;i<16;i++){const a=i*Math.PI/8;ctx.fillStyle=palette[i%2];ctx.beginPath();ctx.arc(Math.cos(a)*560,Math.sin(a)*340,12+rnd()*14,0,Math.PI*2);ctx.fill();}
+    } else if(cat==='Japanese'){
+      // Sun disc, layered wave crests and a central stylised dragon/oni motif.
+      ctx.fillStyle=idx%2?'#d54b35':'#e9c77d';ctx.beginPath();ctx.arc(0,-30,300,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=palette[0];ctx.lineWidth=24;for(let k=0;k<5;k++){ctx.beginPath();ctx.moveTo(-650,170+k*55);for(let x=-650;x<=650;x+=20)ctx.lineTo(x,170+k*55+Math.sin(x/65+k)*45);ctx.stroke();}
+      ctx.fillStyle=idx%3===0?'#171717':'#f4e9d2';ctx.font='900 230px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(['龍','鯉','鬼','侍','波','虎','蓮','鶴','蛇','月','花','風'][idx],0,-40);
+      ctx.strokeStyle='#171717';ctx.lineWidth=10;ctx.beginPath();ctx.arc(0,-30,315,0,Math.PI*2);ctx.stroke();
+      ctx.fillStyle='#171717';ctx.font='bold 44px Arial';ctx.fillText(['RYU','KOI','ONI','SAMURAI','NAMI','TORA','LOTUS','TSURU','HEBI','TSUKI','HANA','KAZE'][idx],0,350);
+    } else {
+      // Psychedelic layered rings, warped ribbons, liquid blobs and stars.
+      for(let r=480;r>45;r-=42){ctx.strokeStyle=palette[Math.floor(r/42)%2];ctx.globalAlpha=.28+(480-r)/700;ctx.lineWidth=18;ctx.beginPath();ctx.ellipse(Math.sin(r)*35,Math.cos(r)*25,r,r*.58,Math.sin(r/100),0,Math.PI*2);ctx.stroke();}
+      ctx.globalAlpha=1;
+      for(let k=0;k<11;k++){ctx.strokeStyle=palette[k%2];ctx.lineWidth=16+k%3*8;ctx.beginPath();const yy=-360+k*72;ctx.moveTo(-W*.45,yy);ctx.bezierCurveTo(-300,yy-160,300,yy+170,W*.45,yy-30);ctx.stroke();}
+      ctx.fillStyle=palette[idx%2];ctx.font='900 140px Impact';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(['TRIP','DREAM','FUZZ','COSMIC','MELT','VIBE','WARP','ODDITY'][idx%8],0,0,950);
+      for(let i=0;i<28;i++){ctx.fillStyle=palette[i%2];ctx.beginPath();ctx.arc((rnd()-.5)*W,(rnd()-.5)*H,5+rnd()*28,0,Math.PI*2);ctx.fill();}
+    }
+    ctx.restore();
+    // Fine worn-print speckle, deliberately subtle.
+    for(let i=0;i<2600;i++){ctx.globalAlpha=.08+rnd()*.12;ctx.fillStyle=i%2?'#fff':'#111';ctx.fillRect(rnd()*W,rnd()*H,1+rnd()*3,1+rnd()*2);}ctx.globalAlpha=1;
+  }
+  if(topSide){
+    ctx.strokeStyle='#ffffff55';ctx.lineWidth=9;ctx.strokeRect(35,35,W-70,H-70);
+  }
+}
+function refreshDeckGraphic() {
+  drawDeckGraphic(deckTopGraphicTexture.image,true);
+  drawDeckGraphic(boardGraphicTexture.image,false);
+  deckTopGraphicTexture.needsUpdate=true;boardGraphicTexture.needsUpdate=true;
+  deckTopMaterial.needsUpdate=true;mats.board.needsUpdate=true;
+  renderer.render(scene,camera);
+}
+refreshDeckGraphic();
+
+
 // Trucks: base plates, hangers, axles and kingpins.
 const wheelMeshes = [];
 for (const x of [-0.69, 0.69]) {
@@ -1376,25 +1492,91 @@ const parksOption = makeMenuOption('Parks and missions');
 mount.appendChild(menuPanel);
 
 const sectionPanel = document.createElement('div');
-sectionPanel.style.cssText = 'position:absolute;inset:0;z-index:32;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 18px 18px;background:rgba(12,17,18,.76);backdrop-filter:blur(8px);font-family:Arial,sans-serif;';
+sectionPanel.style.cssText = 'position:absolute;inset:0;z-index:32;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 12px;background:rgba(12,17,18,.82);backdrop-filter:blur(8px);font-family:Arial,sans-serif;box-sizing:border-box;';
 const sectionCard = document.createElement('div');
-sectionCard.style.cssText = 'width:min(100%,420px);padding:22px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;';
+sectionCard.style.cssText = 'width:min(100%,680px);max-height:92%;overflow:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
 const sectionTitle = document.createElement('div');
-sectionTitle.style.cssText = 'margin-bottom:12px;font-size:17px;font-weight:900;letter-spacing:1px;';
+sectionTitle.style.cssText = 'margin-bottom:12px;font-size:18px;font-weight:900;letter-spacing:1px;';
 const sectionMessage = document.createElement('div');
-sectionMessage.textContent = 'This section is ready for its features to be added.';
-sectionMessage.style.cssText = 'margin-bottom:22px;color:#c2cecb;font-size:13px;line-height:1.5;';
+sectionMessage.style.cssText = 'margin-bottom:14px;color:#c2cecb;font-size:13px;line-height:1.5;';
+const sectionContent = document.createElement('div');
 const sectionBack = document.createElement('button');
 sectionBack.type = 'button';
 sectionBack.textContent = 'BACK TO MENU';
-sectionBack.style.cssText = 'padding:12px 15px;border:0;border-radius:9px;background:#e6ece9;color:#20292b;font-size:11px;font-weight:900;letter-spacing:1px;touch-action:manipulation;';
-sectionCard.append(sectionTitle, sectionMessage, sectionBack);
+sectionBack.style.cssText = 'margin-top:18px;padding:12px 15px;border:0;border-radius:9px;background:#e6ece9;color:#20292b;font-size:11px;font-weight:900;letter-spacing:1px;touch-action:manipulation;';
+sectionCard.append(sectionTitle, sectionMessage, sectionContent, sectionBack);
 sectionPanel.appendChild(sectionCard);
 mount.appendChild(sectionPanel);
 
+function makeEditorLabel(text) {
+  const label=document.createElement('label');
+  label.textContent=text;
+  label.style.cssText='display:block;margin:12px 0 6px;color:#dce5e2;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;';
+  return label;
+}
+function makeEditorSelect(options,value,onChange) {
+  const el=document.createElement('select');
+  el.style.cssText='width:100%;min-height:42px;padding:9px 11px;border:1px solid #ffffff35;border-radius:9px;background:#11191b;color:#fff;font:600 13px Arial,sans-serif;';
+  options.forEach((v,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=v;el.appendChild(o);});
+  el.value=String(value);el.addEventListener('change',()=>onChange(Number(el.value)));return el;
+}
+function makeEditorColor(value,onChange) {
+  const el=document.createElement('input');el.type='color';el.value=value;
+  el.style.cssText='width:100%;height:42px;padding:3px;border:1px solid #ffffff35;border-radius:9px;background:#11191b;';
+  el.addEventListener('input',()=>onChange(el.value));return el;
+}
+function makeEditorText(value,onChange) {
+  const el=document.createElement('input');el.type='text';el.maxLength=24;el.value=value;el.placeholder='Type your message';
+  el.style.cssText='width:100%;height:42px;padding:0 11px;box-sizing:border-box;border:1px solid #ffffff35;border-radius:9px;background:#11191b;color:#fff;font:600 14px Arial,sans-serif;';
+  el.addEventListener('input',()=>onChange(el.value));return el;
+}
+function editorField(label,control) {
+  const wrap=document.createElement('div');wrap.append(makeEditorLabel(label),control);return wrap;
+}
+function buildDeckCustomizationUI() {
+  sectionContent.replaceChildren();
+  const intro=document.createElement('div');
+  intro.textContent='Choose a deck graphic and customise its colours. Changes appear on the 3D board immediately.';
+  intro.style.cssText='margin-bottom:12px;color:#c2cecb;font-size:12px;line-height:1.5;';
+  sectionContent.appendChild(intro);
+  const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti'];
+  const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
+    deckGraphicState.category=categoryOptions[i];deckGraphicState.design=0;buildDeckCustomizationUI();refreshDeckGraphic();
+  });
+  sectionContent.appendChild(editorField('Graphic category',category));
+  if(deckGraphicState.category==='Graffiti'){
+    const style=makeEditorSelect(graffitiStyleNames,deckGraphicState.graffitiStyle,i=>{deckGraphicState.graffitiStyle=i;refreshDeckGraphic();});
+    sectionContent.appendChild(editorField('Graffiti lettering style',style));
+    const message=makeEditorText(deckGraphicState.message,v=>{deckGraphicState.message=v;refreshDeckGraphic();});
+    sectionContent.appendChild(editorField('Your message (up to 24 characters)',message));
+    const fade=makeEditorSelect(fadeStyles,fadeStyles.indexOf(deckGraphicState.fade),i=>{deckGraphicState.fade=fadeStyles[i];refreshDeckGraphic();});
+    sectionContent.appendChild(editorField('Letter fill / fade effect',fade));
+    const outline=makeEditorSelect(['Black','White'],deckGraphicState.outline==='#ffffff'?1:0,i=>{deckGraphicState.outline=i?'#ffffff':'#111111';refreshDeckGraphic();});
+    sectionContent.appendChild(editorField('Letter outline',outline));
+    const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+    colors.append(editorField('First main colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})),editorField('Fade-to colour',makeEditorColor(deckGraphicState.colorB,v=>{deckGraphicState.colorB=v;refreshDeckGraphic();})));
+    sectionContent.appendChild(colors);
+  } else {
+    const designs=deckGraphicCatalog[deckGraphicState.category];
+    const design=makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();});
+    sectionContent.appendChild(editorField('Choose a design',design));
+    const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
+    colors.append(editorField('Main deck colour',makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();})),editorField('Accent colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
+    sectionContent.appendChild(colors);
+  }
+  const deckColor=makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();});
+  sectionContent.appendChild(editorField('Deck base colour',deckColor));
+  const note=document.createElement('div');
+  note.textContent='Graffiti uses two selectable fill colours, a fixed natural shadow and a fixed-thickness black or white outline. The deck base colour remains independently adjustable.';
+  note.style.cssText='margin-top:12px;color:#94a5a0;font-size:11px;line-height:1.5;';
+  sectionContent.appendChild(note);
+}
 function openSection(title) {
   menuPanel.style.display = 'none';
   sectionTitle.textContent = title.toUpperCase();
+  sectionMessage.textContent = title==='Board customization' ? 'DECK GRAPHICS' : 'Parks and missions features will be designed separately.';
+  sectionContent.replaceChildren();
+  if(title==='Board customization') buildDeckCustomizationUI();
   sectionPanel.style.display = 'flex';
 }
 function showGameMenu() {
