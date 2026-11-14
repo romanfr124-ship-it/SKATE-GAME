@@ -1037,7 +1037,7 @@ const boardPhysics = (() => {
       );
       const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
       world.createCollider(
-        RAPIER.ColliderDesc.cylinder(0.055, 0.135)
+        RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
           .setFriction(2.0)
           .setRestitution(0.06)
