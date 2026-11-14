@@ -340,6 +340,19 @@ function groundHeightAt(x, z) {
   const bowlY = insideBowl ? bowlHeightAt(x, z) : 0;
   return Math.max(bowlY, quarterPipeHeightAt(x, z), rampHeightAt(x, z), insideBowl ? -Infinity : 0);
 }
+const groundContactPoint = new THREE.Vector3();
+function groundContactCorrection() {
+  // Use the four actual wheel contact points. Comparing the board's lowest
+  // world-space bounding-box corner with terrain height at its centre makes
+  // a board on a curved wall look deeply embedded, causing large snap-outs.
+  let correction = -Infinity;
+  for (const wheel of wheelMeshes) {
+    wheel.getWorldPosition(groundContactPoint);
+    const surfaceY = groundHeightAt(groundContactPoint.x, groundContactPoint.z);
+    correction = Math.max(correction, surfaceY - (groundContactPoint.y - 0.145));
+  }
+  return Number.isFinite(correction) ? correction : 0;
+}
 
 // Street plaza: low, usable obstacles with clear run-ups and room to roll away.
 function bench(x, z, length = 5.2) {
@@ -1218,10 +1231,9 @@ function animate() {
       // Use the actual rotated board geometry for ground contact. The board
       // origin is not the bottom of the wheels/deck, especially during tricks.
       board.updateMatrixWorld(true);
-      boardWorldBounds.setFromObject(board);
-      const groundY = groundHeightAt(board.position.x, board.position.z);
-      if (boardWorldBounds.min.y <= groundY && verticalVelocity < 0) {
-        board.position.y += groundY - boardWorldBounds.min.y;
+      const groundCorrection = groundContactCorrection();
+      if (groundCorrection >= 0 && verticalVelocity < 0) {
+        board.position.y += groundCorrection;
         const rotationSpeed = Math.abs(shuvitVelocity);
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
@@ -1254,9 +1266,7 @@ function animate() {
   // including manuals and caught primo/Casper orientations.
   if (!airborne && !grinding) {
     board.updateMatrixWorld(true);
-    boardWorldBounds.setFromObject(board);
-    const groundY = groundHeightAt(board.position.x, board.position.z);
-    board.position.y += groundY - boardWorldBounds.min.y;
+    board.position.y += groundContactCorrection();
   }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
