@@ -89,6 +89,32 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
     ctx.stroke();
   }
 
+  // Random organic moss colonies and green mineral staining, scattered as
+  // irregular patches across one broad texture field (never regular tile bands).
+  for (let i = 0; i < 34; i++) {
+    const x = random() * size, y = random() * size;
+    const rx = 20 + random() * 78, ry = 9 + random() * 34;
+    const halo = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry) * 1.55);
+    halo.addColorStop(0, '#536d4380'); halo.addColorStop(0.55, '#637b4a45'); halo.addColorStop(1, '#637b4a00');
+    ctx.fillStyle = halo; ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+    ctx.beginPath(); ctx.arc(0, 0, rx * 1.55, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(x, y); ctx.rotate((random() - 0.5) * 0.8);
+    ctx.fillStyle = ['#526b3b','#607b43','#71894c','#465d37'][Math.floor(random() * 4)];
+    ctx.beginPath();
+    for (let p = 0; p < 11; p++) {
+      const a = p / 11 * Math.PI * 2, r = 0.58 + random() * 0.48;
+      const px = Math.cos(a) * rx * r, py = Math.sin(a) * ry * r;
+      if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
+    ctx.closePath(); ctx.globalAlpha = 0.48 + random() * 0.28; ctx.fill();
+    for (let k = 0; k < 24; k++) {
+      const mx = (random() - 0.5) * rx * 1.6, my = (random() - 0.5) * ry * 1.5;
+      ctx.globalAlpha = 0.35 + random() * 0.45; ctx.fillStyle = random() > 0.5 ? '#82945a' : '#344d30';
+      ctx.beginPath(); ctx.ellipse(mx, my, 1 + random() * 3.8, 1 + random() * 2.4, random(), 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.restore();
+  }
+
   // Fine, irregular scratches and dragged wheel scuffs.
   for (let i = 0; i < 980; i++) {
     const x = random() * size, y = random() * size;
@@ -120,7 +146,8 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(0.25, 0.25);
+  // One broad world-space texture field prevents visible repeating intervals.
+  texture.repeat.set(0.01, 0.01);
   texture.anisotropy = 8;
   texture.generateMipmaps = true;
   return texture;
@@ -134,6 +161,28 @@ const obstacleTexture = makeWeatheredConcreteTexture(
   '#c87943', ['#754a35', '#89563d', '#a66b4b'],
   ['#e0a477', '#d18d60', '#bd7950'], 1024
 );
+// On obstacle side faces, moss gathers at the foot of the concrete and creeps
+// upward in broken, uneven tongues. This is part of the texture, not geometry.
+function addBaseMossToObstacleTexture(texture) {
+  const ctx = texture.image.getContext('2d');
+  let seed = 381927;
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const size = texture.image.width;
+  for (let i = 0; i < 23; i++) {
+    const x = random() * size, y = size * (0.78 + random() * 0.19);
+    const width = 24 + random() * 105, height = 24 + random() * 74;
+    const stain = ctx.createRadialGradient(x, y, 1, x, y, width);
+    stain.addColorStop(0, '#526f4388'); stain.addColorStop(0.55, '#66814c55'); stain.addColorStop(1, '#66814c00');
+    ctx.fillStyle = stain; ctx.beginPath(); ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = ['#526b3b','#637d45','#75884c'][Math.floor(random() * 3)];
+    ctx.globalAlpha = 0.62; ctx.beginPath(); ctx.moveTo(x - width * 0.5, y);
+    for (let p = 0; p <= 8; p++) ctx.lineTo(x - width * 0.5 + width * p / 8, y - random() * height * (p % 2 ? 0.45 : 1.2));
+    ctx.lineTo(x + width * 0.5, y + height * 0.3); ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+  }
+  texture.needsUpdate = true;
+}
+addBaseMossToObstacleTexture(obstacleTexture);
+
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
