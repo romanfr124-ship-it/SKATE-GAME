@@ -1702,9 +1702,14 @@ function animate() {
       }
       if (tailScraping) {
         const scrapeSpeed = velocity.length();
-        const lowSpeedMultiplier = 1 + 2 * Math.exp(-scrapeSpeed * 0.45);
-        const scrapeDragRate = 0.21 * lowSpeedMultiplier;
+        // Much stronger exponential scrape drag, especially as the board
+        // approaches a stop. The low-speed term grows sharply near zero.
+        const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 0.7);
+        const scrapeDragRate = 0.42 * lowSpeedMultiplier;
         velocity.multiplyScalar(Math.exp(-scrapeDragRate * dt));
+        // Exponential drag approaches zero asymptotically; snap tiny residual
+        // movement to a true stop so the tail can settle on the concrete.
+        if (velocity.length() < 0.12) velocity.set(0, 0, 0);
         speed = velocity.length();
       }
     }
