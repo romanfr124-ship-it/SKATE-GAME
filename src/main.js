@@ -356,7 +356,7 @@ const mats = {
   floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.98 }),
   concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.97 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
-  board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
+  board: new THREE.MeshStandardMaterial({ color: 0x514078, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshPhysicalMaterial({ color: 0xe0e5eb, metalness: 0.72, roughness: 0.19, clearcoat: 0.85, clearcoatRoughness: 0.12 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
@@ -667,8 +667,7 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
 
 // The deck has no grip-tape layer: its purple painted top is fully exposed.
 const deckTopMaterial = new THREE.MeshStandardMaterial({
-  color: 0xffffff,
-  map: deckTopGraphicTexture,
+  color: 0x514078,
   metalness: 0.12,
   roughness: 0.48,
   side: THREE.DoubleSide,
@@ -678,6 +677,21 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   depthWrite: false
 });
 makeDeckTop(0.992, 0.985, deckTopMaterial, 0.009, 3);
+
+// A separate mapped face on the actual underside. This avoids relying on the
+// extruded deck's side-face UVs, which caused the default artwork to show instead.
+const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: boardGraphicTexture,
+  metalness: 0.12,
+  roughness: 0.48,
+  side: THREE.DoubleSide,
+  polygonOffset: true,
+  polygonOffsetFactor: -1,
+  polygonOffsetUnits: -1,
+  depthWrite: false
+});
+makeDeckTop(0.992, 0.985, undersideGraphicMaterial, -0.109, 4);
 
 /* Board graphic customisation: procedural, high-resolution deck artwork. */
 const deckGraphicState = {
@@ -791,15 +805,15 @@ function drawDeckGraphic(canvas, topSide) {
   }
 }
 function refreshDeckGraphic() {
-  // Artwork belongs on the underside of the deck, centred on the board.
+  // The selected design is rendered onto a dedicated, centred underside face.
   drawDeckGraphic(boardGraphicTexture.image,false);
-  // Keep the top face as a clean, solid deck colour with no graphic.
-  const topCtx=deckTopGraphicTexture.image.getContext('2d');
-  topCtx.clearRect(0,0,deckTopGraphicTexture.image.width,deckTopGraphicTexture.image.height);
-  topCtx.fillStyle=deckGraphicState.deckColor;
-  topCtx.fillRect(0,0,deckTopGraphicTexture.image.width,deckTopGraphicTexture.image.height);
-  deckTopGraphicTexture.needsUpdate=true;boardGraphicTexture.needsUpdate=true;
-  deckTopMaterial.needsUpdate=true;mats.board.needsUpdate=true;
+  // The upper face and exposed deck edge retain the independent deck colour.
+  mats.board.color.set(deckGraphicState.deckColor);
+  deckTopMaterial.color.set(deckGraphicState.deckColor);
+  boardGraphicTexture.needsUpdate=true;
+  undersideGraphicMaterial.needsUpdate=true;
+  deckTopMaterial.needsUpdate=true;
+  mats.board.needsUpdate=true;
   renderer.render(scene,camera);
 }
 refreshDeckGraphic();
@@ -1578,7 +1592,7 @@ function restoreBoardEditorPreview(){
   renderer.render(scene,camera);
 }
 function aimEditorBoard(category){
-  const underside=['Trucks','Wheels'].includes(category);
+  const underside=['Deck graphics','Trucks','Wheels'].includes(category);
   const target=new THREE.Euler(underside?Math.PI:0,category==='Deck shape'?0.42:0,Math.PI/2,'YXZ');
   editorTargetRotation=target;
 }
