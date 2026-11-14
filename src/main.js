@@ -1354,8 +1354,8 @@ const maxSpeed = 13.125; // 25% higher top speed
 function forwardVector() {
   return new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
 }
-// The control frame follows the direction of travel. When rolling backwards,
-// screen-left/right and forward/back controls are mirrored with the camera.
+// The control frame follows the selected riding stance. A deliberate
+// full-width swipe changes stance; ordinary momentum changes never do.
 let travelSign = 1;
 function travelForwardVector() {
   return forwardVector().multiplyScalar(travelSign);
