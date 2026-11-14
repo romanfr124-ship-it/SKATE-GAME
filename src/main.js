@@ -637,7 +637,7 @@ function travelForwardVector() {
 function screenTurnDirection(dx) {
   return (dx > 0 ? 1 : -1) * travelSign;
 }
-function push(power = 2.7) {
+function push(power = 3.375) {
   if (airborne || bailTimer > 0) return;
   const forward = travelForwardVector();
   velocity.addScaledVector(forward, power);
@@ -1130,7 +1130,7 @@ function finishGesture(event) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
-    velocity.addScaledVector(travelForwardVector(), direction * 2.8);
+    velocity.addScaledVector(travelForwardVector(), direction * 3.5);
     const current = velocity.length();
     if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
   }
@@ -1159,7 +1159,7 @@ addEventListener('keydown', event => {
   if (key === ' ' && !event.repeat) pop('ollie');
   if (key === 'n' && !event.repeat) pop('nollie');
   if ((key === 'j' || key === 'k') && (airborne || grinding) && !event.repeat) flick(key === 'j' ? -1 : 1);
-  if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.2);
+  if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.75);
 });
 addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
 
@@ -1410,8 +1410,8 @@ function animate() {
           );
           board.rotation.x = THREE.MathUtils.damp(board.rotation.x, grindBalance * 0.30 + steer * 0.07, 10, dt);
           board.rotation.z = THREE.MathUtils.damp(board.rotation.z, manualActive ? manualAngle : 0, 9, dt);
-          velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
-          velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
+          velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.05625 * dt);
+          velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.05625 * dt);
         }
       }
     }
@@ -1429,7 +1429,7 @@ function animate() {
       const redirectRate = manualActive ? 0.48 : (0.95 + currentSpeed * 0.10);
       velocity.lerp(desired, 1 - Math.exp(-redirectRate * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
-      else velocity.multiplyScalar(Math.exp(-0.14 * dt));
+      else velocity.multiplyScalar(Math.exp(-0.105 * dt));
       if (groundedRampNormal.y < 0.999) {
         const downhill = new THREE.Vector3(0, -gravity, 0).addScaledVector(
           groundedRampNormal,
@@ -1475,7 +1475,7 @@ function animate() {
     } else if (airborne) {
       // Limited air control; momentum remains mostly conserved.
       heading += steer * 0.32 * dt;
-      velocity.multiplyScalar(Math.exp(-0.02 * dt));
+      velocity.multiplyScalar(Math.exp(-0.015 * dt));
       airTime += dt;
       // Free angular momentum: no preset rotation target or automatic snap.
       // Air drag slows the board gradually; touching the deck adds strong,
