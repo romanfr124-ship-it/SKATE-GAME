@@ -16,7 +16,7 @@ try {
   throw error;
 }
 // Keep GPU memory and fill-rate within mobile Safari limits.
-let renderPixelRatio = Math.min(devicePixelRatio || 1, 1.25);
+let renderPixelRatio = Math.min(devicePixelRatio || 1, 2);
 renderer.setPixelRatio(renderPixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -30,7 +30,7 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x66513f, 1.25));
 const keyLight = new THREE.DirectionalLight(0xffedcf, 3.7);
 keyLight.position.set(-18, 28, -16);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.mapSize.set(3072, 3072);
 keyLight.shadow.camera.left = -34;
 keyLight.shadow.camera.right = 34;
 keyLight.shadow.camera.top = 34;
@@ -1296,7 +1296,7 @@ function animate() {
   qualityFrameCount++;
   if (qualityCheckTime >= 1.5) {
     const measuredFps = qualityFrameCount / qualityCheckTime;
-    const maxRatio = Math.min(devicePixelRatio || 1, 1.25);
+    const maxRatio = Math.min(devicePixelRatio || 1, 2);
     if (measuredFps < 48 && adaptivePixelRatio > 1.15) adaptivePixelRatio = Math.max(1.15, adaptivePixelRatio - 0.15);
     else if (measuredFps > 57 && adaptivePixelRatio < maxRatio) adaptivePixelRatio = Math.min(maxRatio, adaptivePixelRatio + 0.1);
     if (Math.abs(renderer.getPixelRatio() - adaptivePixelRatio) > 0.02) {
@@ -1532,6 +1532,6 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderPixelRatio = Math.min(devicePixelRatio || 1, 1.25);
+  renderPixelRatio = Math.min(devicePixelRatio || 1, 2);
   renderer.setPixelRatio(renderPixelRatio);
 });
