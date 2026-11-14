@@ -1495,7 +1495,7 @@ const boardPhysics = (() => {
     for (const joint of wheelJoints) {
       // A modest motor force prevents the wheels from free-spinning through
       // the ground while still allowing contact forces to slow or slip them.
-      joint.configureMotorVelocity(wheelDriveEnabled ? commandedWheelAngularSpeed : 0, wheelDriveEnabled ? 0.85 : 0);
+      joint.configureMotorVelocity(wheelDriveEnabled ? commandedWheelAngularSpeed : 0, wheelDriveEnabled ? 1 : 0);
     }
   }
 
@@ -2976,7 +2976,10 @@ function animate() {
   const wheelRadius = 0.145;
   const forwardSpeed = velocity.x * Math.sin(heading) + velocity.z * Math.cos(heading);
   const wheelRolling = !airborne && !grinding && bailTimer <= 0;
-  boardPhysics.setWheelDriveSpeed(forwardSpeed / wheelRadius, wheelRolling);
+  // Rapier's revolute motor sign is opposite the visible wheel's rolling
+  // direction for this axle orientation. Negate it so ground travel and
+  // tread rotation agree in both forward and switch stances.
+  boardPhysics.setWheelDriveSpeed(-forwardSpeed / wheelRadius, wheelRolling);
   if (!physicsSteppedThisFrame) boardPhysics.step(dt);
   updateFollowCamera(dt);
   renderer.render(scene, camera);
