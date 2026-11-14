@@ -916,7 +916,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   const flipName = flipDirection > 0 ? 'KICKFLIP' : 'HEELFLIP';
   showTrickName(hasFlip
     ? (hasShuvit ? `VARIAL ${flipName}` : flipName)
-    : (direction > 0 ? 'FRONT SHOVE-IT' : 'BACK SHOVE-IT'));
+    : 'SHOVE-IT');
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
 // This includes the deck, trucks and wheels, so nose/tail/side impacts are detected.
@@ -946,6 +946,7 @@ const trickReadout = document.createElement('div');
 trickReadout.style.cssText = 'position:absolute;left:50%;top:calc(env(safe-area-inset-top,0px) + 70px);transform:translateX(-50%) scale(.92);padding:10px 16px;border:3px solid #fff;border-radius:16px;background:linear-gradient(145deg,#ff956e,#f36d83);color:#fff;font:900 15px Arial,sans-serif;letter-spacing:1.8px;text-shadow:0 2px 0 #bd5367;box-shadow:0 4px 0 #a94d62,0 8px 18px #27475a66;pointer-events:none;opacity:0;transition:opacity .12s ease,transform .12s ease;z-index:6;';
 mount.appendChild(trickReadout);
 let trickReadoutTimer = 0;
+let trickReadoutHideTimer = 0;
 function showTrickName(name) {
   trickReadout.textContent = name;
   trickReadout.style.display = 'block';
@@ -954,10 +955,11 @@ function showTrickName(name) {
     trickReadout.style.transform = 'translateX(-50%) scale(1)';
   });
   clearTimeout(trickReadoutTimer);
+  clearTimeout(trickReadoutHideTimer);
   trickReadoutTimer = setTimeout(() => {
     trickReadout.style.opacity = '0';
     trickReadout.style.transform = 'translateX(-50%) scale(.92)';
-    setTimeout(() => { trickReadout.style.display = 'none'; }, 150);
+    trickReadoutHideTimer = setTimeout(() => { trickReadout.style.display = 'none'; }, 150);
   }, 900);
 }
 let groundedRampAngle = 0;
@@ -1464,6 +1466,13 @@ function updateRiderPose(dt, steer) {
 }
 camera.position.set(0, 4.4, -4.8);
 camera.lookAt(0, 0.65, 6.0);
+
+const controlHint = document.createElement('div');
+controlHint.textContent = 'SWIPE BESIDE BOARD TO PUSH  ·  FLICK DECK TO POP  ·  AIR FLICK TO TRICK';
+controlHint.style.cssText = 'position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 16px);transform:translateX(-50%);width:max-content;max-width:calc(100vw - 28px);padding:10px 14px;border:2px solid #fff;border-radius:15px;background:rgba(37,76,91,.82);color:#fff4dc;font:900 10px/1.45 Arial,sans-serif;letter-spacing:1px;text-align:center;text-shadow:0 1px 2px #17394c;box-shadow:0 4px 0 #234e5d88;pointer-events:none;transition:opacity .45s ease;z-index:10;';
+mount.appendChild(controlHint);
+setTimeout(() => { controlHint.style.opacity = '0'; }, 6500);
+setTimeout(() => { controlHint.style.display = 'none'; }, 7000);
 
 // Full skatepark map. Tap any point on the plan to teleport the skater there.
 const mapButton = document.createElement('button');
