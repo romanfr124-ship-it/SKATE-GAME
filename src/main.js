@@ -187,7 +187,8 @@ function buildBowl() {
     for (let segment = 0; segment < segments; segment++) {
       const a = ring * (segments + 1) + segment;
       const b = a + segments + 1;
-      indices.push(a, b, a + 1, b, b + 1, a + 1);
+      // Wind triangles upward so the bowl receives correct lighting.
+      indices.push(a, a + 1, b, b, a + 1, b + 1);
     }
   }
   const geometry = new THREE.BufferGeometry();
@@ -225,8 +226,9 @@ function buildBowl() {
       { x: bowl.x + Math.cos(a1) * bowl.radiusX, z: bowl.z + Math.sin(a1) * bowl.radiusZ },
       0.035, 'coping'
     );
-    edge.next = i === 23 ? grindEdges[grindEdges.length - 24] : null;
     edge.previous = i === 0 ? null : grindEdges[grindEdges.length - 2];
+    if (edge.previous) edge.previous.next = edge;
+    edge.next = i === 23 ? grindEdges[grindEdges.length - 24] : null;
   }
 
   // A clean, slightly raised concrete deck around the bowl gives riders
@@ -716,9 +718,8 @@ function tryStartGrind() {
     const boardAlignment = Math.abs(boardForward.dot(edge.tangent));
     const velocityAlong = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
     const velocityAcross = Math.abs(velocity.x * edge.tangent.z - velocity.z * edge.tangent.x);
-    // Accept both a lengthwise grind and a perpendicular boardslide. Do not
-    // require the board itself to point down the rail.
-    if (Math.abs(velocityAlong) < 0.45 && velocityAcross > speedNow * 0.92 && boardAlignment < 0.2) continue;
+    // Accept both a lengthwise grind and a perpendicular boardslide. The
+    // approach can be across the rail; the landing redirects onto its length.
     board.position.set(closest.x, targetY, closest.z);
     board.updateMatrixWorld(true);
     grindContactPoint.set(closest.x, edge.y, closest.z);
@@ -739,10 +740,7 @@ function tryStartGrind() {
     airborne = false;
     verticalVelocity = 0;
     let direction = Math.sign(velocityAlong);
-    if (!direction) {
-      const facingAlong = boardForward.dot(edge.tangent);
-      direction = Math.sign(facingAlong || 1);
-    }
+    if (!direction) direction = Math.sign(boardForward.dot(edge.tangent) || travelSign || 1);
     const grindSpeed = Math.max(1.2, Math.abs(velocityAlong), speedNow * 0.42);
     velocity.set(edge.tangent.x * direction * grindSpeed, 0, edge.tangent.z * direction * grindSpeed);
     shuvitVelocity = 0;
@@ -1081,13 +1079,17 @@ function animate() {
       let next = new THREE.Vector3(board.position.x, 0, board.position.z).addScaledVector(edge.tangent, alongVelocity * dt);
       let fromStart = next.clone().sub(new THREE.Vector3(edge.start.x, 0, edge.start.z)).dot(edge.tangent);
       if (fromStart < 0 || fromStart > edge.length) {
-        const nextEdge = fromStart > edge.length ? edge.next : edge.previous;
+        const movingForward = fromStart > edge.length;
+        const oldLength = edge.length;
+        const overshoot = movingForward ? fromStart - oldLength : -fromStart;
+        const nextEdge = movingForward ? edge.next : edge.previous;
         if (nextEdge && nextEdge.kind === edge.kind) {
           grindRail = edge = nextEdge;
           alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
-          if (Math.abs(alongVelocity) < 0.4) alongVelocity = Math.sign(alongVelocity || 1) * 1.2;
-          const overshoot = fromStart > edge.length ? fromStart - grindRail.length : -fromStart;
-          next = (fromStart > 0 ? edge.start.clone() : edge.end.clone()).addScaledVector(edge.tangent, fromStart > 0 ? overshoot : -overshoot);
+          if (Math.abs(alongVelocity) < 0.4) alongVelocity = (movingForward ? 1 : -1) * 1.2;
+          next = movingForward
+            ? edge.start.clone().addScaledVector(edge.tangent, overshoot)
+            : edge.end.clone().addScaledVector(edge.tangent, -overshoot);
           fromStart = next.clone().sub(edge.start).dot(edge.tangent);
         } else {
           grinding = false;
