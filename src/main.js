@@ -896,48 +896,53 @@ const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.395;
 deckVisualGroup.add(deck);
 
-// Build the painted top from the same outline as the deck, preserving its kick and shape.
-function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
-  const geometry = new THREE.ShapeGeometry(deckShape, 48);
+// Build both deck faces from the active deck outline. Their surface heights
+// are derived from the same kick and thickness profile as the solid deck,
+// so grip and artwork stay bonded to the wood even when the outline changes.
+function makeDeckTop(material, face, surfaceOffset, renderOrder) {
+  const geometry = new THREE.ShapeGeometry(deckShape, 64);
+  geometry.rotateX(Math.PI / 2);
   const positions = geometry.attributes.position;
   for (let i = 0; i < positions.count; i++) {
-    positions.setX(i, positions.getX(i) * scaleX);
-    positions.setY(i, positions.getY(i) * scaleZ);
+    const x = positions.getX(i);
+    const kick = deckKick(x);
+    const faceY = face === 'bottom'
+      ? -0.10 * deckThicknessAt(x) + kick - surfaceOffset
+      : kick + surfaceOffset;
+    positions.setY(i, faceY);
   }
   positions.needsUpdate = true;
-  geometry.rotateX(Math.PI / 2);
-  curveDeckGeometry(geometry);
+  geometry.computeVertexNormals();
+
+  // Rebuild UVs from the actual active outline, not fixed rectangular bounds.
   const uv = geometry.attributes.uv;
-  const p = geometry.attributes.position;
-  // Fit the artwork to the actual revised deck outline, including the
-  // rounded shoulders and the raised nose/tail kick, rather than the old
-  // fixed rectangular UV bounds.
-  const graphicBounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
-  for (let i = 0; i < p.count; i++) {
-    graphicBounds.minX = Math.min(graphicBounds.minX, p.getX(i));
-    graphicBounds.maxX = Math.max(graphicBounds.maxX, p.getX(i));
-    graphicBounds.minZ = Math.min(graphicBounds.minZ, p.getZ(i));
-    graphicBounds.maxZ = Math.max(graphicBounds.maxZ, p.getZ(i));
+  const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  for (let i = 0; i < positions.count; i++) {
+    bounds.minX = Math.min(bounds.minX, positions.getX(i));
+    bounds.maxX = Math.max(bounds.maxX, positions.getX(i));
+    bounds.minZ = Math.min(bounds.minZ, positions.getZ(i));
+    bounds.maxZ = Math.max(bounds.maxZ, positions.getZ(i));
   }
-  const graphicWidth = Math.max(0.001, graphicBounds.maxX - graphicBounds.minX);
-  const graphicLength = Math.max(0.001, graphicBounds.maxZ - graphicBounds.minZ);
+  const width = Math.max(0.001, bounds.maxX - bounds.minX);
+  const length = Math.max(0.001, bounds.maxZ - bounds.minZ);
   for (let i = 0; i < uv.count; i++) {
-    uv.setXY(
-      i,
-      (p.getX(i) - graphicBounds.minX) / graphicWidth,
-      (graphicBounds.maxZ - p.getZ(i)) / graphicLength
+    uv.setXY(i,
+      (positions.getX(i) - bounds.minX) / width,
+      (bounds.maxZ - positions.getZ(i)) / length
     );
   }
   uv.needsUpdate = true;
+
   const surface = new THREE.Mesh(geometry, material);
-  surface.position.y = deck.position.y + yOffset;
+  surface.position.y = deck.position.y;
   surface.renderOrder = renderOrder;
+  surface.frustumCulled = false;
   deckVisualGroup.add(surface);
   return surface;
 }
 
-// Fine, uniform skateboard grip tape. Pixel-level grain avoids oversized
-// dots and raised-looking particles when the deck is viewed close up.
+// Grip tape sits just above the wood, with its underside effectively touching
+// the deck. DoubleSide is required because the rotated shape faces downward.
 function makeGripTapeTexture() {
   const size = 1024;
   const canvas = document.createElement('canvas');
@@ -958,7 +963,6 @@ function makeGripTapeTexture() {
     pixels.data[i + 3] = 255;
   }
   ctx.putImageData(pixels, 0, 0);
-  // Sparse, extremely small mineral flecks add a natural abrasive finish.
   for (let i = 0; i < 18000; i++) {
     const light = rnd() > 0.52;
     const value = light ? 66 + Math.floor(rnd() * 24) : 13 + Math.floor(rnd() * 10);
@@ -981,14 +985,10 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   map: gripTapeTexture,
   metalness: 0,
   roughness: 1,
-  side: THREE.FrontSide
+  side: THREE.DoubleSide
 });
-// Use the exact deck outline and matching nose/tail kick. A tiny offset avoids
-// z-fighting without a polygon-offset or depth-write workaround.
-makeDeckTop(1, 1, deckTopMaterial, 0.0008, 2);
+makeDeckTop(deckTopMaterial, 'top', 0.0015, 2);
 
-// A separate mapped face on the actual underside. This avoids relying on the
-// extruded deck's side-face UVs, which caused the default artwork to show instead.
 const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: boardGraphicTexture,
@@ -997,10 +997,11 @@ const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide,
   polygonOffset: true,
   polygonOffsetFactor: -1,
-  polygonOffsetUnits: -1,
-  depthWrite: false
+  polygonOffsetUnits: -1
 });
-makeDeckTop(0.992, 0.985, undersideGraphicMaterial, -0.109, 4);
+// Follow the actual tapered underside face instead of using a flat offset
+// plane, which left exposed wood where the deck kicks upward.
+makeDeckTop(undersideGraphicMaterial, 'bottom', 0.0015, 4);
 
 /* Board graphic customisation: procedural, high-resolution deck artwork. */
 const deckGraphicState = {
