@@ -709,6 +709,21 @@ const deckGraphicState = {
   graphicScale: 1,
   outlineThickness: 34
 };
+const miscellaneousDeckGraphics = [
+  'IMG_1999.jpeg',
+  'IMG_2001.jpeg','IMG_2002.jpeg','IMG_2003.jpeg','IMG_2004.jpeg','IMG_2005.jpeg','IMG_2006.jpeg','IMG_2007.png',
+  'IMG_2008.jpeg','IMG_2009.jpeg','IMG_2010.jpeg','IMG_2011.jpeg','IMG_2012.jpeg','IMG_2013.jpeg','IMG_2014.jpeg',
+  'IMG_2015.jpeg','IMG_2016.jpeg','IMG_2017.jpeg','IMG_2018.jpeg','IMG_2019.jpeg','IMG_2020.jpeg','IMG_2021.jpeg',
+  'IMG_2022.jpeg','IMG_2023.jpeg','IMG_2024.jpeg','IMG_2025.jpeg','IMG_2026.jpeg','IMG_2027.jpeg','IMG_2028.jpeg',
+  'IMG_2029.jpeg','IMG_2030.jpeg','IMG_2031.jpeg','IMG_2032.jpeg','IMG_2033.jpeg','IMG_2034.jpeg','IMG_2035.jpeg',
+  'IMG_2036.jpeg','IMG_2037.jpeg','IMG_2038.jpeg','IMG_2039.jpeg','IMG_2040.jpeg','IMG_2041.jpeg'
+];
+const miscellaneousDeckImages = miscellaneousDeckGraphics.map((file, index) => {
+  const image = new Image();
+  image.onload = () => { if (deckGraphicState.category === 'Miscellaneous' && deckGraphicState.design === index) refreshDeckGraphic(); };
+  image.src = new URL('../' + file, import.meta.url).href;
+  return image;
+});
 const deckGraphicCatalog = {
   Vintage: ['Skull & Roses','Flaming Panther','Retro Racing','Broken Heart','Lucky Dice','Desert Sunset','Classic Eagle','Wild Tiger','Vintage Comic','Snake Bite','Old School Star','Distressed Badge'],
   Japanese: ['Rising Dragon','Koi Current','Oni Mask','Samurai Spirit','Great Wave','Hannya Bloom','Crane & Sun','Tiger Scroll','Lotus Garden','Kabuki Eyes','Mountain Shrine','Serpent Seal'],
@@ -729,6 +744,18 @@ function drawDeckGraphic(canvas, topSide) {
   const bg=ctx.createLinearGradient(0,0,W,H);bg.addColorStop(0,'#ffffff18');bg.addColorStop(.5,'#00000008');bg.addColorStop(1,'#00000030');
   ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
   const palette=[st.colorA,st.colorB,'#f3e6c8','#202020','#e9e1d2'];
+  if(st.category==='Miscellaneous'){
+    const image=miscellaneousDeckImages[st.design];
+    if(image && image.complete && image.naturalWidth){
+      const scale=Math.min(W*.96/image.naturalWidth,H*.96/image.naturalHeight);
+      const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
+      ctx.drawImage(image,(W-width)/2,(H-height)/2,width,height);
+    }else{
+      ctx.fillStyle='#ffffff';ctx.font='bold 54px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
+      ctx.fillText('LOADING GRAPHIC '+(st.design+1),W/2,H/2);
+    }
+    return;
+  }
   if(st.category==='Graffiti'){
     const text=st.message.trim()||'YOUR TEXT';
     ctx.save();ctx.translate(W/2+st.graphicOffsetX,H/2+st.graphicOffsetY);ctx.scale(st.graphicScale,st.graphicScale);ctx.rotate(-0.045);
@@ -1745,7 +1772,7 @@ function buildDeckCustomizationUI() {
   if(editorCategory==='Deck graphics'){
     const intro=document.createElement('div');intro.textContent='Choose a graphic, then drag it with one finger to position it or pinch with two fingers to resize it.';
     intro.style.cssText='margin-bottom:10px;color:#c2cecb;font-size:11px;line-height:1.45;';sectionContent.appendChild(intro);
-    const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti'];
+    const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti','Miscellaneous'];
     const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
       deckGraphicState.category=categoryOptions[i];deckGraphicState.design=0;buildDeckCustomizationUI();refreshDeckGraphic();
     });
@@ -1760,6 +1787,10 @@ function buildDeckCustomizationUI() {
       sectionContent.appendChild(colors);
       sectionContent.appendChild(editorField('Outline thickness',makeEditorRange(deckGraphicState.outlineThickness,2,70,1,v=>{deckGraphicState.outlineThickness=v;refreshDeckGraphic();})));
       const note=document.createElement('div');note.textContent='Drag the artwork with one finger to move it. Pinch with two fingers to resize it. The natural shadow stays consistent.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.4;';sectionContent.appendChild(note);
+    }else if(deckGraphicState.category==='Miscellaneous'){
+      const designs=miscellaneousDeckGraphics.map((file,i)=>'Graphic '+String(i+1).padStart(2,'0')+' ('+file+')');
+      sectionContent.appendChild(editorField('Choose a graphic · 43',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
+      const note=document.createElement('div');note.textContent='All 43 uploaded images are here. Select any one to preview it on the underside of the deck.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
     }else{
       const designs=deckGraphicCatalog[deckGraphicState.category];
       sectionContent.appendChild(editorField('Choose a design',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
