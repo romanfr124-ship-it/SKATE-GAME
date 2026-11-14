@@ -357,8 +357,8 @@ function buildBowl() {
     const a0 = i / 24 * Math.PI * 2;
     const a1 = (i + 1) / 24 * Math.PI * 2;
     const edge = addGrindEdge(
-      { x: bowl.x + Math.cos(a0) * bowl.radiusX, z: bowl.z + Math.sin(a0) * bowl.radiusZ },
-      { x: bowl.x + Math.cos(a1) * bowl.radiusX, z: bowl.z + Math.sin(a1) * bowl.radiusZ },
+      { x: bowl.x + Math.cos(a0) * bowl.radiusX * bowlOutlineScale(a0), z: bowl.z + Math.sin(a0) * bowl.radiusZ * bowlOutlineScale(a0) },
+      { x: bowl.x + Math.cos(a1) * bowl.radiusX * bowlOutlineScale(a1), z: bowl.z + Math.sin(a1) * bowl.radiusZ * bowlOutlineScale(a1) },
       0.035, 'coping'
     );
     edge.previous = i === 0 ? null : grindEdges[grindEdges.length - 2];
@@ -384,15 +384,29 @@ buildBowl();
 // channel; the dark centre sits below two raised concrete lips, not a floating line.
 function addConcreteJoints() {
   const positions=[],indices=[];
+  const profile=[[-.15,.006],[-.115,-.004],[-.075,-.026],[-.035,-.043],[0,-.048],[.035,-.043],[.075,-.026],[.115,-.004],[.15,.006]];
+  const emitRun=(vertical,fixed,coords)=>{
+    if(coords.length<2)return;
+    const base=positions.length/3;
+    for(const along of coords){
+      const x=vertical?fixed:along,z=vertical?along:fixed;
+      for(const [offset,height] of profile) positions.push(vertical?x+offset:x,height,vertical?z:z+offset);
+    }
+    for(let i=0;i<coords.length-1;i++)for(let p=0;p<profile.length-1;p++){
+      const a=base+i*profile.length+p,b=a+1,c=a+profile.length,d=c+1;
+      indices.push(a,c,b,b,c,d);
+    }
+  };
   const addGrooveRun=(vertical,fixed,start,end)=>{
-    const steps=Math.ceil((end-start)/.4),base=positions.length/3;
-    const profile=[[-.15,.006],[-.115,-.004],[-.075,-.026],[-.035,-.043],[0,-.048],[.035,-.043],[.075,-.026],[.115,-.004],[.15,.006]];
+    const steps=Math.ceil((end-start)/.4),coords=[];
     for(let i=0;i<=steps;i++){
       const along=start+(end-start)*i/steps,x=vertical?fixed:along,z=vertical?along:fixed;
-      const nx=(x-bowl.x)/bowl.radiusX,nz=(z-bowl.z)/bowl.radiusZ,angle=Math.atan2(nz,nx),inside=Math.hypot(nx,nz)/bowlOutlineScale(angle)<1.012;
-      for(const [offset,height] of profile) positions.push(vertical?x+offset:x,inside?-.12:height,vertical?z:z+offset);
+      const nx=(x-bowl.x)/bowl.radiusX,nz=(z-bowl.z)/bowl.radiusZ,angle=Math.atan2(nz,nx);
+      const inside=Math.hypot(nx,nz)/bowlOutlineScale(angle)<1.012;
+      if(inside){emitRun(vertical,fixed,coords.splice(0));}
+      else coords.push(along);
     }
-    for(let i=0;i<steps;i++) for(let p=0;p<profile.length-1;p++){const a=base+i*profile.length+p,b=a+1,c=a+profile.length,d=c+1;indices.push(a,c,b,b,c,d);}
+    emitRun(vertical,fixed,coords);
   };
   for(let z=-48;z<=48;z+=8) addGrooveRun(false,z,-50,50);
   for(let x=-48;x<=48;x+=8) addGrooveRun(true,x,-50,50);
