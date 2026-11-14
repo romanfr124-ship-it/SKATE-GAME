@@ -1244,13 +1244,12 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   // Treat the finger as applying an impulse at the point it contacts the deck.
   // Faster, longer flicks add more angular momentum; touching nearer the nose
   // or tail gives the same force more leverage for a horizontal-axis shuvit.
-  const fingerSpeed = THREE.MathUtils.clamp(flickSpeed / 900, 0.15, 2.4);
-  const alongDeck = THREE.MathUtils.clamp(Math.abs(touchX) / 1.13, 0, 1);
-  const yawLeverage = 0.72 + alongDeck * 0.58;
-  if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
-    const impulse = fingerSpeed * (2.7 + distance * 0.055) * yawLeverage;
-    const spinSpeed = THREE.MathUtils.clamp(impulse * 4.2, 6, 55);
-    shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
+  // Spin responds linearly to the overall finger speed. Swipe distance and
+  // deck contact position no longer multiply the impulse into sudden jumps.
+  const speedFactor = THREE.MathUtils.clamp((flickSpeed - 120) / 1000, 0, 1.4);
+  if (distance > 20 && speedFactor > 0 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
+    const spinSpeed = speedFactor * 7.5;
+    shuvitTarget = direction;
     shuvitVelocity += direction * spinSpeed;
   }
   // Vertical flicks are reserved for ollies and nollies. Airborne flicks
@@ -1644,8 +1643,9 @@ canvas.addEventListener('pointermove', event => {
   if (airborne && gesture.deckLocalX !== null) {
     // A finger drag applies torque to the free deck while it is in the air.
     // The accumulated angular velocity persists after the finger is lifted.
-    airPitchVelocity += -moveDy * 0.028;
-    airRollVelocity += moveDx * 0.032;
+    // Gentle per-pixel torque keeps the board controllable while dragging.
+    airPitchVelocity += -moveDy * 0.010;
+    airRollVelocity += moveDx * 0.012;
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1692,15 +1692,16 @@ function finishGesture(event) {
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000));
   } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.25) {
     const flickDirection=screenTurnDirection(dx);
-    flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
+    flick(flickDirection,Math.abs(dx),Math.hypot(dx,dy)/elapsed*1000,0,g.deckLocalX || 0);
   } else if (airborne && quick && Math.abs(dy) > 18) {
     // A vertical airborne swipe flicks the deck around its long axis,
     // producing kickflips/heelflips with strength tied to finger speed and travel.
     const flickSpeed = Math.hypot(dx,dy) / elapsed * 1000;
     const direction = Math.sign(dy * travelSign) || 1;
-    const speedFactor = THREE.MathUtils.clamp(flickSpeed / 650, 0.35, 3.2);
-    const distanceFactor = THREE.MathUtils.clamp(Math.abs(dy) / 65, 0.35, 2.2);
-    airRollVelocity += direction * speedFactor * distanceFactor * 13.5;
+    // A single linear impulse: faster flicks rotate faster, without a
+    // distance multiplier or an artificial minimum spin.
+    const rollImpulse = THREE.MathUtils.clamp((flickSpeed - 120) / 1000, 0, 1.6) * 4.5;
+    airRollVelocity += direction * rollImpulse;
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
