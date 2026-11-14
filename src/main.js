@@ -371,25 +371,22 @@ function terrainHeightAt(x, z) {
   // Raised rectangular platform: X=-60 to -20 and Z=25 to 60.
   // It stays level across the platform, with a steep ramp down toward
   // the berm across the X=-20 to X=-10 strip.
-  // Blend the high-layer berm into the second-highest terrace with a
-  // continuous Z-direction transition from Z=15 to Z=25 (no height step).
-  const zBlendT = THREE.MathUtils.clamp((z - 15) / 10, 0, 1);
-  const zBlend = zBlendT * zBlendT * (3 - 2 * zBlendT);
+  // One continuous, smooth berm/ramp surface across X=-20 to X=-10.
+  // The raised platform occupies only Z=25..60; its edge is softly rounded
+  // over a short 3m lip, with no extra central bump or secondary ridge.
+  const zStartT = THREE.MathUtils.clamp((z - 25) / 3, 0, 1);
+  const zStart = zStartT * zStartT * (3 - 2 * zStartT);
   const zEndT = THREE.MathUtils.clamp((63 - z) / 3, 0, 1);
   const zEnd = zEndT * zEndT * (3 - 2 * zEndT);
-  const platformZFade = zBlend * zEnd;
+  const platformZFade = zStart * zEnd;
   const rampT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
   const rampEase = rampT * rampT * (3 - 2 * rampT);
-  const platformHeight = 5.0 - 3.45 * rampEase;
-  const platform = 1.5 + (platformHeight - 1.5) * platformZFade *
-    (x <= -20 ? 1 : 1 - rampEase);
+  const highSide = 5.0 * platformZFade + base * (1 - platformZFade);
+  const bermRamp = highSide * (1 - rampEase) + 1.5 * rampEase;
 
-  // Continuous banked berm: a ridge in the X=-20 to X=-10 strip,
-  // extending the full length of the map along Z.
-  const bermT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
-  const berm = 1.55 * Math.sin(Math.PI * bermT);
-
-  return Math.max(base, platform, berm);
+  return x < -20 ? Math.max(base, 5.0 * platformZFade + base * (1 - platformZFade))
+    : x <= -10 ? Math.max(base, bermRamp)
+    : base;
 }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
 
