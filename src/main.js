@@ -902,6 +902,12 @@ deckVisualGroup.add(deck);
 function makeDeckTop(material, face, surfaceOffset, renderOrder) {
   const geometry = new THREE.ShapeGeometry(deckShape, 64);
   geometry.rotateX(Math.PI / 2);
+  // ExtrudeGeometry's bevel expands the deck's outer footprint by 8 mm.
+  // Extend the face overlays by that same amount so no bare bevelled wood
+  // remains around the grip or printed underside.
+  if (face === 'top' || face === 'bottom') {
+    geometry.scale(1.03, 1, 1.008);
+  }
   const positions = geometry.attributes.position;
   for (let i = 0; i < positions.count; i++) {
     const x = positions.getX(i);
@@ -944,32 +950,48 @@ function makeDeckTop(material, face, surfaceOffset, renderOrder) {
 // Grip tape sits just above the wood, with its underside effectively touching
 // the deck. DoubleSide is required because the rotated shape faces downward.
 function makeGripTapeTexture() {
-  const size = 1024;
   const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = size;
+  canvas.width = 1024;
+  canvas.height = 1024;
   const ctx = canvas.getContext('2d');
-  const pixels = ctx.createImageData(size, size);
+  ctx.fillStyle = '#252629';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
   let seed = 204411;
   const rnd = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  for (let i = 0; i < pixels.data.length; i += 4) {
-    const grain = Math.floor((rnd() - 0.5) * 15);
-    const base = 38 + grain;
-    pixels.data[i] = base;
-    pixels.data[i + 1] = base;
-    pixels.data[i + 2] = base + 2;
-    pixels.data[i + 3] = 255;
-  }
-  ctx.putImageData(pixels, 0, 0);
-  for (let i = 0; i < 18000; i++) {
-    const light = rnd() > 0.52;
-    const value = light ? 66 + Math.floor(rnd() * 24) : 13 + Math.floor(rnd() * 10);
-    ctx.fillStyle = 'rgba(' + value + ',' + value + ',' + (value + 2) + ',' + (0.12 + rnd() * 0.16) + ')';
-    const x = rnd() * size, y = rnd() * size;
-    const r = 0.35 + rnd() * 0.45;
+  // Fine packed mineral grain creates the continuous sandpaper base.
+  for (let i = 0; i < 92000; i++) {
+    const v = Math.floor(25 + rnd() * 35);
+    const a = 0.18 + rnd() * 0.38;
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 0.35 + rnd() * 0.8;
     ctx.fillRect(x, y, r, r);
+  }
+  // Medium-sized grit is the visible grain character that was lost.
+  for (let i = 0; i < 15500; i++) {
+    const light = rnd() > 0.48;
+    const v = light ? 92 + Math.floor(rnd() * 48) : 8 + Math.floor(rnd() * 18);
+    const a = 0.22 + rnd() * 0.38;
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 0.7 + rnd() * 1.35;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Sparse irregular particles add natural variation without coarse bumps.
+  for (let i = 0; i < 1800; i++) {
+    const light = rnd() > 0.5;
+    const v = light ? 105 + Math.floor(rnd() * 35) : 12 + Math.floor(rnd() * 16);
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + (0.18 + rnd() * 0.25) + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 1.2 + rnd() * 1.8;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * (0.55 + rnd() * 0.8), rnd() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -983,6 +1005,8 @@ const gripTapeTexture = makeGripTapeTexture();
 const deckTopMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: gripTapeTexture,
+  bumpMap: gripTapeTexture,
+  bumpScale: 0.012,
   metalness: 0,
   roughness: 1,
   side: THREE.DoubleSide
