@@ -1117,6 +1117,7 @@ refreshDeckGraphic();
 // Articulated truck and wheel visuals. Each assembly has its own local origin
 // so Rapier can drive it independently while the deck remains the main body.
 const wheelMeshes = [];
+const wheelAngularSpeeds = [];
 const truckVisuals = [];
 const wheelVisuals = [];
 for (const x of [-0.69, 0.69]) {
@@ -2952,8 +2953,22 @@ function animate() {
       }
     }
   }
-  // Keep wheel roll animation off for now; only give the wheels a subtle
-  // steering angle when the board is carving, so they don't spin constantly.
+  // Wheel rotation follows the distance travelled, with the wheel's
+  // angular speed coupled to ground speed while rolling. In the air the
+  // wheels retain their spin and coast down gradually instead of stopping.
+  const wheelRadius = 0.145;
+  const forwardSpeed = velocity.x * Math.sin(heading) + velocity.z * Math.cos(heading);
+  const rolling = !airborne && !grinding && bailTimer <= 0;
+  const targetWheelAngularSpeed = rolling ? forwardSpeed / wheelRadius : null;
+  for (let i = 0; i < wheelMeshes.length; i++) {
+    if (rolling) {
+      const blend = 1 - Math.exp(-18 * dt);
+      wheelAngularSpeeds[i] += (targetWheelAngularSpeed - wheelAngularSpeeds[i]) * blend;
+    } else {
+      wheelAngularSpeeds[i] *= Math.exp(-0.12 * dt);
+    }
+    wheelMeshes[i].rotation.y += wheelAngularSpeeds[i] * dt;
+  }
   if (!physicsSteppedThisFrame) boardPhysics.step(dt);
   updateFollowCamera(dt);
   renderer.render(scene, camera);
