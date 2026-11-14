@@ -617,7 +617,8 @@ for (const x of [-0.69, 0.69]) {
       sideDisc(0.061,0.009,mats.wheelGreen,0.067);
       sideDisc(0.026,0.010,mats.wheelBlack,0.073);
     }
-  }}
+  }
+}
 board.position.set(0, 0, 1.5);
 board.rotation.order = 'YXZ';
 
