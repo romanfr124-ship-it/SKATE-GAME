@@ -368,21 +368,22 @@ function terrainHeightAt(x, z) {
   const eased = t * t * (3 - 2 * t);
   const base = 3.2 * (1 - eased);
 
-  // Raised, flat-topped platform centred near (-20,25), with a steep
-  // transition ramp dropping toward the berm along X=-20 to X=-10.
-  const platformX = Math.abs(x + 20);
-  const platformZ = Math.abs(z - 25);
-  const platformEdge = Math.max(platformX - 3.2, platformZ - 3.2);
-  const platformT = THREE.MathUtils.clamp((platformEdge + 1.8) / 6.0, 0, 1);
-  const platformEase = platformT * platformT * (3 - 2 * platformT);
-  const platform = 5.0 - 3.5 * platformEase;
+  // Raised rectangular platform: X=-60 to -20 and Z=25 to 60.
+  // It stays level across the platform, with a steep ramp down toward
+  // the berm across the X=-20 to X=-10 strip.
+  const zStart = THREE.MathUtils.clamp((z - 25) / 3, 0, 1);
+  const zEnd = THREE.MathUtils.clamp((60 - z) / 3, 0, 1);
+  const platformZFade = Math.min(zStart, zEnd);
+  const rampT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  const rampEase = rampT * rampT * (3 - 2 * rampT);
+  const platformHeight = 5.0 - 3.45 * rampEase;
+  const platform = 1.5 + (platformHeight - 1.5) * platformZFade *
+    (x <= -20 ? 1 : 1 - rampEase);
 
-  // Banked berm runs along X=-20 to X=-10, centred near Z=25.
-  const across = Math.abs(z - 25);
-  const acrossT = THREE.MathUtils.clamp((across - 1.2) / 5.0, 0, 1);
-  const acrossEase = acrossT * acrossT * (3 - 2 * acrossT);
-  const alongT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
-  const berm = 1.55 * (1 - acrossEase) * Math.sin(Math.PI * alongT);
+  // Continuous banked berm: a ridge in the X=-20 to X=-10 strip,
+  // extending the full length of the map along Z.
+  const bermT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  const berm = 1.55 * Math.sin(Math.PI * bermT);
 
   return Math.max(base, platform, berm);
 }
@@ -1264,11 +1265,12 @@ function drawSkateparkMap() {
   label('EXPANDED UPPER LEVEL  Y=3.2m',-37,-4,'#263332',9);
   label('LOWER LEVEL  Y=0m',-1,3,'#f1f2ed',9);
   label('SLOPED CONNECTION',-10,30,'#263332',8);
-  const [peakX,peakY]=p(-20,25),[bermX,bermY]=p(-15,25);
-  mapCtx.beginPath();mapCtx.ellipse(peakX,peakY,7*t.scale,7*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(218,226,218,.75)';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2;mapCtx.stroke();
-  mapCtx.beginPath();mapCtx.ellipse(bermX,bermY,5*t.scale,5*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(185,197,190,.8)';mapCtx.fill();mapCtx.stroke();
-  label('RAMP PLATFORM (-20,25)',-20,17,'#263332',8);
-  label('BERM X -20 TO -10',-15,32,'#263332',7);
+  // Map overlay: platform footprint and the berm's full north-south run.
+  polygon([p(-60,25),p(-20,25),p(-20,60),p(-60,60)],'rgba(218,226,218,.72)');
+  polygon([p(-20,-60),p(-10,-60),p(-10,60),p(-20,60)],'rgba(185,197,190,.82)');
+  label('RAISED PLATFORM X -60 TO -20',-40,42,'#263332',8);
+  label('Z 25 TO 60',-40,46,'#263332',7);
+  label('BERM X -20 TO -10 (FULL Z)',-15,0,'#263332',7);
   mapCtx.font='900 11px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
   mapCtx.fillText('X  (LEFT ↔ RIGHT)',w/2,h-8);
   mapCtx.save();mapCtx.translate(12,h/2);mapCtx.rotate(-Math.PI/2);mapCtx.fillText('Z  (UP ↔ DOWN)',0,0);mapCtx.restore();
