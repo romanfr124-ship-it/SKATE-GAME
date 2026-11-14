@@ -59,19 +59,53 @@ function makePaintTexture(base, flecks, size = 256) {
 }
 const concreteTexture = makePaintTexture('#e9dfc8', ['#ffffff','#b6d9ca','#e8a77f','#9dc7d0']);
 const asphaltTexture = makePaintTexture('#83c9b7', ['#d6f0d8','#4b9c91','#f4d69a']);
-const boardGraphicTexture = makePaintTexture('#ff855f', ['#ffd36e','#f9f0d1','#56c9c1','#d96eaa']);
+function makeDeckArtwork(grip = false) {
+  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=512;
+  const ctx=canvas.getContext('2d');
+  if(grip){
+    ctx.fillStyle='#202a27';ctx.fillRect(0,0,1024,512);
+    let seed=314159;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+    for(let i=0;i<4200;i++){ctx.fillStyle=rnd()>.5?'#ffffff18':'#00000024';ctx.fillRect(rnd()*1024,rnd()*512,1.5,1.5);}
+    ctx.save();ctx.translate(512,256);
+    ctx.fillStyle='#f4e7c9';ctx.beginPath();ctx.moveTo(-245,-42);ctx.lineTo(-420,-168);ctx.lineTo(-360,12);ctx.lineTo(-235,88);ctx.lineTo(-180,150);ctx.lineTo(0,190);ctx.lineTo(180,150);ctx.lineTo(235,88);ctx.lineTo(360,12);ctx.lineTo(420,-168);ctx.lineTo(245,-42);ctx.lineTo(150,-108);ctx.lineTo(0,-145);ctx.lineTo(-150,-108);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#49c5a2';ctx.beginPath();ctx.moveTo(-225,-38);ctx.lineTo(-370,-130);ctx.lineTo(-305,5);ctx.lineTo(-190,60);ctx.lineTo(-145,105);ctx.lineTo(0,140);ctx.lineTo(145,105);ctx.lineTo(190,60);ctx.lineTo(305,5);ctx.lineTo(370,-130);ctx.lineTo(225,-38);ctx.lineTo(130,-80);ctx.lineTo(0,-112);ctx.lineTo(-130,-80);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#202a27';ctx.beginPath();ctx.moveTo(-125,-12);ctx.lineTo(-42,-42);ctx.lineTo(-8,4);ctx.lineTo(-82,28);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(125,-12);ctx.lineTo(42,-42);ctx.lineTo(8,4);ctx.lineTo(82,28);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#f3a65e';ctx.beginPath();ctx.moveTo(-42,66);ctx.lineTo(0,42);ctx.lineTo(42,66);ctx.lineTo(0,98);ctx.closePath();ctx.fill();
+    ctx.strokeStyle='#202a27';ctx.lineWidth=16;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-95,112);ctx.quadraticCurveTo(0,170,95,112);ctx.stroke();ctx.restore();
+    ctx.fillStyle='#f4e7c9';ctx.font='900 48px Arial';ctx.textAlign='center';ctx.fillText('WILD SIDE',512,475);
+    ctx.fillStyle='#49c5a2';ctx.font='900 22px Arial';ctx.fillText('SKATE CLUB  •  EST. 1998',512,42);
+  }else{
+    ctx.fillStyle='#bd8956';ctx.fillRect(0,0,1024,512);
+    for(let i=0;i<34;i++){ctx.beginPath();ctx.moveTo(0,i*16);ctx.bezierCurveTo(250,i*16-18,690,i*16+22,1024,i*16-7);ctx.strokeStyle=i%3===0?'#70462d55':'#f1c38a55';ctx.lineWidth=i%4===0?5:2;ctx.stroke();}
+    ctx.fillStyle='#e9c58f';ctx.beginPath();ctx.arc(512,256,184,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#244c3e';ctx.beginPath();ctx.arc(512,256,158,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#e9a45f';ctx.beginPath();ctx.arc(512,256,128,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#f6dfb6';for(let i=0;i<16;i++){const a=i*Math.PI/8;ctx.beginPath();ctx.moveTo(512+Math.cos(a)*142,256+Math.sin(a)*142);ctx.lineTo(512+Math.cos(a+.045)*178,256+Math.sin(a+.045)*178);ctx.lineTo(512+Math.cos(a-.045)*178,256+Math.sin(a-.045)*178);ctx.fill();}
+    ctx.fillStyle='#244c3e';ctx.font='900 92px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('WILD',512,230);
+    ctx.fillStyle='#f6dfb6';ctx.font='900 35px Arial';ctx.fillText('SIDE',512,305);
+    ctx.strokeStyle='#244c3e';ctx.lineWidth=22;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(115,95);ctx.bezierCurveTo(255,5,280,178,405,120);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(909,417);ctx.bezierCurveTo(769,507,744,334,619,392);ctx.stroke();
+    ctx.fillStyle='#244c3e';ctx.font='900 28px Arial';ctx.fillText('MAPLE DECK CO.',512,470);
+  }
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+}
+const boardGraphicTexture=makeDeckArtwork(false);
+const gripGraphicTexture=makeDeckArtwork(true);
 const mats = {
   floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, roughness: 1 }),
   concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.94 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x33465a, roughness: 1 }),
-  board: new THREE.MeshStandardMaterial({ color: 0xff9b68, map: boardGraphicTexture, roughness: 0.76 }),
+  board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, roughness: 0.68 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshStandardMaterial({ color: 0xf4c85d, metalness: 0.28, roughness: 0.42 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
   accentMint: new THREE.MeshStandardMaterial({ color: 0x50c8b0, roughness: 0.86 }),
   accentCoral: new THREE.MeshStandardMaterial({ color: 0xf27e68, roughness: 0.82 }),
   accentLavender: new THREE.MeshStandardMaterial({ color: 0x9c8be8, roughness: 0.86 }),
-  wheel: new THREE.MeshStandardMaterial({ color: 0xf8d36d, roughness: 0.75 })
+  wheel: new THREE.MeshStandardMaterial({ color: 0xf7f4e9, roughness: 0.72 }),
+  wheelBlack: new THREE.MeshStandardMaterial({ color: 0x17221f, roughness: 0.58 }),
+  wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
 };
 
 const solidObstacles = [];
@@ -524,7 +558,8 @@ const deckTopWhite = new THREE.MeshBasicMaterial({
   depthWrite: false
 });
 const deckTopBlack = new THREE.MeshBasicMaterial({
-  color: 0x030303,
+  color: 0xffffff,
+  map: gripGraphicTexture,
   side: THREE.DoubleSide,
   polygonOffset: true,
   polygonOffsetFactor: -2,
@@ -536,19 +571,7 @@ const deckTopBlack = new THREE.MeshBasicMaterial({
 makeDeckTop(0.992, 0.985, deckTopWhite, 0.006, 2);
 makeDeckTop(0.972, 0.955, deckTopBlack, 0.009, 3);
 
-// Small hand-painted stripes give the grip a recognizable graphic identity.
-function deckSticker(width, length, color, x, z, rotation = 0) {
-  const sticker = new THREE.Mesh(new THREE.PlaneGeometry(width, length),
-    new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
-  sticker.rotation.x = -Math.PI / 2;
-  sticker.rotation.z = rotation;
-  sticker.position.set(x, deck.position.y + 0.018, z);
-  board.add(sticker);
-}
-deckSticker(0.12, 0.52, 0xffd36e, -0.58, 0);
-deckSticker(0.12, 0.52, 0x55d2c1, -0.38, 0);
-deckSticker(0.12, 0.52, 0xf27e68, -0.18, 0);
-deckSticker(0.42, 0.12, 0x9c8be8, 0.42, 0, Math.PI / 2);
+// The complete custom grip graphic is painted into gripGraphicTexture.
 
 // Trucks: base plates, hangers, axles and kingpins.
 const wheelMeshes = [];
@@ -575,26 +598,26 @@ for (const x of [-0.69, 0.69]) {
   kingpin.position.set(x, 0.22, 0);
   board.add(kingpin);
 
-  // Four soft-edged wheels with visible inner hubs.
+  // Rounded white urethane wheels with black/green/black side graphics.
   for (const z of [-0.34, 0.34]) {
-    const wheel = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.145, 0.145, 0.12, 24, 1),
-      mats.wheel
-    );
-    wheel.rotation.x = Math.PI / 2;
-    wheel.position.set(x, 0.17, z);
-    board.add(wheel);
-    wheelMeshes.push(wheel);
-
-    const hub = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.052, 0.052, 0.125, 16),
-      new THREE.MeshStandardMaterial({ color: 0x9a9a9a, metalness: 0.45, roughness: 0.48 })
-    );
-    hub.rotation.x = Math.PI / 2;
-    hub.position.copy(wheel.position);
-    board.add(hub);
-  }
-}
+    const profile=[
+      new THREE.Vector2(0.105,-0.060),new THREE.Vector2(0.132,-0.052),
+      new THREE.Vector2(0.143,-0.035),new THREE.Vector2(0.146,0),
+      new THREE.Vector2(0.143,0.035),new THREE.Vector2(0.132,0.052),
+      new THREE.Vector2(0.105,0.060)
+    ];
+    const wheel=new THREE.Mesh(new THREE.LatheGeometry(profile,32),mats.wheel);
+    wheel.rotation.x=Math.PI/2;wheel.position.set(x,0.17,z);board.add(wheel);wheelMeshes.push(wheel);
+    for(const side of [-1,1]){
+      const sideDisc=(radius,depth,material,offset)=>{
+        const disc=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,depth,32),material);
+        disc.rotation.x=Math.PI/2;disc.position.set(x,0.17,z+side*offset);board.add(disc);
+      };
+      sideDisc(0.078,0.008,mats.wheelBlack,0.061);
+      sideDisc(0.061,0.009,mats.wheelGreen,0.067);
+      sideDisc(0.026,0.010,mats.wheelBlack,0.073);
+    }
+  }}
 board.position.set(0, 0, 1.5);
 board.rotation.order = 'YXZ';
 
