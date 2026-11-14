@@ -96,9 +96,25 @@ function rail(x, z, length, height = 0.82) {
   }
 }
 
-// Smooth concrete park slab; the obstacle layout supplies the visual structure.
-const parkFloor = new THREE.Mesh(new THREE.BoxGeometry(100, 0.45, 100), mats.floor);
-parkFloor.position.y = -0.25;
+// The bowl is a true cut-out in the concrete slab, not a bowl mesh buried
+// beneath a flat floor. Its curved riding surface remains visible all the way down.
+const bowl = { x: -18, z: 0, radiusX: 9.5, radiusZ: 8.5, depth: 2.25, flatRatio: 0.28 };
+const quarterPipes = [];
+const floorShape = new THREE.Shape();
+floorShape.moveTo(-50, -50);
+floorShape.lineTo(50, -50);
+floorShape.lineTo(50, 50);
+floorShape.lineTo(-50, 50);
+floorShape.closePath();
+const bowlOpening = new THREE.Path();
+bowlOpening.absellipse(bowl.x, -bowl.z, bowl.radiusX, bowl.radiusZ, 0, Math.PI * 2, true, 0);
+floorShape.holes.push(bowlOpening);
+const parkFloor = new THREE.Mesh(
+  new THREE.ExtrudeGeometry(floorShape, { depth: 0.45, bevelEnabled: false, curveSegments: 64 }),
+  mats.floor
+);
+parkFloor.rotation.x = -Math.PI / 2;
+parkFloor.position.y = -0.45;
 scene.add(parkFloor);
 function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4) {
   const minor = [];
@@ -127,9 +143,6 @@ function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4
 
 // New park layout: a dedicated in-ground bowl on the west side and a
 // separate street/flow zone to the east. All dimensions are in metres.
-const bowl = { x: -18, z: 0, radiusX: 9.5, radiusZ: 8.5, depth: 2.25, flatRatio: 0.28 };
-const quarterPipes = [];
-
 function bowlHeightAt(x, z) {
   const nx = (x - bowl.x) / bowl.radiusX;
   const nz = (z - bowl.z) / bowl.radiusZ;
@@ -242,7 +255,7 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   quarterPipes.push({ axis, startX, startZ, width, height, depth, direction });
 }
 function quarterPipeHeightAt(x, z) {
-  let height = 0;
+  let height = -Infinity;
   for (const qp of quarterPipes) {
     const across = qp.axis === 'x' ? z - qp.startZ : x - qp.startX;
     if (Math.abs(across) > qp.width / 2) continue;
@@ -256,7 +269,11 @@ function quarterPipeHeightAt(x, z) {
   return height;
 }
 function groundHeightAt(x, z) {
-  return Math.max(bowlHeightAt(x, z), quarterPipeHeightAt(x, z));
+  const nx = (x - bowl.x) / bowl.radiusX;
+  const nz = (z - bowl.z) / bowl.radiusZ;
+  const insideBowl = nx * nx + nz * nz < 1;
+  const bowlY = insideBowl ? bowlHeightAt(x, z) : 0;
+  return Math.max(bowlY, quarterPipeHeightAt(x, z), insideBowl ? -Infinity : 0);
 }
 
 // Street plaza: low, usable obstacles with clear run-ups and room to roll away.
@@ -277,7 +294,7 @@ rail(10, 8, 6.5, 0.58);
 // A mellow funbox: central manual/grind deck with shallow banks at both ends.
 outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
 ramp(4.2, 0.72, 3.2, 12.2, 0, 0.17);
-ramp(4.2, 0.72, 3.2, 21.8, 6, -0.17);
+ramp(4.2, 0.72, 3.2, 21.8, 3, -0.17);
 outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
 
 // Two smooth concrete quarter pipes with coping, one on each side of the plaza.
