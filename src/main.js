@@ -2228,7 +2228,7 @@ freeFlyStickKnob.style.cssText = 'position:absolute;left:35px;top:35px;width:44p
 freeFlyStick.appendChild(freeFlyStickKnob);
 const freeFlyHint = document.createElement('div');
 freeFlyHint.textContent = 'LEFT STICK: MOVE  ·  DRAG RIGHT: LOOK  ·  UP / DOWN: HEIGHT  ·  SHIFT: FAST';
-freeFlyHint.style.cssText = 'position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border-radius:8px;background:#10191dbb;font-size:10px;font-weight:900;letter-spacing:1px;pointer-events:none;';
+freeFlyHint.style.cssText = 'position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);padding:9px 12px;border-radius:8px;background:#10191dbb;font-size:10px;font-weight:900;letter-spacing:1px;pointer-events:none;';
 const freeFlyControls = document.createElement('div');
 freeFlyControls.style.cssText = 'position:absolute;right:16px;top:calc(env(safe-area-inset-top,0px) + 74px);display:flex;flex-direction:column;gap:8px;pointer-events:auto;';
 function makeFlyButton(label) {
@@ -2337,10 +2337,10 @@ mount.appendChild(sectionPanel);
 // The editor reuses the live 3D skateboard, isolating it from the park while
 // the game is paused. The original scene and camera are restored on exit.
 const editorStage=document.createElement('div');
-editorStage.style.cssText='position:absolute;inset:66px 0 78px 145px;z-index:1;touch-action:none;cursor:grab;';
+editorStage.style.cssText='position:absolute;inset:66px 0 78px clamp(88px,27vw,116px);z-index:1;touch-action:none;cursor:grab;';
 const editorHint=document.createElement('div');
 editorHint.textContent='DRAG TO ROTATE  •  LIVE 3D PREVIEW';
-editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
+editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
 editorStage.appendChild(editorHint);
 sectionPanel.appendChild(editorStage);
 sectionPanel.style.background='transparent';
@@ -2350,7 +2350,7 @@ sectionPanel.style.alignItems='stretch';
 // Cyan technical header and compact colour dock, inspired by the supplied
 // customization reference while keeping the live park and floating board.
 const editorHeader=document.createElement('div');
-editorHeader.style.cssText='position:absolute;z-index:5;top:0;left:0;right:0;height:62px;padding:calc(env(safe-area-inset-top,0px) + 5px) 14px 5px 145px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;background:linear-gradient(110deg,#08242c 0%,#087b91 48%,#071c25 100%);border-bottom:2px solid #31e8e2;box-shadow:0 5px 20px #0008;';
+editorHeader.style.cssText='position:absolute;z-index:5;top:0;left:0;right:0;height:62px;padding:calc(env(safe-area-inset-top,0px) + 5px) 14px 5px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;background:linear-gradient(110deg,#08242c 0%,#087b91 48%,#071c25 100%);border-bottom:2px solid #31e8e2;box-shadow:0 5px 20px #0008;';
 const editorHeaderTitle=document.createElement('div');
 editorHeaderTitle.textContent='CUSTOMIZE YOUR BOARD';
 editorHeaderTitle.style.cssText='color:#f1ffff;font:900 16px Arial,sans-serif;letter-spacing:1.3px;text-shadow:0 2px 8px #0009;text-align:center;';
@@ -2364,7 +2364,7 @@ sectionTitle.style.display='none';
 sectionMessage.style.display='none';
 sectionBack.style.display='none';
 const editorColourDock=document.createElement('div');
-editorColourDock.style.cssText='position:absolute;z-index:5;left:145px;right:0;bottom:0;min-height:68px;padding:7px 12px calc(env(safe-area-inset-bottom,0px) + 7px);display:flex;align-items:center;gap:10px;box-sizing:border-box;background:rgba(9,18,22,.96);border-top:1px solid #35e2dc88;box-shadow:0 -6px 20px #0007;';
+editorColourDock.style.cssText='position:absolute;z-index:5;left:0;right:0;bottom:0;min-height:68px;padding:7px 12px calc(env(safe-area-inset-bottom,0px) + 7px);display:flex;align-items:center;gap:10px;box-sizing:border-box;background:rgba(9,18,22,.96);border-top:1px solid #35e2dc88;box-shadow:0 -6px 20px #0007;';
 const editorColourLabel=document.createElement('div');
 editorColourLabel.textContent='DECK\nCOLOUR';
 editorColourLabel.style.cssText='white-space:pre-line;color:#e9ffff;font:900 9px/1.35 Arial,sans-serif;letter-spacing:.7px;';
@@ -2381,12 +2381,14 @@ editorColourDock.append(editorColourLabel,editorColourInput,editorHue);
 sectionPanel.appendChild(editorColourDock);
 sectionPanel.style.alignItems='stretch';
 sectionPanel.style.justifyContent='flex-start';
-sectionCard.style.cssText='position:relative;z-index:3;width:145px;min-width:145px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
+sectionCard.style.cssText='position:relative;z-index:3;width:clamp(88px,27vw,116px);min-width:clamp(88px,27vw,116px);height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
 let editorPreviewActive=false, editorSavedScene=null, editorSavedCamera=null, editorSavedBoard=null;
 let editorCategory='Deck graphics', editorTargetRotation=null, editorDrag=null;
 function activateBoardEditorPreview(){
   if(editorPreviewActive)return;
   editorPreviewActive=true;
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1,3));
+  renderer.setSize(innerWidth,innerHeight,false);
   editorSavedScene={background:scene.background,children:scene.children.map(o=>({object:o,visible:o.visible}))};
   editorSavedCamera={position:camera.position.clone(),quaternion:camera.quaternion.clone(),up:camera.up.clone(),aspect:camera.aspect};
   editorSavedBoard={
@@ -2407,7 +2409,7 @@ function activateBoardEditorPreview(){
   board.scale.setScalar(0.72);
   camera.up.set(0,1,0);
   camera.position.set(-4.4,3.0,0.48);
-  camera.lookAt(0,0.95,0.48);
+  camera.lookAt(0.32,0.95,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=board.rotation.clone();
   renderer.render(scene,camera);
@@ -2415,6 +2417,8 @@ function activateBoardEditorPreview(){
 function restoreBoardEditorPreview(){
   if(!editorPreviewActive)return;
   editorPreviewActive=false;
+  renderer.setPixelRatio(adaptivePixelRatio);
+  renderer.setSize(innerWidth,innerHeight,false);
   if(editorSavedScene){
     scene.background=editorSavedScene.background;
     for(const entry of editorSavedScene.children) entry.object.visible=entry.visible;
@@ -2443,7 +2447,7 @@ function aimEditorBoard(category){
   camera.position.x=-4.4;
   camera.position.y=3.0;
   camera.position.z=0.48;
-  camera.lookAt(0,0.95,0.48);
+  camera.lookAt(0.32,0.95,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
 }
@@ -2523,7 +2527,7 @@ function editorField(label,control) {
   const wrap=document.createElement('div');wrap.append(makeEditorLabel(label),control);return wrap;
 }
 function buildDeckCustomizationUI() {
-  sectionCard.style.cssText='position:relative;z-index:3;width:145px;min-width:145px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
+  sectionCard.style.cssText='position:relative;z-index:3;width:clamp(88px,27vw,116px);min-width:clamp(88px,27vw,116px);height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
   sectionContent.replaceChildren();
   sectionTitle.textContent='BOARD CUSTOMIZATION';
   sectionMessage.textContent='Choose a component. Drag the board to inspect it from any angle.';
@@ -2759,10 +2763,13 @@ function animate() {
   if (qualityCheckTime >= 1.5) {
     const measuredFps = qualityFrameCount / qualityCheckTime;
     const maxRatio = Math.min(devicePixelRatio || 1, 2);
-    if (measuredFps < 48 && adaptivePixelRatio > 1.15) adaptivePixelRatio = Math.max(1.15, adaptivePixelRatio - 0.15);
-    else if (measuredFps > 57 && adaptivePixelRatio < maxRatio) adaptivePixelRatio = Math.min(maxRatio, adaptivePixelRatio + 0.1);
-    if (Math.abs(renderer.getPixelRatio() - adaptivePixelRatio) > 0.02) {
-      renderer.setPixelRatio(adaptivePixelRatio);
+    if (!editorPreviewActive) {
+      if (measuredFps < 48 && adaptivePixelRatio > 1.15) adaptivePixelRatio = Math.max(1.15, adaptivePixelRatio - 0.15);
+      else if (measuredFps > 57 && adaptivePixelRatio < maxRatio) adaptivePixelRatio = Math.min(maxRatio, adaptivePixelRatio + 0.1);
+    }
+    const targetPixelRatio = editorPreviewActive ? Math.min(devicePixelRatio || 1, 3) : adaptivePixelRatio;
+    if (Math.abs(renderer.getPixelRatio() - targetPixelRatio) > 0.02) {
+      renderer.setPixelRatio(targetPixelRatio);
       renderer.setSize(innerWidth, innerHeight, false);
     }
     qualityCheckTime = 0; qualityFrameCount = 0;
