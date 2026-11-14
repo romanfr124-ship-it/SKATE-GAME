@@ -1011,7 +1011,52 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   roughness: 1,
   side: THREE.DoubleSide
 });
-makeDeckTop(deckTopMaterial, 'top', 0.0015, 2);
+// Assign grip directly to the deck's real upper cap. ExtrudeGeometry groups
+// both end caps together, so split that cap group by its computed face normal:
+// upward-facing triangles receive grip; downward-facing triangles stay wood.
+{
+  const geometry = deck.geometry;
+  const position = geometry.attributes.position;
+  const normal = geometry.attributes.normal;
+  const index = geometry.index;
+  const originalGroups = geometry.groups.slice();
+  const newGroups = [];
+  geometry.clearGroups();
+
+  for (const group of originalGroups) {
+    if (group.materialIndex !== 1) {
+      newGroups.push({ start: group.start, count: group.count, materialIndex: 0 });
+      continue;
+    }
+    let runStart = group.start;
+    let runMaterial = -1;
+    for (let offset = group.start; offset < group.start + group.count; offset += 3) {
+      let normalY = 0;
+      for (let corner = 0; corner < 3; corner++) {
+        const vertex = index ? index.getX(offset + corner) : offset + corner;
+        normalY += normal.getY(vertex);
+      }
+      const materialIndex = normalY > 0 ? 1 : 0;
+      if (runMaterial === -1) {
+        runMaterial = materialIndex;
+        runStart = offset;
+      } else if (materialIndex !== runMaterial) {
+        newGroups.push({ start: runStart, count: offset - runStart, materialIndex: runMaterial });
+        runStart = offset;
+        runMaterial = materialIndex;
+      }
+    }
+    if (runMaterial !== -1) {
+      newGroups.push({ start: runStart, count: group.start + group.count - runStart, materialIndex: runMaterial });
+    }
+  }
+  for (const group of newGroups) {
+    geometry.addGroup(group.start, group.count, group.materialIndex);
+  }
+  deck.material = [mats.board, deckTopMaterial];
+}
+// Grip is now part of the deck mesh itself, not a separate surface. to the deck's actual top cap below; there is no
+// separate floating mesh or expanded overlay.
 
 const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
