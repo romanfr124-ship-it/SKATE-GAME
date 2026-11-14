@@ -367,6 +367,40 @@ function terrainHeightAt(x, z) {
   return 3.2 * (1 - eased);
 }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
+
+// Return the vertical correction needed for the lowest part of the board to
+// meet the terrain. Positive means the board has penetrated the ground;
+// negative means it is still above the surface. Sample each mesh's world-space
+// bounding-box corners so wheels, deck and rotated trick landings are included.
+function groundContactCorrection() {
+  if (!board) return -Infinity;
+  board.updateMatrixWorld(true);
+  let lowestClearance = Infinity;
+  const worldPoint = new THREE.Vector3();
+  const corner = new THREE.Vector3();
+  board.traverse(object => {
+    if (!object.isMesh || !object.geometry) return;
+    const geometry = object.geometry;
+    if (!geometry.boundingBox) geometry.computeBoundingBox();
+    const bounds = geometry.boundingBox;
+    if (!bounds || !Number.isFinite(bounds.min.y) || !Number.isFinite(bounds.max.y)) return;
+    for (let ix = 0; ix < 2; ix++) {
+      for (let iy = 0; iy < 2; iy++) {
+        for (let iz = 0; iz < 2; iz++) {
+          corner.set(
+            ix ? bounds.max.x : bounds.min.x,
+            iy ? bounds.max.y : bounds.min.y,
+            iz ? bounds.max.z : bounds.min.z
+          );
+          worldPoint.copy(corner).applyMatrix4(object.matrixWorld);
+          const clearance = worldPoint.y - terrainHeightAt(worldPoint.x, worldPoint.z);
+          if (clearance < lowestClearance) lowestClearance = clearance;
+        }
+      }
+    }
+  });
+  return lowestClearance === Infinity ? -Infinity : -lowestClearance;
+}
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
 const terrainSegments = 120, terrainMin = -50, terrainMax = 50;
