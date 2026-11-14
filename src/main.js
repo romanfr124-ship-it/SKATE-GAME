@@ -379,7 +379,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   const yawLeverage = 0.72 + alongDeck * 0.58;
   if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     const impulse = fingerSpeed * (2.7 + distance * 0.055) * yawLeverage;
-    const spinSpeed = THREE.MathUtils.clamp(impulse, 2.8, 13.5);
+    const spinSpeed = THREE.MathUtils.clamp(impulse * 3, 8.4, 40.5);
     shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
     shuvitVelocity += direction * spinSpeed;
   }
@@ -390,7 +390,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
     const flipDirection = verticalDistance > 0 ? 1 : -1;
     const flipImpulse = fingerSpeed * (3.0 + Math.abs(verticalDistance) * 0.065) *
       (0.78 + alongDeck * 0.42);
-    const flipSpeed = THREE.MathUtils.clamp(flipImpulse, 2.8, 13);
+    const flipSpeed = THREE.MathUtils.clamp(flipImpulse * 3, 8.4, 39);
     flipTarget = flipDirection; // non-zero marker: a flip impulse is active
     flipVelocity += flipDirection * flipSpeed;
   }
