@@ -2362,6 +2362,7 @@ editorHeader.append(editorHeaderBack,editorHeaderTitle);
 sectionPanel.appendChild(editorHeader);
 sectionTitle.style.display='none';
 sectionMessage.style.display='none';
+sectionBack.style.display='none';
 const editorColourDock=document.createElement('div');
 editorColourDock.style.cssText='position:absolute;z-index:5;left:145px;right:0;bottom:0;min-height:68px;padding:7px 12px calc(env(safe-area-inset-bottom,0px) + 7px);display:flex;align-items:center;gap:10px;box-sizing:border-box;background:rgba(9,18,22,.96);border-top:1px solid #35e2dc88;box-shadow:0 -6px 20px #0007;';
 const editorColourLabel=document.createElement('div');
