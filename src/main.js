@@ -934,7 +934,7 @@ function animate() {
         const damping = Math.exp(-groundAngularDamping * dt);
         shuvitVelocity *= damping;
       }
-    } else {
+    } else if (airborne) {
       // Limited air control; momentum remains mostly conserved.
       heading += steer * 0.32 * dt;
       velocity.multiplyScalar(Math.exp(-0.02 * dt));
