@@ -1217,16 +1217,14 @@ function releaseGrind(side = 0, flickSpeed = 500) {
   board.rotation.x=0;board.rotation.z=0;
   return true;
 }
-function pop(kind = 'ollie', flickSpeed = 650) {
+function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   if (airborne || bailTimer > 0) return;
   airborne = true;
   airTime = 0;
-  // A sharper tail/nose flick transfers more impulse into the pop.
-  // Pixel speed is normalized so gentle flicks stay controllable while
-  // fast, deliberate flicks have enough height to clear park obstacles.
-  const flickPower = THREE.MathUtils.clamp((flickSpeed - 220) / 1180, 0, 1);
-  const popImpulse = 4.35 + flickPower * 3.35;
-  verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
+  // Pop height scales linearly with both swipe travel and finger speed.
+  // No dead zone, exponential curve, or sudden saturation.
+  const popImpulse = 3.8 + flickDistance * 0.006 + flickSpeed * 0.001;
+  verticalVelocity = popImpulse + velocity.length() * 0.035;
   trickCaught = false;
   trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
@@ -1234,7 +1232,8 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   board.rotation.z = 0;
   // The tail/nose pop transfers a small angular impulse into the deck.
   // Airborne finger drags can add to this momentum directly.
-  airPitchVelocity = kind === 'ollie' ? -0.85 : 0.85;
+  const popRotation = 0.12 + flickDistance * 0.0015 + flickSpeed * 0.00045;
+  airPitchVelocity = kind === 'ollie' ? -popRotation : popRotation;
   airRollVelocity = 0;
   grinding = false;
   grindRail = null;
@@ -1246,9 +1245,8 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   // or tail gives the same force more leverage for a horizontal-axis shuvit.
   // Spin responds linearly to the overall finger speed. Swipe distance and
   // deck contact position no longer multiply the impulse into sudden jumps.
-  const speedFactor = THREE.MathUtils.clamp((flickSpeed - 120) / 1000, 0, 1.4);
-  if (distance > 20 && speedFactor > 0 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
-    const spinSpeed = speedFactor * 7.5;
+  const spinSpeed = distance * 0.012 + flickSpeed * 0.0025;
+  if (distance > 0 && spinSpeed > 0 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     shuvitTarget = direction;
     shuvitVelocity += direction * spinSpeed;
   }
@@ -1644,8 +1642,8 @@ canvas.addEventListener('pointermove', event => {
     // A finger drag applies torque to the free deck while it is in the air.
     // The accumulated angular velocity persists after the finger is lifted.
     // Gentle per-pixel torque keeps the board controllable while dragging.
-    airPitchVelocity += -moveDy * 0.010;
-    airRollVelocity += moveDx * 0.012;
+    airPitchVelocity += -moveDy * 0.0035;
+    airRollVelocity += moveDx * 0.004;
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1667,7 +1665,7 @@ canvas.addEventListener('pointermove', event => {
     manualActive = false;
     manualAngle = 0;
     touchSteer = 0;
-    pop(manualSide === 1 ? 'ollie' : 'nollie', gesture.lastMoveSpeed || 650);
+    pop(manualSide === 1 ? 'ollie' : 'nollie', gesture.lastMoveSpeed || 650, Math.abs(moveDy));
   }
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
@@ -1689,7 +1687,7 @@ function finishGesture(event) {
     releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A vertical deck flick pops cleanly off the obstacle.
-    pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000));
+    pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000),Math.abs(dy));
   } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.25) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),Math.hypot(dx,dy)/elapsed*1000,0,g.deckLocalX || 0);
@@ -1700,14 +1698,14 @@ function finishGesture(event) {
     const direction = Math.sign(dy * travelSign) || 1;
     // A single linear impulse: faster flicks rotate faster, without a
     // distance multiplier or an artificial minimum spin.
-    const rollImpulse = THREE.MathUtils.clamp((flickSpeed - 120) / 1000, 0, 1.6) * 4.5;
+    const rollImpulse = Math.abs(dy) * 0.006 + flickSpeed * 0.0015;
     airRollVelocity += direction * rollImpulse;
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
     const tailFlickSpeed = Math.hypot(dx, dy) / elapsed * 1000;
-    if (dy * travelSign > 0) pop('ollie', tailFlickSpeed);
-    else pop('nollie', tailFlickSpeed);
+    if (dy * travelSign > 0) pop('ollie', tailFlickSpeed, Math.abs(dy));
+    else pop('nollie', tailFlickSpeed, Math.abs(dy));
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.25) {
       flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
         dy, g.deckLocalX || 0);
@@ -1716,7 +1714,9 @@ function finishGesture(event) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
-    velocity.addScaledVector(travelForwardVector(), direction * 3.5);
+    const pushSpeed = Math.hypot(dx, dy) / elapsed * 1000;
+    const pushImpulse = Math.abs(dy) * 0.03 + pushSpeed * 0.002;
+    velocity.addScaledVector(travelForwardVector(), direction * pushImpulse);
     const current = velocity.length();
     if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
   }
