@@ -4,7 +4,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
 const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91d9f2);
-scene.fog = new THREE.Fog(0x91d9f2, 58, 150);
+scene.fog = new THREE.Fog(0x91d9f2, 42, 112);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
@@ -25,9 +25,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.18;
 mount.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x7b927e, 2.15));
-const keyLight = new THREE.DirectionalLight(0xfff2d2, 3.0);
-keyLight.position.set(-12, 22, -10);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x66513f, 1.25));
+const keyLight = new THREE.DirectionalLight(0xffedcf, 3.7);
+keyLight.position.set(-18, 28, -16);
 keyLight.castShadow = true;
 keyLight.shadow.mapSize.set(2048, 2048);
 keyLight.shadow.camera.left = -34;
@@ -38,7 +38,7 @@ keyLight.shadow.camera.near = 1;
 keyLight.shadow.camera.far = 75;
 keyLight.shadow.normalBias = 0.035;
 keyLight.shadow.bias = -0.00012;
-keyLight.shadow.radius = 4;
+keyLight.shadow.radius = 3;
 scene.add(keyLight);
 
 // Light, repeatable painted-concrete texture made locally on a tiny canvas.
@@ -66,10 +66,10 @@ function makePaintTexture(base, flecks, size = 256) {
     ctx.stroke();
   }
   // Branching hairline fractures add scale and distance cues to the concrete.
-  for (let i = 0; i < 46; i++) {
+  for (let i = 0; i < 92; i++) {
     let px = random() * size, py = random() * size;
     const angle = random() * Math.PI * 2, length = 12 + random() * 68;
-    ctx.globalAlpha = 0.20 + random() * 0.22; ctx.strokeStyle = '#713f2d'; ctx.lineWidth = 1 + random() * 1.2;
+    ctx.globalAlpha = 0.32 + random() * 0.30; ctx.strokeStyle = '#633824'; ctx.lineWidth = 1.1 + random() * 1.5;
     ctx.beginPath(); ctx.moveTo(px, py);
     const steps = 4 + Math.floor(random() * 5);
     for (let k = 0; k < steps; k++) { const a = angle + (random() - 0.5) * 0.8; px += Math.cos(a) * length / steps; py += Math.sin(a) * length / steps; ctx.lineTo(px, py); }
@@ -86,6 +86,7 @@ function makePaintTexture(base, flecks, size = 256) {
 }
 const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
 const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
+for (const texture of [concreteTexture, asphaltTexture]) texture.generateMipmaps = true;
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
@@ -138,16 +139,16 @@ function makeDeckArtwork(top = false) {
 const boardGraphicTexture=makeDeckArtwork(false);
 const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, roughness: 1 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, bumpMap: asphaltTexture, bumpScale: 0.16, roughness: 0.98 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshPhysicalMaterial({ color: 0xe0e5eb, metalness: 0.72, roughness: 0.19, clearcoat: 0.85, clearcoatRoughness: 0.12 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
-  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
-  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
-  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
+  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
+  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
+  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
   wheel: new THREE.MeshStandardMaterial({ color: 0xf7f4e9, roughness: 0.72 }),
   wheelBlack: new THREE.MeshStandardMaterial({ color: 0x17221f, roughness: 0.58 }),
   wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
@@ -226,7 +227,7 @@ function rail(x, z, length, height = 0.82) {
 
 // The bowl is a true cut-out in the concrete slab, not a bowl mesh buried
 // beneath a flat floor. Its curved riding surface remains visible all the way down.
-const bowl = { x: -18, z: 0, radiusX: 10.8, radiusZ: 9.2, depth: 2.8, flatRatio: 0.24 };
+const bowl = { x: -18, z: 0, radiusX: 13.4, radiusZ: 11.4, depth: 3.25, deepExtra: 1.15, shallowCut: 1.0, flatRatio: 0.20 };
 const quarterPipes = [];
 const rampSurfaces = [];
 const floorShape = new THREE.Shape();
@@ -275,13 +276,19 @@ function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4
 
 // New park layout: a dedicated in-ground bowl on the west side and a
 // separate street/flow zone to the east. All dimensions are in metres.
+function bowlDepthAtAngle(angle, radius = 1) {
+  // The left half is the deep end; the right half is a mellow shallow end.
+  const endBlend = THREE.MathUtils.smoothstep(radius, 0.08, 0.72);
+  return bowl.depth + Math.cos(angle) * bowl.shallowCut * endBlend + (-Math.cos(angle)) * bowl.deepExtra * endBlend;
+}
 function bowlHeightAt(x, z) {
   const nx = (x - bowl.x) / bowl.radiusX;
   const nz = (z - bowl.z) / bowl.radiusZ;
   const radius = Math.sqrt(nx * nx + nz * nz);
   if (radius >= 1) return 0;
+  const angle = Math.atan2(nz, nx);
   const t = THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1);
-  return -bowl.depth * Math.cos(t * Math.PI / 2);
+  return -bowlDepthAtAngle(angle, radius) * Math.cos(t * Math.PI / 2);
 }
 
 function buildBowl() {
@@ -292,11 +299,11 @@ function buildBowl() {
   const indices = [];
   for (let ring = 0; ring <= rings; ring++) {
     const radius = ring / rings;
-    const y = -bowl.depth * Math.cos(
+    const angle = segment / segments * Math.PI * 2;
+    const y = -bowlDepthAtAngle(angle, radius) * Math.cos(
       THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1) * Math.PI / 2
     );
     for (let segment = 0; segment <= segments; segment++) {
-      const angle = segment / segments * Math.PI * 2;
       positions.push(
         bowl.x + Math.cos(angle) * bowl.radiusX * radius,
         y,
@@ -362,13 +369,75 @@ function buildBowl() {
 
   // A clean, slightly raised concrete deck around the bowl gives riders
   // room to set up, drop in and approach the coping without crowding it.
-  const deck = new THREE.Mesh(new THREE.RingGeometry(11.05, 11.65, 128), mats.concrete);
+  const deck = new THREE.Mesh(new THREE.RingGeometry(13.65, 14.25, 160), mats.concrete);
   deck.rotation.x = -Math.PI / 2;
   deck.position.set(bowl.x, 0.005, bowl.z);
   deck.scale.set(1, bowl.radiusZ / bowl.radiusX, 1);
+  deck.receiveShadow = true;
   scene.add(deck);
 }
 buildBowl();
+
+// Concrete expansion joints: slightly broken, irregular seams give the plaza
+// a readable metre-scale surface instead of one endless orange sheet.
+function addConcreteJoints() {
+  const dark = [], light = [];
+  const addSegment = (x1, z1, x2, z2) => {
+    const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
+    const nx = (mx - bowl.x) / bowl.radiusX, nz = (mz - bowl.z) / bowl.radiusZ;
+    if (nx * nx + nz * nz < 1.04) return;
+    dark.push(x1, 0.008, z1, x2, 0.008, z2);
+    light.push(x1, 0.012, z1, x2, 0.012, z2);
+  };
+  for (let z = -46; z <= 46; z += 8) {
+    for (let x = -48; x < 48; x += 8) {
+      const offset = Math.sin(z * 1.73 + x * 0.37) * 0.32;
+      addSegment(x, z + offset, x + 7.6, z + offset + 0.12);
+    }
+  }
+  for (let x = -46; x <= 46; x += 8) {
+    for (let z = -48; z < 48; z += 8) {
+      const offset = Math.cos(x * 1.31 + z * 0.29) * 0.28;
+      addSegment(x + offset, z, x + offset + 0.08, z + 7.6);
+    }
+  }
+  for (const [points, color, opacity] of [[dark, 0x75452f, 0.42], [light, 0xf1b47c, 0.38]]) {
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
+    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+    lines.renderOrder = 2;
+    scene.add(lines);
+  }
+}
+addConcreteJoints();
+
+function addGraffiti(tag, x, y, z, width = 2.6, color = '#e9e0c9') {
+  const canvas = document.createElement('canvas'); canvas.width = 512; canvas.height = 192;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, 512, 192);
+  ctx.save(); ctx.translate(256, 98); ctx.rotate(-0.045);
+  ctx.font = '900 112px Impact, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(32,25,24,0.78)'; ctx.lineWidth = 17; ctx.strokeText(tag, 0, 0);
+  ctx.fillStyle = color; ctx.fillText(tag, 0, 0);
+  ctx.strokeStyle = 'rgba(255,255,255,0.48)'; ctx.lineWidth = 3; ctx.strokeText(tag, 0, -2);
+  ctx.restore();
+  const texture = new THREE.CanvasTexture(canvas); texture.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, opacity: 0.88 }));
+  sprite.position.set(x, y, z); sprite.scale.set(width, width * 0.375, 1); sprite.renderOrder = 3; scene.add(sprite);
+  return sprite;
+}
+// Original skatepark tags, scattered around the bowl and street obstacles.
+for (const [tag, angle, size, color] of [
+  ['RAZE', 0.45, 2.8, '#f0d9b8'], ['KILO', 1.35, 2.5, '#d8e4c9'],
+  ['VEX', 2.35, 2.3, '#e8c8db'], ['MOTEL', 3.2, 2.8, '#f1dfb6'],
+  ['STATIC', 4.25, 2.8, '#c9dce8'], ['NOIR', 5.35, 2.5, '#f0d5bc']
+]) {
+  const radius = 0.76, x = bowl.x + Math.cos(angle) * bowl.radiusX * radius, z = bowl.z + Math.sin(angle) * bowl.radiusZ * radius;
+  addGraffiti(tag, x, bowlHeightAt(x, z) + 0.22, z, size, color);
+}
+addGraffiti('GHOST', 10, 0.83, -12.39, 2.1, '#d7e6d0');
+addGraffiti('WILD', 22, 0.83, 11.6, 1.9, '#e8cbd7');
+addGraffiti('ZERO', 27.8, 1.15, -8, 2.2, '#e9dfbd');
 
 function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   const depth = height;
