@@ -1020,8 +1020,8 @@ const boardPhysics = (() => {
   );
   deckBody.setEnabledRotations(true, true, true);
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(1.13, 0.06, 0.34)
-      .setTranslation(0, 0.395, 0)
+    RAPIER.ColliderDesc.cuboid(1.13, 0.055, 0.34)
+      .setTranslation(0, 0.345, 0)
       .setDensity(6.5)
       .setFriction(0.85),
     deckBody
@@ -2518,7 +2518,6 @@ function animate() {
   }
 
   if (!airborne) resolveObstacleContacts();
-  if (!airborne) board.rotation.y = heading - Math.PI / 2;
   // Keep the complete board above the ground in every grounded stance,
   // including manuals and caught primo/Casper orientations.
   if (!airborne && !grinding) {
