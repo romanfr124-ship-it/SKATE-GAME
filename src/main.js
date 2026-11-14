@@ -840,43 +840,52 @@ const deckVisualGroup = new THREE.Group();
 board.add(deckVisualGroup);
 
 const deckShape = new THREE.Shape();
-// Traditional symmetrical popsicle outline: a gently pinched waist,
-// fuller shoulders, and broad rounded nose and tail.
-deckShape.moveTo(-1.13, 0);
-deckShape.bezierCurveTo(-1.12, 0.105, -1.075, 0.215, -0.985, 0.267);
-deckShape.bezierCurveTo(-0.91, 0.305, -0.82, 0.305, -0.70, 0.298);
-deckShape.bezierCurveTo(-0.43, 0.282, -0.28, 0.272, 0, 0.272);
-deckShape.bezierCurveTo(0.28, 0.272, 0.43, 0.282, 0.70, 0.298);
-deckShape.bezierCurveTo(0.82, 0.305, 0.91, 0.305, 0.985, 0.267);
-deckShape.bezierCurveTo(1.075, 0.215, 1.12, 0.105, 1.13, 0);
-deckShape.bezierCurveTo(1.12, -0.105, 1.075, -0.215, 0.985, -0.267);
-deckShape.bezierCurveTo(0.91, -0.305, 0.82, -0.305, 0.70, -0.298);
-deckShape.bezierCurveTo(0.43, -0.282, 0.28, -0.272, 0, -0.272);
-deckShape.bezierCurveTo(-0.28, -0.272, -0.43, -0.282, -0.70, -0.298);
-deckShape.bezierCurveTo(-0.82, -0.305, -0.91, -0.305, -0.985, -0.267);
-deckShape.bezierCurveTo(-1.075, -0.215, -1.12, -0.105, -1.13, 0);
+// Real-world 31 x 8.2 inch popsicle deck (game units are metres).
+// Axles are 13.6 inches apart; standard 2.5-inch truck mounting patterns
+// put the inner bolt rows 5.55 inches from each deck tip.
+const BOARD_LENGTH = 0.7874;
+const BOARD_WIDTH = 0.20828;
+const BOARD_HALF_LENGTH = BOARD_LENGTH / 2;
+const BOARD_HALF_WIDTH = BOARD_WIDTH / 2;
+const BOARD_WHEELBASE = 0.34544;
+const BOARD_TRUCK_X = BOARD_WHEELBASE / 2;
+const BOARD_DECK_TOP = 0.1365;
+const BOARD_DECK_THICKNESS = 0.015;
+deckShape.moveTo(-0.3937, 0);
+deckShape.bezierCurveTo(-0.3902, 0.0359, -0.3745, 0.0734, -0.3432, 0.0912);
+deckShape.bezierCurveTo(-0.3170, 0.1041, -0.2856, 0.1041, -0.2439, 0.1018);
+deckShape.bezierCurveTo(-0.1498, 0.0963, -0.0976, 0.0929, 0, 0.0929);
+deckShape.bezierCurveTo(0.0976, 0.0929, 0.1498, 0.0963, 0.2439, 0.1018);
+deckShape.bezierCurveTo(0.2856, 0.1041, 0.3170, 0.1041, 0.3432, 0.0912);
+deckShape.bezierCurveTo(0.3745, 0.0734, 0.3902, 0.0359, 0.3937, 0);
+deckShape.bezierCurveTo(0.3902, -0.0359, 0.3745, -0.0734, 0.3432, -0.0912);
+deckShape.bezierCurveTo(0.3170, -0.1041, 0.2856, -0.1041, 0.2439, -0.1018);
+deckShape.bezierCurveTo(0.1498, -0.0963, 0.0976, -0.0929, 0, -0.0929);
+deckShape.bezierCurveTo(-0.0976, -0.0963, -0.1498, -0.0963, -0.2439, -0.1018);
+deckShape.bezierCurveTo(-0.2856, -0.1041, -0.3170, -0.1041, -0.3432, -0.0912);
+deckShape.bezierCurveTo(-0.3745, -0.0734, -0.3902, -0.0359, -0.3937, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
-  depth: 0.10,
+  depth: BOARD_DECK_THICKNESS,
   // Keep only a fine edge break. The former oversized bevel made a raised
   // lip visible along both long sides of the underside.
   bevelEnabled: true,
   bevelSegments: 3,
   steps: 1,
-  bevelSize: 0.008,
-  bevelThickness: 0.006,
+  bevelSize: 0.0025,
+  bevelThickness: 0.002,
   curveSegments: 32
 });
 deckGeometry.rotateX(Math.PI / 2);
 
 // Gentle, even kick at the nose and tail; the deck subtly thins toward each tip.
 function deckKick(x) {
-  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
+  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.216) / 0.1777, 0, 1);
   const eased = t * t * (3 - 2 * t);
-  return eased * 0.095;
+  return eased * 0.0328;
 }
 function deckThicknessAt(x) {
-  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.62) / 0.51, 0, 1);
+  const t = THREE.MathUtils.clamp((Math.abs(x) - 0.216) / 0.1777, 0, 1);
   const eased = t * t * (3 - 2 * t);
   return 1 - eased * 0.32;
 }
@@ -893,7 +902,7 @@ function curveDeckGeometry(geometry, taperThickness = false) {
 }
 curveDeckGeometry(deckGeometry, true);
 const deck = new THREE.Mesh(deckGeometry, mats.board);
-deck.position.y = 0.395;
+deck.position.y = BOARD_DECK_TOP;
 deckVisualGroup.add(deck);
 
 // Build the painted top from the same outline as the deck, preserving its kick and shape.
@@ -1003,7 +1012,7 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
 });
 // The grip is a bonded surface layer: keep it almost flush with the deck's
 // upper face so it cannot look like a separate floating sheet.
-makeDeckTop(0.992, 0.985, deckTopMaterial, 0.0015, 3);
+makeDeckTop(0.992, 0.985, deckTopMaterial, 0.0008, 3);
 
 // A separate mapped face on the actual underside. This avoids relying on the
 // extruded deck's side-face UVs, which caused the default artwork to show instead.
@@ -1018,7 +1027,7 @@ const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
   polygonOffsetUnits: -1,
   depthWrite: false
 });
-makeDeckTop(0.992, 0.985, undersideGraphicMaterial, -0.109, 4);
+makeDeckTop(0.992, 0.985, undersideGraphicMaterial, -BOARD_DECK_THICKNESS - 0.0008, 4);
 
 /* Board graphic customisation: procedural, high-resolution deck artwork. */
 const deckGraphicState = {
@@ -1235,46 +1244,46 @@ refreshDeckGraphic();
 const wheelMeshes = [];
 const truckVisuals = [];
 const wheelVisuals = [];
-for (const x of [-0.69, 0.69]) {
+for (const x of [-BOARD_TRUCK_X, BOARD_TRUCK_X]) {
   // The baseplate is bolted rigidly to the deck; only the hanger pivots.
-  const baseplate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.25), mats.metal);
-  baseplate.position.set(x, 0.24, 0);
+  const baseplate = new THREE.Mesh(new THREE.BoxGeometry(0.086, 0.017, 0.086), mats.metal);
+  baseplate.position.set(x, 0.083, 0);
   board.add(baseplate);
 
   // Kingpin and rubber bushings stay fixed to the baseplate, surrounding
   // the hanger's pivot like a real truck's bushing stack.
-  const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), mats.dark);
-  kingpin.position.set(x, 0.195, 0);
+  const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.0086, 0.0086, 0.055, 8), mats.dark);
+  kingpin.position.set(x, 0.067, 0);
   board.add(kingpin);
   const bushingMaterial = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.82, metalness: 0.02 });
-  const upperBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.038, 0.035, 12), bushingMaterial);
-  upperBushing.position.set(x, 0.225, 0);
+  const upperBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.016, 0.013, 0.012, 12), bushingMaterial);
+  upperBushing.position.set(x, 0.078, 0);
   board.add(upperBushing);
-  const lowerBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.047, 0.035, 12), bushingMaterial);
-  lowerBushing.position.set(x, 0.175, 0);
+  const lowerBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.012, 12), bushingMaterial);
+  lowerBushing.position.set(x, 0.060, 0);
   board.add(lowerBushing);
 
   const truckVisual = new THREE.Group();
-  truckVisual.position.set(x, 0.18, 0);
+  truckVisual.position.set(x, 0.062, 0);
   board.add(truckVisual);
   truckVisuals.push(truckVisual);
 
-  const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.66, 12), mats.metal);
+  const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.0165, 0.0165, 0.228, 12), mats.metal);
   hanger.rotation.x = Math.PI / 2;
   truckVisual.add(hanger);
 
   // Each wheel is a separate visual body with its own spin axis.
-  for (const z of [-0.30, 0.30]) {
+  for (const z of [-0.112, 0.112]) {
     const wheelVisual = new THREE.Group();
-    wheelVisual.position.set(x, 0.145, z);
+    wheelVisual.position.set(x, 0.027, z);
     board.add(wheelVisual);
     wheelVisuals.push(wheelVisual);
 
     const profile = [
-      new THREE.Vector2(0.097,-0.055),new THREE.Vector2(0.122,-0.048),
-      new THREE.Vector2(0.132,-0.032),new THREE.Vector2(0.135,0),
-      new THREE.Vector2(0.132,0.032),new THREE.Vector2(0.122,0.048),
-      new THREE.Vector2(0.097,0.055)
+      new THREE.Vector2(0.0194,-0.011),new THREE.Vector2(0.0244,-0.0096),
+      new THREE.Vector2(0.0264,-0.0064),new THREE.Vector2(0.027,0),
+      new THREE.Vector2(0.0264,0.0064),new THREE.Vector2(0.0244,0.0096),
+      new THREE.Vector2(0.0194,0.011)
     ];
     const wheel = new THREE.Mesh(new THREE.LatheGeometry(profile,32),mats.wheel);
     wheel.rotation.x = Math.PI / 2;
@@ -1291,7 +1300,7 @@ for (const x of [-0.69, 0.69]) {
     const scuffGeometry = new THREE.SphereGeometry(1, 8, 6);
     for (let mark = 0; mark < 9; mark++) {
       const angle = (mark / 9) * Math.PI * 2 + (mark % 3) * 0.11;
-      const radius = 0.133 + (mark % 2) * 0.001;
+      const radius = 0.0266 + (mark % 2) * 0.0002;
       const scuff = new THREE.Mesh(scuffGeometry, treadScuffMaterials[mark % treadScuffMaterials.length]);
       scuff.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, ((mark % 3) - 1) * 0.025);
       scuff.scale.set(0.0035, 0.010 + (mark % 3) * 0.002, 0.006);
@@ -1350,8 +1359,8 @@ const boardPhysics = (() => {
   );
   deckBody.setEnabledRotations(true, true, true);
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(1.13, 0.055, 0.34)
-      .setTranslation(0, 0.345, 0)
+    RAPIER.ColliderDesc.cuboid(BOARD_HALF_LENGTH, BOARD_DECK_THICKNESS / 2, BOARD_HALF_WIDTH)
+      .setTranslation(0, BOARD_DECK_TOP - BOARD_DECK_THICKNESS / 2, 0)
       .setDensity(6.5)
       .setFriction(0.85),
     deckBody
@@ -1393,25 +1402,25 @@ const boardPhysics = (() => {
     if (joint && typeof joint.setContactsEnabled === 'function') joint.setContactsEnabled(false);
   };
 
-  for (const x of [-0.69, 0.69]) {
+  for (const x of [-BOARD_TRUCK_X, BOARD_TRUCK_X]) {
     const truckBody = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.18, boardWorldPosition.z)
+        .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.062, boardWorldPosition.z)
         .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
         .setLinearDamping(0.08)
         .setAngularDamping(0.22)
         .enabledRotations(true, true, true)
     );
     world.createCollider(
-      RAPIER.ColliderDesc.cuboid(0.14, 0.045, 0.32)
+      RAPIER.ColliderDesc.cuboid(0.048, 0.0155, 0.11)
         .setDensity(20)
         .setFriction(0.9),
       truckBody
     );
     const truckJoint = world.createImpulseJoint(
       RAPIER.JointData.revolute(
-        { x, y: 0.24, z: 0 },
-        { x: 0, y: 0.06, z: 0 },
+        { x, y: 0.083, z: 0 },
+        { x: 0, y: 0.021, z: 0 },
         { x: 0, y: 1, z: 0 }
       ),
       deckBody,
@@ -1425,10 +1434,10 @@ const boardPhysics = (() => {
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
-    for (const z of [-0.30, 0.30]) {
+    for (const z of [-0.112, 0.112]) {
       const wheelBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.145, boardWorldPosition.z + z)
+          .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.027, boardWorldPosition.z + z)
           .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
           .setLinearDamping(0.02)
           .setAngularDamping(0.03)
@@ -1436,7 +1445,7 @@ const boardPhysics = (() => {
       );
       const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
       const wheelCollider = world.createCollider(
-        RAPIER.ColliderDesc.cylinder(0.055, 0.145)
+        RAPIER.ColliderDesc.cylinder(0.011, 0.027)
           .setRotation(axleRotation)
           .setDensity(20)
           .setFriction(5.0)
@@ -1565,10 +1574,10 @@ const boardPhysics = (() => {
       body.setAngvel({ x: 0, y: 0, z: 0 }, true);
     };
     let wheelIndex = 0;
-    for (const x of [-0.69, 0.69]) {
-      resetBody(trucks[x < 0 ? 0 : 1], new THREE.Vector3(x, 0.18, 0));
-      for (const z of [-0.30, 0.30]) {
-        resetBody(wheels[wheelIndex++], new THREE.Vector3(x, 0.145, z));
+    for (const x of [-BOARD_TRUCK_X, BOARD_TRUCK_X]) {
+      resetBody(trucks[x < 0 ? 0 : 1], new THREE.Vector3(x, 0.062, 0));
+      for (const z of [-0.112, 0.112]) {
+        resetBody(wheels[wheelIndex++], new THREE.Vector3(x, 0.027, z));
       }
     }
     previousKinematicPosition.copy(boardWorldPosition);
@@ -1579,8 +1588,8 @@ const boardPhysics = (() => {
   function applyPopTorque(kind, magnitude) {
     if (!deckIsDynamic) return;
     board.updateMatrixWorld(true);
-    const localTailX = kind === 'ollie' ? -0.92 : 0.92;
-    const tailPoint = board.localToWorld(new THREE.Vector3(localTailX, 0.395, 0));
+    const localTailX = kind === 'ollie' ? -0.32 : 0.32;
+    const tailPoint = board.localToWorld(new THREE.Vector3(localTailX, BOARD_DECK_TOP, 0));
     const downwardImpulse = new THREE.Vector3(0, -magnitude, 0).applyQuaternion(board.quaternion);
     deckBody.applyImpulseAtPoint(toRapierVector(downwardImpulse), toRapierVector(tailPoint), true);
     // Equal and opposite impulse at the centre of mass creates a pure couple.
@@ -2453,7 +2462,7 @@ function activateBoardEditorPreview(){
   // Rebase the model around the deck's centre before rotating it. The physics
   // model normally uses the ground-level board origin; the editor must pivot
   // around the deck itself so it spins in place instead of orbiting in a circle.
-  const deckCentreY=0.395;
+  const deckCentreY=BOARD_DECK_TOP;
   for(const child of board.children) child.position.y-=deckCentreY;
   // The customization preview is a clean floating-board display: hide every
   // park surface, obstacle, grid and ground mesh, keeping only the board/lights.
@@ -2530,7 +2539,7 @@ editorStage.addEventListener('pointermove',event=>{
   if(!editorDrag||!editorPreviewActive||!editorPointers.has(event.pointerId))return;editorPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
   if(editorDrag.mode==='graphic'){
     if(editorPointers.size>=2&&editorDrag.pinchDistance>0)deckGraphicState.graphicScale=THREE.MathUtils.clamp(editorDrag.pinchScale*editorPointerDistance()/editorDrag.pinchDistance,.3,2.5);
-    else if(editorPointers.size===1){const p=editorLocalPlanePoint(event.clientX,event.clientY);if(p){deckGraphicState.graphicOffsetX=editorDrag.startX+(p.x-editorDrag.startPoint.x)*(2048/(2*1.13));deckGraphicState.graphicOffsetY=editorDrag.startY+(p.z-editorDrag.startPoint.z)*(1024/(2*.34));}}
+    else if(editorPointers.size===1){const p=editorLocalPlanePoint(event.clientX,event.clientY);if(p){deckGraphicState.graphicOffsetX=editorDrag.startX+(p.x-editorDrag.startPoint.x)*(2048/BOARD_LENGTH);deckGraphicState.graphicOffsetY=editorDrag.startY+(p.z-editorDrag.startPoint.z)*(1024/BOARD_WIDTH);}}
     refreshDeckGraphic();
   }else{const dx=event.clientX-editorDrag.x,dy=event.clientY-editorDrag.y;board.rotation.y=editorDrag.rotation.y+dx*.012;board.rotation.x=editorDrag.rotation.x+dy*.012;editorTargetRotation=null;renderer.render(scene,camera);}
 });
@@ -3086,9 +3095,9 @@ function animate() {
     if (manualActive) {
       board.updateMatrixWorld(true);
       let endScraping = false;
-      const scrapeEndX = manualSide === 1 ? -1.055 : 1.055;
-      for (const localZ of [-0.13, 0, 0.13]) {
-        const endPoint = board.localToWorld(new THREE.Vector3(scrapeEndX, 0.410, localZ));
+      const scrapeEndX = manualSide === 1 ? -0.368 : 0.368;
+      for (const localZ of [-0.045, 0, 0.045]) {
+        const endPoint = board.localToWorld(new THREE.Vector3(scrapeEndX, BOARD_DECK_TOP + 0.015, localZ));
         const clearance = endPoint.y - terrainHeightAt(endPoint.x, endPoint.z);
         if (clearance <= 0.025) {
           endScraping = true;
