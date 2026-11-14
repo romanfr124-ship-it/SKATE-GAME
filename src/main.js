@@ -1060,7 +1060,7 @@ const boardPhysics = (() => {
     RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainCollisionVertices),
       new Uint32Array(terrainCollisionIndices)
-    ).setFriction(1.4).setRestitution(0.02),
+    ).setFriction(3.0).setRestitution(0.02),
     terrainBody
   );
 
@@ -1117,7 +1117,7 @@ const boardPhysics = (() => {
         RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
           .setDensity(20)
-          .setFriction(2.0)
+          .setFriction(3.5)
           .setRestitution(0.04),
         wheelBody
       );
@@ -1768,7 +1768,8 @@ canvas.addEventListener('pointerdown', event => {
     deckLocalY: initialDeckPoint ? initialDeckPoint.y : 0.45,
     deckLocalZ: initialDeckPoint ? initialDeckPoint.z : 0,
     manualGesture: false,
-    manualPopTriggered: false
+    manualPopTriggered: false,
+    reverseSwipeCandidate: !airborne && !grinding && event.clientY >= innerHeight * 0.32 && event.clientY <= innerHeight * 0.68 && (event.clientX <= innerWidth * 0.28 || event.clientX >= innerWidth * 0.72)
   };
   touchSteer = 0;
 });
@@ -1786,6 +1787,12 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
   gesture.lastMoveTime = moveTime;
+  // A full-width horizontal gesture from an outer edge is reserved for
+  // deliberate stance reversal; it must not steer the board while in progress.
+  if (gesture.reverseSwipeCandidate) {
+    touchSteer = 0;
+    return;
+  }
   // Keep manual detection forgiving: the finger can land anywhere on the
   // relevant half of the deck, including close to its centre.
   // deckLocalX is already measured in the board's own coordinate frame,
@@ -1843,7 +1850,13 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 800;
-  if (grinding && quick && Math.abs(dx) > 30) {
+  const crossedScreen = g.reverseSwipeCandidate && Math.abs(dx) >= innerWidth * 0.48 &&
+    ((g.x <= innerWidth * 0.28 && event.clientX >= innerWidth * 0.72) ||
+     (g.x >= innerWidth * 0.72 && event.clientX <= innerWidth * 0.28)) &&
+    Math.abs(dy) <= innerHeight * 0.14;
+  if (crossedScreen) {
+    travelSign *= -1;
+  } else if (grinding && quick && Math.abs(dx) > 30) {
     releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000),Math.abs(dy));
@@ -2397,13 +2410,6 @@ function animate() {
     // Ground steering changes heading and gradually redirects momentum,
     // rather than moving the board sideways like a character controller.
     const currentSpeed = velocity.length();
-    // Keep the POV/control frame facing the actual direction of motion.
-    // A small dead zone prevents the camera oscillating when nearly stopped.
-    if (currentSpeed > 0.45) {
-      const alongBoard = velocity.dot(forwardVector());
-      if (alongBoard < -0.12) travelSign = -1;
-      else if (alongBoard > 0.12) travelSign = 1;
-    }
     if (grinding && grindRail) {
       let edge = grindRail;
       let alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
