@@ -659,9 +659,11 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastX = event.clientX;
   gesture.lastY = event.clientY;
   gesture.lastMoveTime = moveTime;
-  const pullingTail = gesture.deckLocalX !== null && gesture.deckLocalX < -0.22 && gesture.dy > 12;
-  const pullingNose = gesture.deckLocalX !== null && gesture.deckLocalX > 0.22 && gesture.dy < -12;
-  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 && moveTime - gesture.startTime > 260) {
+  // Keep manual detection forgiving: the finger can land anywhere on the
+  // relevant half of the deck, including close to its centre.
+  const pullingTail = gesture.deckLocalX !== null && gesture.deckLocalX < -0.04 && gesture.dy > 8;
+  const pullingNose = gesture.deckLocalX !== null && gesture.deckLocalX > 0.04 && gesture.dy < -8;
+  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 && moveTime - gesture.startTime > 180) {
     // Pull slowly away from the centre: down on the tail for a manual,
     // up/forward on the nose for a nose manual. Both use the same travel scale.
     gesture.manualGesture = true;
