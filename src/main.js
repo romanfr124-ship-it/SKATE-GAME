@@ -42,51 +42,98 @@ keyLight.shadow.radius = 3;
 scene.add(keyLight);
 
 // Light, repeatable painted-concrete texture made locally on a tiny canvas.
-function makePaintTexture(base, flecks, size = 256) {
+// Weathered poured-concrete finish: broad age stains, abrasion and scratches,
+// deliberately avoiding the obvious sand/fleck grain used by the earlier texture.
+function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, size, size);
   let seed = 918273;
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  // Visible aggregate, sand grains and irregular mottling like poured skatepark concrete.
-  for (let i = 0; i < 14500; i++) {
-    const r = 1.1 + random() * 4.2;
-    ctx.globalAlpha = 0.24 + random() * 0.42;
-    ctx.fillStyle = flecks[Math.floor(random() * flecks.length)];
-    ctx.beginPath(); ctx.arc(random() * size, random() * size, r, 0, Math.PI * 2); ctx.fill();
-  }
-  for (let i = 0; i < 180; i++) {
+
+  // Large soft-edged patches of grime and water staining, not speckled grain.
+  for (let i = 0; i < 115; i++) {
     const x = random() * size, y = random() * size;
-    ctx.globalAlpha = 0.035 + random() * 0.07;
-    ctx.strokeStyle = random() > 0.5 ? '#713d28' : '#ffd09a';
-    ctx.lineWidth = 1.5 + random() * 4;
-    ctx.beginPath(); ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + (random() - 0.5) * 28, y + (random() - 0.5) * 22, x + (random() - 0.5) * 54, y + (random() - 0.5) * 40);
+    const rx = 18 + random() * 115, ry = 12 + random() * 82;
+    const tone = darkTones[Math.floor(random() * darkTones.length)];
+    const gradient = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry));
+    gradient.addColorStop(0, tone + '88');
+    gradient.addColorStop(0.58, tone + '42');
+    gradient.addColorStop(1, tone + '00');
+    ctx.fillStyle = gradient;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, ry / rx);
+    ctx.beginPath();
+    ctx.arc(0, 0, rx, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Broad worn patches and faded abrasion where wheels and weather polish the slab.
+  for (let i = 0; i < 74; i++) {
+    const x = random() * size, y = random() * size;
+    ctx.globalAlpha = 0.035 + random() * 0.075;
+    ctx.strokeStyle = lightTones[Math.floor(random() * lightTones.length)];
+    ctx.lineWidth = 5 + random() * 22;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.bezierCurveTo(
+      x + (random() - 0.5) * 90, y + (random() - 0.5) * 55,
+      x + (random() - 0.5) * 150, y + (random() - 0.5) * 80,
+      x + (random() - 0.5) * 190, y + (random() - 0.5) * 100
+    );
     ctx.stroke();
   }
-  // Branching hairline fractures add scale and distance cues to the concrete.
-  for (let i = 0; i < 92; i++) {
-    let px = random() * size, py = random() * size;
-    const angle = random() * Math.PI * 2, length = 12 + random() * 68;
-    ctx.globalAlpha = 0.32 + random() * 0.30; ctx.strokeStyle = '#633824'; ctx.lineWidth = 1.1 + random() * 1.5;
-    ctx.beginPath(); ctx.moveTo(px, py);
-    const steps = 4 + Math.floor(random() * 5);
-    for (let k = 0; k < steps; k++) { const a = angle + (random() - 0.5) * 0.8; px += Math.cos(a) * length / steps; py += Math.sin(a) * length / steps; ctx.lineTo(px, py); }
+
+  // Fine, irregular scratches and dragged wheel scuffs.
+  for (let i = 0; i < 980; i++) {
+    const x = random() * size, y = random() * size;
+    const length = 3 + random() * 48;
+    ctx.globalAlpha = 0.10 + random() * 0.22;
+    ctx.strokeStyle = random() > 0.24
+      ? darkTones[Math.floor(random() * darkTones.length)]
+      : lightTones[Math.floor(random() * lightTones.length)];
+    ctx.lineWidth = 0.45 + random() * 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + length, y + (random() - 0.5) * 3.5);
     ctx.stroke();
-    if (i % 3 === 0) { ctx.globalAlpha *= 0.7; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + (random() - 0.5) * 20, py + (random() - 0.5) * 20); ctx.stroke(); }
   }
+
+  // Occasional longer hairline abrasions, softened into the concrete surface.
+  for (let i = 0; i < 115; i++) {
+    const x = random() * size, y = random() * size;
+    ctx.globalAlpha = 0.12 + random() * 0.16;
+    ctx.strokeStyle = darkTones[Math.floor(random() * darkTones.length)];
+    ctx.lineWidth = 0.7 + random() * 1.2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + 14 + random() * 72, y + (random() - 0.5) * 9);
+    ctx.stroke();
+  }
+
   ctx.globalAlpha = 1;
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(0.25, 0.25);
   texture.anisotropy = 8;
+  texture.generateMipmaps = true;
   return texture;
 }
-const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
-const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
-for (const texture of [concreteTexture, asphaltTexture]) texture.generateMipmaps = true;
+const concreteTexture = makeWeatheredConcreteTexture(
+  '#777b7e', ['#414649', '#505559', '#5b6063', '#666b6e'],
+  ['#a0a3a4', '#929799', '#858a8d'], 1024
+);
+const asphaltTexture = concreteTexture;
+const obstacleTexture = makeWeatheredConcreteTexture(
+  '#c87943', ['#754a35', '#89563d', '#a66b4b'],
+  ['#e0a477', '#d18d60', '#bd7950'], 1024
+);
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
@@ -139,16 +186,16 @@ function makeDeckArtwork(top = false) {
 const boardGraphicTexture=makeDeckArtwork(false);
 const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, bumpMap: asphaltTexture, bumpScale: 0.34, roughness: 0.98 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.98 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.97 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshPhysicalMaterial({ color: 0xe0e5eb, metalness: 0.72, roughness: 0.19, clearcoat: 0.85, clearcoatRoughness: 0.12 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
-  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
-  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
-  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
+  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: obstacleTexture, bumpMap: obstacleTexture, bumpScale: 0.075, roughness: 0.96 }),
+  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: obstacleTexture, bumpMap: obstacleTexture, bumpScale: 0.075, roughness: 0.96 }),
+  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: obstacleTexture, bumpMap: obstacleTexture, bumpScale: 0.075, roughness: 0.96 }),
   wheel: new THREE.MeshStandardMaterial({ color: 0xf7f4e9, roughness: 0.72 }),
   wheelBlack: new THREE.MeshStandardMaterial({ color: 0x17221f, roughness: 0.58 }),
   wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
