@@ -364,7 +364,7 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   trickCaught = false;
   trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
-  const popDirection = kind === 'nollie' ? -1 : 1;
+  const popDirection = (kind === 'nollie' ? -1 : 1) * travelSign;
   pitchVelocity = popDirection * 2.0;
   board.rotation.x = 0;
   board.rotation.z = popDirection * 0.12;
@@ -660,9 +660,14 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastMoveTime = moveTime;
   // Keep manual detection forgiving: the finger can land anywhere on the
   // relevant half of the deck, including close to its centre.
-  const pullingTail = gesture.deckLocalX !== null && gesture.deckLocalX < -0.04 && gesture.dy > 8;
-  const pullingNose = gesture.deckLocalX !== null && gesture.deckLocalX > 0.04 && gesture.dy < -8;
-  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 && moveTime - gesture.startTime > 180) {
+  const tailSide = gesture.deckLocalX !== null && gesture.deckLocalX * travelSign < -0.04;
+  const noseSide = gesture.deckLocalX !== null && gesture.deckLocalX * travelSign > 0.04;
+  const pullingTail = tailSide && gesture.dy > 8;
+  const pullingNose = noseSide && gesture.dy < -8;
+  // A quick pop flick must never be reclassified as a manual. Manuals require
+  // a sustained, controlled drag rather than merely crossing the old 180ms mark.
+  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
+      moveTime - gesture.startTime > 420 && gesture.lastMoveSpeed < 700) {
     // Pull slowly away from the centre: down on the tail for a manual,
     // up/forward on the nose for a nose manual. Both use the same travel scale.
     gesture.manualGesture = true;
@@ -675,7 +680,7 @@ canvas.addEventListener('pointermove', event => {
   // Either pop can also be triggered while kickturning.
   const manualPopDirection = manualSide === 1 ? moveDy > 28 : moveDy < -28;
   if (!airborne && manualActive && gesture.manualGesture && !gesture.manualPopTriggered &&
-      manualPopDirection && moveDuration <= 180 && moveTime - gesture.startTime > 300) {
+      manualPopDirection && moveDuration <= 180 && moveTime - gesture.startTime > 500) {
     gesture.manualPopTriggered = true;
     gesture.manualGesture = true;
     manualActive = false;
@@ -708,7 +713,7 @@ function finishGesture(event) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
     const tailFlickSpeed = g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000);
-    if (dy > 0) pop('ollie', tailFlickSpeed);
+    if (dy * travelSign > 0) pop('ollie', tailFlickSpeed);
     else pop('nollie', tailFlickSpeed);
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
       flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
