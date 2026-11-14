@@ -867,11 +867,65 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   return surface;
 }
 
-// The deck has no grip-tape layer: its purple painted top is fully exposed.
+// Medium-grain skateboard grip tape: a charcoal base with dense, fine
+// mineral particles and a restrained amount of larger grit for realism.
+function makeGripTapeTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 1024;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#252629';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  let seed = 204411;
+  const rnd = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  // Very fine, tightly packed grain forms the sandpaper-like base.
+  for (let i = 0; i < 92000; i++) {
+    const v = Math.floor(25 + rnd() * 35);
+    const a = 0.18 + rnd() * 0.38;
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 0.35 + rnd() * 0.8;
+    ctx.fillRect(x, y, r, r);
+  }
+  // Medium-sized grit catches light without looking like oversized bumps.
+  for (let i = 0; i < 15500; i++) {
+    const light = rnd() > 0.48;
+    const v = light ? 92 + Math.floor(rnd() * 48) : 8 + Math.floor(rnd() * 18);
+    const a = 0.22 + rnd() * 0.38;
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 0.7 + rnd() * 1.35;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // A few larger, irregular particles give the surface natural variation.
+  for (let i = 0; i < 1800; i++) {
+    const light = rnd() > 0.5;
+    const v = light ? 105 + Math.floor(rnd() * 35) : 12 + Math.floor(rnd() * 16);
+    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + (0.18 + rnd() * 0.25) + ')';
+    const x = rnd() * 1024, y = rnd() * 1024;
+    const r = 1.2 + rnd() * 1.8;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * (0.55 + rnd() * 0.8), rnd() * Math.PI, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  return texture;
+}
+const gripTapeTexture = makeGripTapeTexture();
 const deckTopMaterial = new THREE.MeshStandardMaterial({
-  color: 0x514078,
-  metalness: 0.12,
-  roughness: 0.48,
+  color: 0xffffff,
+  map: gripTapeTexture,
+  bumpMap: gripTapeTexture,
+  bumpScale: 0.012,
+  metalness: 0,
+  roughness: 1,
   side: THREE.DoubleSide,
   polygonOffset: true,
   polygonOffsetFactor: -1,
@@ -1096,7 +1150,8 @@ function refreshDeckGraphic() {
   undersideGraphicMaterial.map=boardGraphicTexture;
   undersideGraphicMaterial.needsUpdate=true;
   mats.board.color.set(0xffffff); // Preserve natural maple grain on the deck's exposed ply edge.
-  deckTopMaterial.color.set(deckGraphicState.deckColor);
+  // Grip tape is its own surface and is not tinted by deck-colour settings.
+  deckTopMaterial.color.set(0xffffff);
   deckTopMaterial.needsUpdate=true;
   mats.board.needsUpdate=true;
   renderer.render(scene,camera);
@@ -2504,6 +2559,11 @@ function buildDeckCustomizationUI() {
   }else if(editorCategory==='Deck colour'){
     sectionContent.appendChild(editorField('Deck colour',makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();})));
     const note=document.createElement('div');note.textContent='This changes the board colour independently of the deck artwork.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
+  }else if(editorCategory==='Grip tape'){
+    const note=document.createElement('div');
+    note.textContent='Medium-grain grip tape is now applied to the top of the deck: dense, fine mineral grit with subtle particle variation and a matte, sandpaper-like finish. Colour options and grip graphics will be added separately.';
+    note.style.cssText='padding:12px;border:1px solid #ffffff20;border-radius:9px;background:#ffffff08;color:#c2cecb;font-size:11px;line-height:1.5;';
+    sectionContent.appendChild(note);
   }else{
     const note=document.createElement('div');
     note.textContent=editorCategory+' controls will be added after we decide the available options for this component. The board has moved to show it in the preview.';
