@@ -386,8 +386,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   }
   // A flick across the board's width creates a kickflip/heelflip.
   // Its direction comes from the swipe, and its leverage from the touch point.
-  if (Math.abs(verticalDistance) > 22 && Math.abs(flipVelocity) < 0.1 &&
-      Math.abs(board.rotation.x) < 0.1) {
+  if (Math.abs(verticalDistance) > 22 && Math.abs(flipVelocity) < 0.1) {
     const flipDirection = verticalDistance > 0 ? 1 : -1;
     const flipImpulse = fingerSpeed * (3.0 + Math.abs(verticalDistance) * 0.065) *
       (0.78 + alongDeck * 0.42);
