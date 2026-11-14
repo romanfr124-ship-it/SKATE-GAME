@@ -513,6 +513,17 @@ for (let i = 1; i <= 32; i++) {
 for (let i = 1; i <= 30; i++) qpPath.push(new THREE.Vector2(-10 + i, -30));
 const qpWidth = 4;
 const qpHeight = 4;
+const qpPathDistances = [0];
+for (let i = 1; i < qpPath.length; i++) {
+  qpPathDistances.push(qpPathDistances[i - 1] + qpPath[i].distanceTo(qpPath[i - 1]));
+}
+const qpTotalLength = qpPathDistances[qpPathDistances.length - 1];
+// The coping descends from the 5m highest platform to the 3.2m second platform.
+function qpLipHeightAt(pathIndex, segmentT = 0) {
+  const distance = qpPathDistances[pathIndex] +
+    (qpPathDistances[Math.min(pathIndex + 1, qpPathDistances.length - 1)] - qpPathDistances[pathIndex]) * segmentT;
+  return THREE.MathUtils.lerp(5, 3.2, distance / qpTotalLength);
+}
 const qpSegments = [];
 for (let i = 0; i < qpPath.length - 1; i++) {
   const dx = qpPath[i + 1].x - qpPath[i].x;
@@ -545,13 +556,19 @@ function quarterPipeSample(x, z) {
     // The rideable face is on the inside/right of the L-shaped run.
     const inward = side;
     if (!best || Math.hypot(x - px, z - pz) < best.distance) {
-      best = { px, pz, inward, distance: Math.hypot(x - px, z - pz), tx: seg.tx, tz: seg.tz };
+      const segmentIndex = qpSegments.indexOf(seg);
+      const pathIndex = segmentIndex;
+      const segmentT = seg.length > 0 ? along / seg.length : 0;
+      best = { px, pz, inward, distance: Math.hypot(x - px, z - pz), tx: seg.tx, tz: seg.tz,
+        lipY: qpLipHeightAt(pathIndex, segmentT) };
     }
   }
   if (!best || best.inward < 0 || best.inward > qpWidth) return null;
   const d = best.inward;
-  const y = qpHeight - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
-  return { ...best, y: baseGroundHeight(best.px, best.pz) + y };
+  const baseY = baseGroundHeight(best.px, best.pz);
+  const rise = Math.max(0, best.lipY - baseY);
+  const y = rise - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
+  return { ...best, y: baseY + y };
 }
 function makeQuarterPipe() {
   const positions = [], indices = [];
@@ -567,7 +584,10 @@ function makeQuarterPipe() {
       const d = qpWidth * j / across;
       const x = qpPath[i].x + nx * d;
       const z = qpPath[i].y + nz * d;
-      const y = baseGroundHeight(x, z) + qpHeight - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
+      const lipY = qpLipHeightAt(i);
+      const baseY = baseGroundHeight(x, z);
+      const rise = Math.max(0, lipY - baseY);
+      const y = baseY + rise - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
       positions.push(x, y, z);
       if (i < qpPath.length - 1 && j < across) {
         const a = i * (across + 1) + j, b = a + across + 1;
@@ -591,7 +611,9 @@ function makeQuarterPipe() {
     const length = tangent.length();
     if (length < 0.001) continue;
     const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, length + 0.035, 12), silver);
-    rod.position.set(midX, baseGroundHeight(midX, midZ) + qpHeight, midZ);
+    const pathIndex = i;
+    const lipY = THREE.MathUtils.lerp(qpLipHeightAt(pathIndex), qpLipHeightAt(pathIndex + 1), 0.5);
+    rod.position.set(midX, lipY, midZ);
     rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent.normalize());
     rod.castShadow = true; scene.add(rod);
     addGrindEdge({ x: a.x, z: a.y }, { x: b.x, z: b.y }, rod.position.y, 'coping');
