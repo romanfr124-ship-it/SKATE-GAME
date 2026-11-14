@@ -178,10 +178,6 @@ function ramp(w, h, d, x, z, angle = 0) {
   surface.rotation.copy(mesh.rotation);
   scene.add(surface);
   addSurfaceGrid(surface, w, d, 1, h / 2 + 0.012, 4);
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
-  edge.position.copy(mesh.position);
-  edge.rotation.copy(mesh.rotation);
-  scene.add(edge);
 }
 function rail(x, z, length, height = 0.82) {
   const geometry = new THREE.CylinderGeometry(0.055, 0.055, length, 8);
