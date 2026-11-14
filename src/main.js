@@ -1,4 +1,8 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
+import RAPIER from '@dimforge/rapier3d-compat';
+
+// Rapier supplies the articulated rigid-body simulation for the skateboard.
+await RAPIER.init();
 
 // Minimal monochrome blockout: only the 3D skatepark and skateboard are shown.
 const mount = document.getElementById('game');
@@ -593,6 +597,8 @@ addConcreteJoints();
 // Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
 scene.add(board);
+const deckVisualGroup = new THREE.Group();
+board.add(deckVisualGroup);
 
 const deckShape = new THREE.Shape();
 deckShape.moveTo(-1.13, 0);
@@ -639,7 +645,7 @@ function curveDeckGeometry(geometry, taperThickness = false) {
 curveDeckGeometry(deckGeometry, true);
 const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.395;
-board.add(deck);
+deckVisualGroup.add(deck);
 
 // Build the painted top from the same outline as the deck, preserving its kick and shape.
 function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
@@ -661,7 +667,7 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   const surface = new THREE.Mesh(geometry, material);
   surface.position.y = deck.position.y + yOffset;
   surface.renderOrder = renderOrder;
-  board.add(surface);
+  deckVisualGroup.add(surface);
   return surface;
 }
 
@@ -902,45 +908,53 @@ function refreshDeckGraphic() {
 refreshDeckGraphic();
 
 
-// Trucks: base plates, hangers, axles and kingpins.
+// Articulated truck and wheel visuals. Each assembly has its own local origin
+// so Rapier can drive it independently while the deck remains the main body.
 const wheelMeshes = [];
+const truckVisuals = [];
+const wheelVisuals = [];
 for (const x of [-0.69, 0.69]) {
-  const base = new THREE.Mesh(
-    new THREE.BoxGeometry(0.25, 0.05, 0.25),
-    mats.metal
-  );
-  base.position.set(x, 0.240, 0);
-  board.add(base);
+  const truckVisual = new THREE.Group();
+  truckVisual.position.set(x, 0.18, 0);
+  board.add(truckVisual);
+  truckVisuals.push(truckVisual);
 
-  const hanger = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.048, 0.048, 0.66, 12),
-    mats.metal
-  );
+  const base = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.25), mats.metal);
+  base.position.set(0, 0.06, 0);
+  truckVisual.add(base);
+
+  const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.66, 12), mats.metal);
   hanger.rotation.x = Math.PI / 2;
-  hanger.position.set(x, 0.180, 0);
-  board.add(hanger);
+  truckVisual.add(hanger);
 
-  const kingpin = new THREE.Mesh(
-    new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8),
-    mats.dark
-  );
-  kingpin.position.set(x, 0.195, 0);
-  board.add(kingpin);
+  const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), mats.dark);
+  kingpin.position.set(0, 0.015, 0);
+  truckVisual.add(kingpin);
 
-  // Rounded white urethane wheels with black/green/black side graphics.
+  // Each wheel is a separate visual body with its own spin axis.
   for (const z of [-0.30, 0.30]) {
-    const profile=[
+    const wheelVisual = new THREE.Group();
+    wheelVisual.position.set(x, 0.145, z);
+    board.add(wheelVisual);
+    wheelVisuals.push(wheelVisual);
+
+    const profile = [
       new THREE.Vector2(0.097,-0.055),new THREE.Vector2(0.122,-0.048),
       new THREE.Vector2(0.132,-0.032),new THREE.Vector2(0.135,0),
       new THREE.Vector2(0.132,0.032),new THREE.Vector2(0.122,0.048),
       new THREE.Vector2(0.097,0.055)
     ];
-    const wheel=new THREE.Mesh(new THREE.LatheGeometry(profile,32),mats.wheel);
-    wheel.rotation.x=Math.PI/2;wheel.position.set(x,0.145,z);board.add(wheel);wheelMeshes.push(wheel);
-    for(const side of [-1,1]){
-      const sideDisc=(radius,depth,material,offset)=>{
-        const disc=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,depth,32),material);
-        disc.rotation.x=Math.PI/2;disc.position.set(x,0.145,z+side*offset);board.add(disc);
+    const wheel = new THREE.Mesh(new THREE.LatheGeometry(profile,32),mats.wheel);
+    wheel.rotation.x = Math.PI / 2;
+    wheelVisual.add(wheel);
+    wheelMeshes.push(wheel);
+
+    for (const side of [-1,1]) {
+      const sideDisc = (radius, depth, material, offset) => {
+        const disc = new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,depth,32),material);
+        disc.rotation.x = Math.PI / 2;
+        disc.position.z = side * offset;
+        wheelVisual.add(disc);
       };
       sideDisc(0.072,0.008,mats.wheelBlack,0.056);
       sideDisc(0.056,0.009,mats.wheelGreen,0.062);
@@ -950,6 +964,136 @@ for (const x of [-0.69, 0.69]) {
 }
 board.position.set(0, 0, 1.5);
 board.rotation.order = 'YXZ';
+
+// Rigid-body foundation: one kinematic deck body, two independently moving
+// truck bodies, and four independently rotating wheel bodies. The existing
+// riding controller drives the deck for this first stage; the joints let the
+// component assemblies react physically instead of being welded to one mesh.
+const boardPhysics = (() => {
+  const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
+  world.timestep = 1 / 60;
+  const boardPosition = board.position;
+  const boardRotation = new THREE.Quaternion();
+  board.getWorldQuaternion(boardRotation);
+
+  const deckBody = world.createRigidBody(
+    RAPIER.RigidBodyDesc.kinematicPositionBased()
+      .setTranslation(boardPosition.x, boardPosition.y, boardPosition.z)
+      .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
+  );
+  world.createCollider(
+    RAPIER.ColliderDesc.cuboid(1.13, 0.06, 0.34)
+      .setTranslation(0, 0.395, 0)
+      .setFriction(0.85),
+    deckBody
+  );
+
+  const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  world.createCollider(
+    RAPIER.ColliderDesc.cuboid(200, 0.10, 200)
+      .setTranslation(0, -0.10, 0)
+      .setFriction(1.4),
+    groundBody
+  );
+
+  const trucks = [];
+  const wheels = [];
+  const setJointContactsOff = joint => {
+    if (joint && typeof joint.setContactsEnabled === 'function') joint.setContactsEnabled(false);
+  };
+
+  for (const x of [-0.69, 0.69]) {
+    const truckBody = world.createRigidBody(
+      RAPIER.RigidBodyDesc.dynamic()
+        .setTranslation(boardPosition.x + x, boardPosition.y + 0.18, boardPosition.z)
+        .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
+        .setLinearDamping(0.65)
+        .setAngularDamping(1.4)
+        .enabledRotations(true, true, true)
+    );
+    world.createCollider(
+      RAPIER.ColliderDesc.cuboid(0.14, 0.045, 0.32)
+        .setFriction(0.9)
+        .setDensity(2.2),
+      truckBody
+    );
+    const truckJoint = world.createImpulseJoint(
+      RAPIER.JointData.revolute([x, 0.24, 0], [0, 0.06, 0], [0, 1, 0]),
+      deckBody,
+      truckBody,
+      true
+    );
+    setJointContactsOff(truckJoint);
+    trucks.push(truckBody);
+
+    for (const z of [-0.30, 0.30]) {
+      const wheelBody = world.createRigidBody(
+        RAPIER.RigidBodyDesc.dynamic()
+          .setTranslation(boardPosition.x + x, boardPosition.y + 0.145, boardPosition.z + z)
+          .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
+          .setLinearDamping(0.12)
+          .setAngularDamping(0.18)
+          .enabledRotations(true, true, true)
+      );
+      const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
+      world.createCollider(
+        RAPIER.ColliderDesc.cylinder(0.055, 0.135)
+          .setRotation(axleRotation)
+          .setFriction(2.0)
+          .setRestitution(0.06)
+          .setDensity(1.35),
+        wheelBody
+      );
+      const wheelJoint = world.createImpulseJoint(
+        RAPIER.JointData.revolute([0, -0.035, z], [0, 0, 0], [0, 0, 1]),
+        truckBody,
+        wheelBody,
+        true
+      );
+      setJointContactsOff(wheelJoint);
+      wheels.push(wheelBody);
+    }
+  }
+
+  const localPosition = new THREE.Vector3();
+  const worldPosition = new THREE.Vector3();
+  const bodyRotation = new THREE.Quaternion();
+  const inverseBoardRotation = new THREE.Quaternion();
+  const boardWorldPosition = new THREE.Vector3();
+  const boardWorldRotation = new THREE.Quaternion();
+  const updateVisual = (body, visual) => {
+    const p = body.translation();
+    worldPosition.set(p.x, p.y, p.z);
+    visual.position.copy(board.worldToLocal(worldPosition.clone()));
+    const q = body.rotation();
+    bodyRotation.set(q.x, q.y, q.z, q.w);
+    visual.quaternion.copy(inverseBoardRotation).multiply(bodyRotation);
+  };
+
+  return {
+    world,
+    deckBody,
+    trucks,
+    wheels,
+    step(dt) {
+      board.updateMatrixWorld(true);
+      board.getWorldPosition(boardWorldPosition);
+      board.getWorldQuaternion(boardWorldRotation);
+      deckBody.setNextKinematicTranslation({
+        x: boardWorldPosition.x, y: boardWorldPosition.y, z: boardWorldPosition.z
+      });
+      deckBody.setNextKinematicRotation({
+        x: boardWorldRotation.x, y: boardWorldRotation.y,
+        z: boardWorldRotation.z, w: boardWorldRotation.w
+      });
+      world.timestep = Math.max(1 / 120, Math.min(dt, 1 / 30));
+      world.step();
+      inverseBoardRotation.copy(boardWorldRotation).invert();
+      for (let i = 0; i < trucks.length; i++) updateVisual(trucks[i], truckVisuals[i]);
+      for (let i = 0; i < wheels.length; i++) updateVisual(wheels[i], wheelVisuals[i]);
+    }
+  };
+})();
 
 // Skate physics: horizontal momentum, push impulses, carving, pop and
 // independent board rotation in the air. The board model's long axis is X.
@@ -2255,9 +2399,7 @@ function animate() {
   }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
-  for (const wheel of wheelMeshes) {
-    wheel.rotation.y = THREE.MathUtils.damp(wheel.rotation.y, steer * 0.12, 8, dt);
-  }
+  boardPhysics.step(dt);
   updateFollowCamera(dt);
   renderer.render(scene, camera);
 
