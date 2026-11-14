@@ -773,13 +773,53 @@ function drawDeckGraphic(canvas, topSide) {
     const cat=st.category, idx=st.design;
     ctx.save();ctx.translate(W/2,H/2);
     if(cat==='Vintage'){
-      // Aged poster grain, bold retro badge, flames and hand-drawn stars.
+      // Each catalogue entry has its own central illustration, not just a changed title.
+      const labels=['SKULL & ROSES','FLAMING PANTHER','RETRO RACING','BROKEN HEART','LUCKY DICE','DESERT SUNSET','CLASSIC EAGLE','WILD TIGER','VINTAGE COMIC','SNAKE BITE','OLD SCHOOL STAR','DISTRESSED BADGE'];
       ctx.fillStyle=idx%2?'#171717':'#f1dfbd';ctx.globalAlpha=.24;ctx.fillRect(-W/2,-H/2,W,H);ctx.globalAlpha=1;
       ctx.strokeStyle=palette[idx%2];ctx.lineWidth=22;ctx.beginPath();ctx.ellipse(0,0,520,330,0,0,Math.PI*2);ctx.stroke();
-      ctx.fillStyle=palette[(idx+1)%2];ctx.font='900 150px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';
-      const labels=['HOT ROD','NO MERCY','WILD SIDE','BAD LUCK','BURNOUT','OUTLAW','SKULL CLUB','FULL THROTTLE','HELLCAT','RIDE OR DIE','OLD SCHOOL','REBEL'];
-      ctx.fillText(labels[idx],0,15,1000);
-      ctx.font='bold 52px Arial';ctx.fillText('SKATE DEPT.  •  EST. 1994',0,260,1000);
+      ctx.save();ctx.translate(0,-55);ctx.strokeStyle=palette[(idx+1)%2];ctx.fillStyle=palette[(idx+1)%2];ctx.lineWidth=24;
+      if(idx===0){
+        ctx.beginPath();ctx.arc(0,-20,125,0,Math.PI*2);ctx.fill();
+        ctx.fillStyle='#171717';ctx.beginPath();ctx.arc(-43,-38,24,0,Math.PI*2);ctx.arc(43,-38,24,0,Math.PI*2);ctx.fill();
+        ctx.beginPath();ctx.moveTo(-48,55);ctx.lineTo(48,55);ctx.lineTo(30,120);ctx.lineTo(-30,120);ctx.closePath();ctx.fill();
+        ctx.strokeStyle=palette[0];ctx.lineWidth=17;for(const x of [-95,0,95]){ctx.beginPath();ctx.moveTo(x,105);ctx.bezierCurveTo(x-90,180,x+90,195,x+15,245);ctx.stroke();}
+      }else if(idx===1){
+        ctx.beginPath();ctx.moveTo(-145,-100);ctx.lineTo(-75,-175);ctx.lineTo(-25,-90);ctx.quadraticCurveTo(0,-120,25,-90);ctx.lineTo(75,-175);ctx.lineTo(145,-100);ctx.quadraticCurveTo(175,80,0,145);ctx.quadraticCurveTo(-175,80,-145,-100);ctx.fill();
+        ctx.fillStyle='#171717';ctx.beginPath();ctx.ellipse(-55,-5,22,13,0,0,Math.PI*2);ctx.ellipse(55,-5,22,13,0,0,Math.PI*2);ctx.fill();
+      }else if(idx===2){
+        ctx.font='900 330px Impact';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('94',0,5);
+        ctx.strokeStyle=palette[0];ctx.lineWidth=24;for(let n=0;n<4;n++){ctx.beginPath();ctx.moveTo(-300,105+n*38);ctx.lineTo(300,105+n*38);ctx.stroke();}
+      }else if(idx===3){
+        ctx.beginPath();ctx.moveTo(0,135);ctx.bezierCurveTo(-330,-60,-170,-230,0,-95);ctx.bezierCurveTo(170,-230,330,-60,0,135);ctx.fill();
+        ctx.strokeStyle='#171717';ctx.lineWidth=18;ctx.beginPath();ctx.moveTo(0,-130);ctx.lineTo(-30,-15);ctx.lineTo(35,25);ctx.lineTo(-12,135);ctx.stroke();
+      }else if(idx===4){
+        for(const x of [-95,95]){ctx.save();ctx.translate(x,0);ctx.rotate(-.12);ctx.fillRect(-72,-112,144,224);ctx.fillStyle='#171717';for(const [dx,dy] of [[-35,-65],[35,-65],[0,0],[-35,65],[35,65]]){ctx.beginPath();ctx.arc(dx,dy,13,0,Math.PI*2);ctx.fill();}ctx.restore();ctx.fillStyle=palette[(idx+1)%2];}
+      }else if(idx===5){
+        ctx.beginPath();ctx.arc(0,-5,135,0,Math.PI*2);ctx.fill();ctx.strokeStyle=palette[0];ctx.lineWidth=25;
+        for(let a=0;a<Math.PI*2;a+=Math.PI/8){ctx.beginPath();ctx.moveTo(Math.cos(a)*155,Math.sin(a)*155-5);ctx.lineTo(Math.cos(a)*235,Math.sin(a)*235-5);ctx.stroke();}
+        ctx.strokeStyle='#171717';ctx.lineWidth=18;for(let n=0;n<5;n++){ctx.beginPath();ctx.moveTo(-260,80+n*35);ctx.quadraticCurveTo(0,20+n*35,260,80+n*35);ctx.stroke();}
+      }else if(idx===6){
+        ctx.beginPath();ctx.moveTo(0,-150);ctx.bezierCurveTo(-85,-90,-160,-170,-270,-80);ctx.bezierCurveTo(-210,35,-110,90,0,65);ctx.bezierCurveTo(110,90,210,35,270,-80);ctx.bezierCurveTo(160,-170,85,-90,0,-150);ctx.fill();
+        ctx.fillStyle='#171717';ctx.beginPath();ctx.moveTo(0,-80);ctx.lineTo(-45,35);ctx.lineTo(0,10);ctx.lineTo(45,35);ctx.closePath();ctx.fill();
+      }else if(idx===7){
+        ctx.beginPath();ctx.ellipse(0,0,150,190,0,0,Math.PI*2);ctx.fill();
+        ctx.strokeStyle='#171717';ctx.lineWidth=28;for(let n=-2;n<=2;n++){ctx.beginPath();ctx.moveTo(n*55-80,-150);ctx.quadraticCurveTo(n*60+90,0,n*55-80,150);ctx.stroke();}
+      }else if(idx===8){
+        ctx.beginPath();for(let n=0;n<24;n++){const a=n*Math.PI/12,r=n%2?125:220,x=Math.cos(a)*r,y=Math.sin(a)*r; if(n===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();
+        ctx.fillStyle='#171717';ctx.font='900 120px Impact';ctx.textAlign='center';ctx.fillText('POW!',0,30);
+      }else if(idx===9){
+        ctx.beginPath();ctx.moveTo(-170,100);ctx.bezierCurveTo(-250,-180,240,-220,140,20);ctx.bezierCurveTo(60,190,-160,80,-70,-55);ctx.bezierCurveTo(0,-155,160,-85,80,0);ctx.stroke();
+        ctx.fillStyle='#171717';ctx.beginPath();ctx.arc(80,-2,18,0,Math.PI*2);ctx.fill();
+      }else if(idx===10){
+        ctx.beginPath();for(let n=0;n<10;n++){const a=-Math.PI/2+n*Math.PI/5,r=n%2?90:205,x=Math.cos(a)*r,y=Math.sin(a)*r;if(n===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);}ctx.closePath();ctx.fill();
+      }else{
+        ctx.beginPath();ctx.roundRect(-190,-145,380,290,38);ctx.fill();
+        ctx.strokeStyle='#171717';ctx.lineWidth=17;ctx.strokeRect(-145,-100,290,200);
+        ctx.fillStyle='#171717';ctx.font='900 110px Georgia';ctx.textAlign='center';ctx.fillText('EST',0,35);
+      }
+      ctx.restore();
+      ctx.fillStyle=palette[(idx+1)%2];ctx.font='900 96px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(labels[idx],0,245,1050);
+      ctx.font='bold 42px Arial';ctx.fillText('SKATE DEPT.  •  EST. 1994',0,315,1000);
       for(let i=0;i<16;i++){const a=i*Math.PI/8;ctx.fillStyle=palette[i%2];ctx.beginPath();ctx.arc(Math.cos(a)*560,Math.sin(a)*340,12+rnd()*14,0,Math.PI*2);ctx.fill();}
     } else if(cat==='Japanese'){
       // Sun disc, layered wave crests and a central stylised dragon/oni motif.
@@ -805,13 +845,15 @@ function drawDeckGraphic(canvas, topSide) {
   }
 }
 function refreshDeckGraphic() {
-  // The selected design is rendered onto a dedicated, centred underside face.
-  drawDeckGraphic(boardGraphicTexture.image,false);
-  // The upper face and exposed deck edge retain the independent deck colour.
+  // Redraw the selected catalogue entry into the exact canvas used by the
+  // underside material. Keep the top face and deck edge independent.
+  const artworkCanvas=boardGraphicTexture.image;
+  drawDeckGraphic(artworkCanvas,false);
+  boardGraphicTexture.needsUpdate=true;
+  undersideGraphicMaterial.map=boardGraphicTexture;
+  undersideGraphicMaterial.needsUpdate=true;
   mats.board.color.set(deckGraphicState.deckColor);
   deckTopMaterial.color.set(deckGraphicState.deckColor);
-  boardGraphicTexture.needsUpdate=true;
-  undersideGraphicMaterial.needsUpdate=true;
   deckTopMaterial.needsUpdate=true;
   mats.board.needsUpdate=true;
   renderer.render(scene,camera);
@@ -1602,8 +1644,13 @@ function restoreBoardEditorPreview(){
 }
 function aimEditorBoard(category){
   const underside=['Deck graphics','Trucks','Wheels'].includes(category);
-  const target=new THREE.Euler(underside?Math.PI:0,category==='Deck shape'?0.42:0,Math.PI/2,'YXZ');
-  editorTargetRotation=target;
+  // The board's local face normal points toward the negative-X camera in its
+  // default pose. Flip around world Y and move the camera to the opposite side
+  // together, so the underside is actually presented to the viewer.
+  camera.position.x=underside?4.4:-4.4;
+  camera.lookAt(0,1.45,0.48);
+  camera.updateProjectionMatrix();
+  editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
 }
 editorStage.addEventListener('pointerdown',event=>{
   if(!editorPreviewActive)return;
