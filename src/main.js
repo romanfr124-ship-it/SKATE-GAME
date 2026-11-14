@@ -497,46 +497,15 @@ function rail(x, z, length, height = 0.82) {
 // Two-level open skate landscape. Previous bowls, rails and obstacles
 // are removed; this is an empty foundation for later placement.
 // World coordinates are metres: X east/west, Z north/south.
-const quarterPipes = [];
+// Open two-level skate landscape. All quarter pipes, coping and their
+// attached stair assembly have been removed; the park terrain remains open.
 const rampSurfaces = [];
 
 const bowl = { x: 0, z: 0, radiusX: 0, radiusZ: 0, depth: 0, deepExtra: 0, shallowCut: 0, flatRatio: 0 };
 
-// One continuous L-shaped quarter pipe: it follows the west edge northward,
-// rounds a 10m radius corner at Z=-40, then runs east to X=20.
-const qpPath = [];
-for (let i = 0; i <= 20; i++) qpPath.push(new THREE.Vector2(-20, -60 + i));
-for (let i = 1; i <= 32; i++) {
-  const a = Math.PI - (Math.PI / 2) * (i / 32);
-  qpPath.push(new THREE.Vector2(-10 + 10 * Math.cos(a), -40 + 10 * Math.sin(a)));
-}
-for (let i = 1; i <= 30; i++) qpPath.push(new THREE.Vector2(-10 + i, -30));
-const qpWidth = 4;
-const qpHeight = 4;
-const qpPathDistances = [0];
-for (let i = 1; i < qpPath.length; i++) {
-  qpPathDistances.push(qpPathDistances[i - 1] + qpPath[i].distanceTo(qpPath[i - 1]));
-}
-const qpTotalLength = qpPathDistances[qpPathDistances.length - 1];
-// The coping descends from the 5m highest platform to the 3.2m second platform.
-function qpLipHeightAt(pathIndex, segmentT = 0) {
-  const distance = qpPathDistances[pathIndex] +
-    (qpPathDistances[Math.min(pathIndex + 1, qpPathDistances.length - 1)] - qpPathDistances[pathIndex]) * segmentT;
-  return THREE.MathUtils.lerp(5, 3.2, distance / qpTotalLength);
-}
-const qpSegments = [];
-for (let i = 0; i < qpPath.length - 1; i++) {
-  const dx = qpPath[i + 1].x - qpPath[i].x;
-  const dz = qpPath[i + 1].y - qpPath[i].y;
-  const length = Math.hypot(dx, dz);
-  if (length > 0.001) qpSegments.push({
-    a: qpPath[i], b: qpPath[i + 1],
-    tx: dx / length, tz: dz / length, length
-  });
-}
 function baseGroundHeight(x, z) {
-  // The raised platform occupies only the north-west corner. Its edge blends
-  // into the widened berm, which runs from X=-20 to X=0.
+  // Raised platform is confined to the north-west corner, blending into
+  // the wide berm from X=-20 to X=0.
   const xT = THREE.MathUtils.clamp((x + 20) / 20, 0, 1);
   const xFade = xT * xT * (3 - 2 * xT);
   const zStartT = THREE.MathUtils.clamp((z - 22) / 3, 0, 1);
@@ -548,115 +517,10 @@ function baseGroundHeight(x, z) {
   const raisedPlatformExtra = 1.8 * platformZFade * (1 - xFade);
   return secondLevel + raisedPlatformExtra;
 }
-function quarterPipeSample(x, z) {
-  let best = null;
-  for (const seg of qpSegments) {
-    const rx = x - seg.a.x, rz = z - seg.a.y;
-    const along = THREE.MathUtils.clamp(rx * seg.tx + rz * seg.tz, 0, seg.length);
-    const px = seg.a.x + seg.tx * along;
-    const pz = seg.a.y + seg.tz * along;
-    const side = (x - px) * seg.tz - (z - pz) * seg.tx;
-    // The rideable face is on the inside/right of the L-shaped run.
-    const inward = side;
-    if (!best || Math.hypot(x - px, z - pz) < best.distance) {
-      const segmentIndex = qpSegments.indexOf(seg);
-      const pathIndex = segmentIndex;
-      const segmentT = seg.length > 0 ? along / seg.length : 0;
-      best = { px, pz, inward, distance: Math.hypot(x - px, z - pz), tx: seg.tx, tz: seg.tz,
-        lipY: qpLipHeightAt(pathIndex, segmentT) };
-    }
-  }
-  if (!best || best.inward < 0 || best.inward > qpWidth) return null;
-  const d = best.inward;
-  const baseY = baseGroundHeight(best.px, best.pz);
-  const rise = Math.max(0, best.lipY - baseY);
-  const u = (qpWidth - d) / qpWidth;
-  const y = rise * (1 - Math.sqrt(Math.max(0, 1 - u * u)));
-  return { ...best, y: baseY + y };
-}
-function makeQuarterPipe() {
-  const positions = [], indices = [];
-  const across = 24;
-  for (let i = 0; i < qpPath.length; i++) {
-    const before = qpPath[Math.max(0, i - 1)];
-    const after = qpPath[Math.min(qpPath.length - 1, i + 1)];
-    const dx = after.x - before.x, dz = after.y - before.y;
-    const len = Math.hypot(dx, dz) || 1;
-    const tx = dx / len, tz = dz / len;
-    const nx = tz, nz = -tx; // park-facing side of the clockwise L
-    for (let j = 0; j <= across; j++) {
-      const d = qpWidth * j / across;
-      const x = qpPath[i].x + nx * d;
-      const z = qpPath[i].y + nz * d;
-      const lipY = qpLipHeightAt(i);
-      const baseY = baseGroundHeight(x, z);
-      const rise = Math.max(0, lipY - baseY);
-      const u = (qpWidth - d) / qpWidth;
-       const y = baseY + rise * (1 - Math.sqrt(Math.max(0, 1 - u * u)));
-      positions.push(x, y, z);
-      if (i < qpPath.length - 1 && j < across) {
-        const a = i * (across + 1) + j, b = a + across + 1;
-        indices.push(a, b, a + 1, b, b + 1, a + 1);
-      }
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const pipe = new THREE.Mesh(geometry, mats.accentMint);
-  pipe.castShadow = true; pipe.receiveShadow = true; scene.add(pipe);
-
-  // Continuous bright stainless coping follows the complete curved lip.
-  const silver = new THREE.MeshPhysicalMaterial({ color: 0xdce2e8, metalness: 0.88, roughness: 0.2, clearcoat: 1 });
-  for (let i = 0; i < qpPath.length - 1; i++) {
-    const a = qpPath[i], b = qpPath[i + 1];
-    const midX = (a.x + b.x) / 2, midZ = (a.y + b.y) / 2;
-    const tangent = new THREE.Vector3(b.x - a.x, 0, b.y - a.y);
-    const length = tangent.length();
-    if (length < 0.001) continue;
-    const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, length + 0.035, 12), silver);
-    const pathIndex = i;
-    const lipY = THREE.MathUtils.lerp(qpLipHeightAt(pathIndex), qpLipHeightAt(pathIndex + 1), 0.5);
-    rod.position.set(midX, lipY, midZ);
-    rod.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent.normalize());
-    rod.castShadow = true; scene.add(rod);
-    addGrindEdge({ x: a.x, z: a.y }, { x: b.x, z: b.y }, rod.position.y, 'coping');
-  }
-
-  // Eight broad concrete steps descend away from the pipe on the +X side.
-  const stairWidth = 6.4, stepCount = 8, tread = 0.78, rise = 0.5;
-  const stairStartX = 20.2, stairZ = -30;
-  for (let i = 0; i < stepCount; i++) {
-    const x = stairStartX + (i + 0.5) * tread;
-    const top = qpHeight - (i + 1) * rise;
-    const block = new THREE.Mesh(new THREE.BoxGeometry(tread + 0.025, rise, stairWidth), mats.concrete);
-    block.position.set(x, top + rise / 2, stairZ);
-    block.castShadow = true; block.receiveShadow = true; scene.add(block);
-    solidObstacles.push(block);
-  }
-  // A single steel handrail runs down the exact centre of the stair set.
-  const railLength = stepCount * tread;
-  const stairRail = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, Math.hypot(railLength, stepCount * rise), 12), silver);
-  stairRail.position.set(stairStartX + railLength / 2, qpHeight - stepCount * rise / 2 + 0.82, stairZ);
-  stairRail.rotation.z = Math.atan2(stepCount * rise, railLength);
-  stairRail.castShadow = true; stairRail.receiveShadow = true; scene.add(stairRail);
-  grindRails.push(stairRail);
-  addGrindEdge({ x: stairStartX, z: stairZ }, { x: stairStartX + railLength, z: stairZ }, stairRail.position.y + 0.055, 'rail');
-}
-
-function bowlOutlineScale() { return 1; }
-function bowlHeightAt() { return 0; }
-function bowlDepthAtAngle() { return 0; }
-function addSurfaceGrid() {}
 function terrainHeightAt(x, z) {
-  const base = baseGroundHeight(x, z);
-  const pipe = quarterPipeSample(x, z);
-  return pipe ? Math.max(base, pipe.y) : base;
+  return baseGroundHeight(x, z);
 }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
-makeQuarterPipe();
-
 // Return the vertical correction needed for the lowest part of the board to
 // meet the terrain. Positive means the board has penetrated the ground;
 // negative means it is still above the surface. Sample each mesh's world-space
