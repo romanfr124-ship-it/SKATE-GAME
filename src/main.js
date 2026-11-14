@@ -840,8 +840,24 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   curveDeckGeometry(geometry);
   const uv = geometry.attributes.uv;
   const p = geometry.attributes.position;
+  // Fit the artwork to the actual revised deck outline, including the
+  // rounded shoulders and the raised nose/tail kick, rather than the old
+  // fixed rectangular UV bounds.
+  const graphicBounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  for (let i = 0; i < p.count; i++) {
+    graphicBounds.minX = Math.min(graphicBounds.minX, p.getX(i));
+    graphicBounds.maxX = Math.max(graphicBounds.maxX, p.getX(i));
+    graphicBounds.minZ = Math.min(graphicBounds.minZ, p.getZ(i));
+    graphicBounds.maxZ = Math.max(graphicBounds.maxZ, p.getZ(i));
+  }
+  const graphicWidth = Math.max(0.001, graphicBounds.maxX - graphicBounds.minX);
+  const graphicLength = Math.max(0.001, graphicBounds.maxZ - graphicBounds.minZ);
   for (let i = 0; i < uv.count; i++) {
-    uv.setXY(i, (p.getX(i) + 1.13) / 2.26, (0.34 - p.getZ(i)) / 0.68);
+    uv.setXY(
+      i,
+      (p.getX(i) - graphicBounds.minX) / graphicWidth,
+      (graphicBounds.maxZ - p.getZ(i)) / graphicLength
+    );
   }
   uv.needsUpdate = true;
   const surface = new THREE.Mesh(geometry, material);
