@@ -1128,15 +1128,20 @@ for (const x of [-0.69, 0.69]) {
 
   // Kingpin and rubber bushings stay fixed to the baseplate, surrounding
   // the hanger's pivot like a real truck's bushing stack.
+  const kingpinAngle = 0.34;
+  const kingpinTilt = Math.sign(x) * kingpinAngle;
   const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), mats.dark);
   kingpin.position.set(x, 0.195, 0);
+  kingpin.rotation.z = kingpinTilt;
   board.add(kingpin);
   const bushingMaterial = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.82, metalness: 0.02 });
   const upperBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.038, 0.035, 12), bushingMaterial);
   upperBushing.position.set(x, 0.225, 0);
+  upperBushing.rotation.z = kingpinTilt;
   board.add(upperBushing);
   const lowerBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.047, 0.035, 12), bushingMaterial);
   lowerBushing.position.set(x, 0.175, 0);
+  lowerBushing.rotation.z = kingpinTilt;
   board.add(lowerBushing);
 
   const truckVisual = new THREE.Group();
@@ -1300,7 +1305,7 @@ const boardPhysics = (() => {
       RAPIER.JointData.revolute(
         { x, y: 0.24, z: 0 },
         { x: 0, y: 0.06, z: 0 },
-        { x: 0, y: 1, z: 0 }
+        { x: -Math.sign(x) * Math.sin(kingpinAngle), y: Math.cos(kingpinAngle), z: 0 }
       ),
       deckBody,
       truckBody,
