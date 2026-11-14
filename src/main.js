@@ -772,6 +772,24 @@ function push(power = 2.7) {
   const current = velocity.length();
   if (current > maxSpeed) velocity.multiplyScalar(maxSpeed / current);
 }
+function releaseGrind(side = 0, flickSpeed = 500) {
+  if (!grinding || !grindRail) return false;
+  const edge=grindRail;
+  const tangentSpeed=velocity.x*edge.tangent.x+velocity.z*edge.tangent.z;
+  // Carry the existing grind momentum into the air instead of freezing or
+  // redirecting the skater when the player deliberately exits.
+  velocity.set(edge.tangent.x*tangentSpeed,0,edge.tangent.z*tangentSpeed);
+  if(side!==0){
+    const away=new THREE.Vector3(-edge.tangent.z,0,edge.tangent.x);
+    const boardSide=Math.sign(side);
+    velocity.addScaledVector(away,boardSide*(1.7+Math.min(flickSpeed/650,1.5)*1.25));
+  }
+  grinding=false;grindRail=null;grindReadout.style.display='none';
+  airborne=true;airTime=0;verticalVelocity=3.9+Math.min(flickSpeed/1600,1.1);
+  trickCaught=false;trickStance=false;
+  board.rotation.x=0;board.rotation.z=0;
+  return true;
+}
 function pop(kind = 'ollie', flickSpeed = 650) {
   if (airborne || bailTimer > 0 || velocity.length() < 0.25) return;
   airborne = true;
@@ -1203,13 +1221,15 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
-  if ((airborne || grinding) && quick && Math.abs(dx) > 30) {
-    // Airborne and grind flicks now only create shuvit rotation.
-    const flickDirection = Math.abs(dx) > 4 ? screenTurnDirection(dx) : (dy > 0 ? 1 : -1);
-    flick(flickDirection, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
-      0, g.deckLocalX || 0);
+  if (grinding && quick && Math.abs(dx) > 30) {
+    // A horizontal swipe is an intentional lateral grind exit, not a shuvit.
+    releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
-    pop('ollie', g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000));
+    // A vertical deck flick pops cleanly off the obstacle.
+    pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000));
+  } else if (airborne && quick && Math.abs(dx) > 30) {
+    const flickDirection=screenTurnDirection(dx);
+    flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
   } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
