@@ -1559,7 +1559,7 @@ function animate() {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
-      heading += steer * travelSign * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
+      heading += steer * travelSign * (manualActive ? -1 : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       // Redirect momentum toward the active travel direction. Using the
       // board's nose vector here while rolling backwards would fight the
       // existing velocity every frame and steadily bleed speed.
