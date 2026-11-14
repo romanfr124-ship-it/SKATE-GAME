@@ -791,8 +791,13 @@ function drawDeckGraphic(canvas, topSide) {
   }
 }
 function refreshDeckGraphic() {
-  drawDeckGraphic(deckTopGraphicTexture.image,true);
+  // Artwork belongs on the underside of the deck, centred on the board.
   drawDeckGraphic(boardGraphicTexture.image,false);
+  // Keep the top face as a clean, solid deck colour with no graphic.
+  const topCtx=deckTopGraphicTexture.image.getContext('2d');
+  topCtx.clearRect(0,0,deckTopGraphicTexture.image.width,deckTopGraphicTexture.image.height);
+  topCtx.fillStyle=deckGraphicState.deckColor;
+  topCtx.fillRect(0,0,deckTopGraphicTexture.image.width,deckTopGraphicTexture.image.height);
   deckTopGraphicTexture.needsUpdate=true;boardGraphicTexture.needsUpdate=true;
   deckTopMaterial.needsUpdate=true;mats.board.needsUpdate=true;
   renderer.render(scene,camera);
