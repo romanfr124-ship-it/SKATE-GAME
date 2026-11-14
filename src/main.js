@@ -1644,10 +1644,10 @@ function restoreBoardEditorPreview(){
 }
 function aimEditorBoard(category){
   const underside=['Deck graphics','Trucks','Wheels'].includes(category);
-  // The board's local face normal points toward the negative-X camera in its
-  // default pose. Flip around world Y and move the camera to the opposite side
-  // together, so the underside is actually presented to the viewer.
-  camera.position.x=underside?4.4:-4.4;
+  // Keep the camera fixed on the negative-X side. Rotate around world Y:
+  // the previous X rotation was cancelled by the board's Z=90° pose, so it
+  // never turned the underside toward the camera.
+  camera.position.x=-4.4;
   camera.lookAt(0,1.45,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
