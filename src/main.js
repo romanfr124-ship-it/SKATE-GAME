@@ -543,7 +543,7 @@ function quarterPipeSample(x, z) {
     const pz = seg.a.y + seg.tz * along;
     const side = (x - px) * seg.tz - (z - pz) * seg.tx;
     // The rideable face is on the inside/right of the L-shaped run.
-    const inward = -side;
+    const inward = side;
     if (!best || Math.hypot(x - px, z - pz) < best.distance) {
       best = { px, pz, inward, distance: Math.hypot(x - px, z - pz), tx: seg.tx, tz: seg.tz };
     }
@@ -562,7 +562,7 @@ function makeQuarterPipe() {
     const dx = after.x - before.x, dz = after.y - before.y;
     const len = Math.hypot(dx, dz) || 1;
     const tx = dx / len, tz = dz / len;
-    const nx = -tz, nz = tx; // inner face of the clockwise L
+    const nx = tz, nz = -tx; // park-facing side of the clockwise L
     for (let j = 0; j <= across; j++) {
       const d = qpWidth * j / across;
       const x = qpPath[i].x + nx * d;
@@ -1196,7 +1196,7 @@ const boardPhysics = (() => {
   deckBody.setAngularDamping(0.02);
 
   // Collision terrain uses the same height function as the visible park.
-  const terrainCollisionSegments = 168;
+  const terrainCollisionSegments = 336;
   const terrainCollisionVertices = [];
   const terrainCollisionIndices = [];
   for (let iz = 0; iz <= terrainCollisionSegments; iz++) {
