@@ -536,13 +536,11 @@ function resolveObstacleContacts() {
         airborne = false;
         verticalVelocity = 0;
         trickStance = heldTrickLanding && !uprightLanding;
-        flipVelocity = 0;
+        // Keep residual angular velocity; the board should not freeze on impact.
         flipTarget = 0;
-        shuvitVelocity = 0;
         heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
-        pitchVelocity = 0;
         manualActive = false;
         manualAngle = 0;
         lastLandTime = clock.elapsedTime;
@@ -827,6 +825,16 @@ function animate() {
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
         const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
         board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
+      } else {
+        // Preserve caught trick momentum after touchdown rather than freezing it.
+        const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
+        board.rotation.x += flipVelocity * dt;
+        board.rotation.z += pitchVelocity * dt;
+        heading += shuvitVelocity * dt;
+        const damping = Math.exp(-groundAngularDamping * dt);
+        flipVelocity *= damping;
+        pitchVelocity *= damping;
+        shuvitVelocity *= damping;
       }
     } else {
       // Limited air control; momentum remains mostly conserved.
@@ -870,13 +878,11 @@ function animate() {
           airborne = false;
           trickStance = heldTrickLanding && !uprightLanding;
           verticalVelocity = 0;
-          flipVelocity = 0;
+          // Keep residual angular velocity; the board should not freeze on impact.
           flipTarget = 0;
-          shuvitVelocity = 0;
           heading += shuvitRotation;
           shuvitRotation = 0;
           shuvitTarget = 0;
-          pitchVelocity = 0;
           manualActive = false;
           manualAngle = 0;
           lastLandTime = clock.elapsedTime;
