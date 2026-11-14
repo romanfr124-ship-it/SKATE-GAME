@@ -1016,12 +1016,35 @@ const boardPhysics = (() => {
     deckBody
   );
 
-  const groundBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
+  // Build a lightweight collision mesh from the same height function as
+  // the visible skatepark. This lets the wheels roll over both terrain levels
+  // and the continuous berm instead of colliding with an invisible flat plane.
+  const terrainCollisionSegments = 168;
+  const terrainCollisionVertices = [];
+  const terrainCollisionIndices = [];
+  for (let iz = 0; iz <= terrainCollisionSegments; iz++) {
+    const z = terrainMin + (terrainMax - terrainMin) * iz / terrainCollisionSegments;
+    for (let ix = 0; ix <= terrainCollisionSegments; ix++) {
+      const x = terrainMin + (terrainMax - terrainMin) * ix / terrainCollisionSegments;
+      terrainCollisionVertices.push(x, terrainHeightAt(x, z), z);
+    }
+  }
+  for (let iz = 0; iz < terrainCollisionSegments; iz++) {
+    for (let ix = 0; ix < terrainCollisionSegments; ix++) {
+      const a = iz * (terrainCollisionSegments + 1) + ix;
+      const b = a + terrainCollisionSegments + 1;
+      terrainCollisionIndices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  const terrainBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
   world.createCollider(
-    RAPIER.ColliderDesc.cuboid(200, 0.10, 200)
-      .setTranslation(0, -0.10, 0)
-      .setFriction(1.4),
-    groundBody
+    RAPIER.ColliderDesc.trimesh(
+      new Float32Array(terrainCollisionVertices),
+      new Uint32Array(terrainCollisionIndices)
+    )
+      .setFriction(1.4)
+      .setRestitution(0.02),
+    terrainBody
   );
 
   const trucks = [];
