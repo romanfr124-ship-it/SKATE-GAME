@@ -1530,10 +1530,15 @@ function animate() {
       velocity.x += -gravity * slopeX * dt;
       velocity.z += -gravity * slopeZ * dt;
       if (!trickStance) {
-        const targetDeckPitch = (manualActive ? manualAngle : rampAngleAt(board.position.x, board.position.z)) - steer * 0.075;
-        board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
+        // Align the deck to the actual local ground tangent, not just the
+        // quarter-pipe angle. This includes both axes of the bowl transition.
+        const travel = travelForwardVector();
+        const pitchAlongTravel = slopeX * travel.x + slopeZ * travel.z;
+        const terrainPitch = Math.atan(pitchAlongTravel);
+        const targetDeckPitch = (manualActive ? manualAngle : terrainPitch) - steer * 0.075;
+        board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 10, dt);
         const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
-        board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
+        board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 8, dt);
       } else {
         // Preserve caught trick momentum after touchdown rather than freezing it.
         const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
