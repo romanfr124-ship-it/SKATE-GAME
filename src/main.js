@@ -300,11 +300,11 @@ function buildBowl() {
   const indices = [];
   for (let ring = 0; ring <= rings; ring++) {
     const radius = ring / rings;
-    const angle = segment / segments * Math.PI * 2;
-    const y = -bowlDepthAtAngle(angle, radius) * Math.cos(
-      THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1) * Math.PI / 2
-    );
     for (let segment = 0; segment <= segments; segment++) {
+      const angle = segment / segments * Math.PI * 2;
+      const y = -bowlDepthAtAngle(angle, radius) * Math.cos(
+        THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1) * Math.PI / 2
+      );
       positions.push(
         bowl.x + Math.cos(angle) * bowl.radiusX * radius,
         y,
