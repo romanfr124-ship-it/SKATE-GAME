@@ -363,9 +363,26 @@ function bowlHeightAt() { return 0; }
 function bowlDepthAtAngle() { return 0; }
 function addSurfaceGrid() {}
 function terrainHeightAt(x, z) {
-  const t = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  // Wider upper terrace and the main transition down to the lower level.
+  const t = THREE.MathUtils.clamp((x + 15) / 10, 0, 1);
   const eased = t * t * (3 - 2 * t);
-  return 3.2 * (1 - eased);
+  const base = 3.2 * (1 - eased);
+
+  // Raised summit centred at (25,-20), with a short crown and steep,
+  // smoothly rounded shoulders dropping into the berm.
+  const peakDistance = Math.hypot(x - 25, z + 20);
+  const peakT = THREE.MathUtils.clamp((peakDistance - 2.2) / 5.8, 0, 1);
+  const peakEase = peakT * peakT * (3 - 2 * peakT);
+  const peak = 5.4 - 3.9 * peakEase;
+
+  // Banked berm runs along Z=-20 to Z=-10, centred on X=25.
+  const across = Math.abs(x - 25);
+  const acrossT = THREE.MathUtils.clamp((across - 1.2) / 5.0, 0, 1);
+  const acrossEase = acrossT * acrossT * (3 - 2 * acrossT);
+  const alongT = THREE.MathUtils.clamp((z + 20) / 10, 0, 1);
+  const berm = 1.55 * (1 - acrossEase) * Math.sin(Math.PI * alongT);
+
+  return Math.max(base, peak, berm);
 }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
 
@@ -404,7 +421,7 @@ function groundContactCorrection() {
 }
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
-const terrainSegments = 120, terrainMin = -50, terrainMax = 50;
+const terrainSegments = 168, terrainMin = -60, terrainMax = 60;
 for (let iz = 0; iz <= terrainSegments; iz++) {
   const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
   for (let ix = 0; ix <= terrainSegments; ix++) {
@@ -426,8 +443,8 @@ const terrain = new THREE.Mesh(terrainGeometry, mats.concrete);
 terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 function addConcreteJoints() {
   const points = [];
-  for (let z = -48; z <= 48; z += 8) {
-    for (let x = -50; x < 50; x += 1) {
+  for (let z = -56; z <= 56; z += 8) {
+    for (let x = -60; x < 60; x += 1) {
       points.push(x, terrainHeightAt(x,z)+0.012,z,x+1,terrainHeightAt(x+1,z)+0.012,z);
     }
   }
@@ -1204,7 +1221,7 @@ mapPanel.appendChild(mapCard);
 mount.appendChild(mapPanel);
 
 const mapCtx = mapCanvas.getContext('2d');
-const mapBounds = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
+const mapBounds = { minX: -60, maxX: 60, minZ: -60, maxZ: 60 };
 function mapTransform() {
   const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
   const scale = Math.min(w / (mapBounds.maxX - mapBounds.minX), h / (mapBounds.maxZ - mapBounds.minZ));
@@ -1236,17 +1253,22 @@ function drawSkateparkMap() {
   const bg=mapCtx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#b8c0bd');bg.addColorStop(1,'#777f7e');
   mapCtx.fillStyle=bg;mapCtx.fillRect(0,0,w,h);
   const polygon=(pts,fill)=>{mapCtx.beginPath();pts.forEach((q,i)=>i?mapCtx.lineTo(q[0],q[1]):mapCtx.moveTo(q[0],q[1]));mapCtx.closePath();mapCtx.fillStyle=fill;mapCtx.fill();};
-  polygon([p(-50,-50),p(-20,-50),p(-20,50),p(-50,50)],'#aeb6b3');
-  polygon([p(-20,-50),p(-10,-50),p(-10,50),p(-20,50)],'#929b98');
-  polygon([p(-10,-50),p(50,-50),p(50,50),p(-10,50)],'#737c7b');
+  polygon([p(-60,-60),p(-15,-60),p(-15,60),p(-60,60)],'#aeb6b3');
+  polygon([p(-15,-60),p(-5,-60),p(-5,60),p(-15,60)],'#929b98');
+  polygon([p(-5,-60),p(60,-60),p(60,60),p(-5,60)],'#737c7b');
   mapCtx.lineWidth=1;mapCtx.strokeStyle='rgba(255,255,255,.25)';
-  for(let v=-50;v<=50;v+=5){let a=p(v,-50),b=p(v,50);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();a=p(-50,v);b=p(50,v);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();}
-  mapCtx.lineWidth=2;mapCtx.strokeStyle='rgba(255,255,255,.85)';let a=p(-15,-50),b=p(-15,50);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
-  label('UPPER LEVEL  Y=3.2m',-35,-4,'#263332',10);
-  label('LOWER LEVEL  Y=0m',20,-4,'#f1f2ed',10);
-  label('SLOPED CONNECTION',-15,19,'#263332',8);
+  for(let v=-60;v<=60;v+=5){let a=p(v,-60),b=p(v,60);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();a=p(-60,v);b=p(60,v);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();}
+  mapCtx.lineWidth=2;mapCtx.strokeStyle='rgba(255,255,255,.85)';let a=p(-10,-60),b=p(-10,60);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
+  label('EXPANDED UPPER LEVEL  Y=3.2m',-37,-4,'#263332',9);
+  label('LOWER LEVEL  Y=0m',-1,3,'#f1f2ed',9);
+  label('SLOPED CONNECTION',-10,30,'#263332',8);
+  const [peakX,peakY]=p(25,-20),[bermX,bermY]=p(25,-15);
+  mapCtx.beginPath();mapCtx.ellipse(peakX,peakY,7*t.scale,7*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(218,226,218,.75)';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2;mapCtx.stroke();
+  mapCtx.beginPath();mapCtx.ellipse(bermX,bermY,5*t.scale,5*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(185,197,190,.8)';mapCtx.fill();mapCtx.stroke();
+  label('HIGH POINT (25,-20)',25,-27,'#263332',8);
+  label('BERM Z -10 TO -20',25,-11,'#263332',7);
   mapCtx.font='10px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
-  for(let v=-50;v<=50;v+=10){let q=p(v,-50);mapCtx.fillText(String(v),q[0],Math.max(10,q[1]+10));q=p(-50,v);mapCtx.textAlign='left';mapCtx.fillText(String(v),q[0]+3,q[1]);mapCtx.textAlign='center';}
+  for(let v=-60;v<=60;v+=10){let q=p(v,-60);mapCtx.fillText(String(v),q[0],Math.max(10,q[1]+10));q=p(-60,v);mapCtx.textAlign='left';mapCtx.fillText(String(v),q[0]+3,q[1]);mapCtx.textAlign='center';}
   const [sx,sy]=p(board.position.x,board.position.z);
   mapCtx.beginPath();mapCtx.arc(sx,sy,11,0,Math.PI*2);mapCtx.fillStyle='#fff8d9aa';mapCtx.fill();
   mapCtx.beginPath();mapCtx.arc(sx,sy,6.5,0,Math.PI*2);mapCtx.fillStyle='#ff6e73';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2.5;mapCtx.stroke();
