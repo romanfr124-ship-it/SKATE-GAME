@@ -1023,6 +1023,10 @@ const boardPhysics = (() => {
       truckBody,
       true
     );
+    // Keep truck steering within a realistic range and softly self-centering.
+    // This prevents unrestricted kingpin rotation while preserving carve movement.
+    truckJoint.setLimits(-0.38, 0.38);
+    truckJoint.configureMotorPosition(0, 12, 3);
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
