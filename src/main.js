@@ -923,7 +923,7 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: gripTapeTexture,
   bumpMap: gripTapeTexture,
-  bumpScale: 0.012,
+  bumpScale: 0.006,
   metalness: 0,
   roughness: 1,
   side: THREE.DoubleSide,
@@ -932,7 +932,9 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   polygonOffsetUnits: -1,
   depthWrite: false
 });
-makeDeckTop(0.992, 0.985, deckTopMaterial, 0.009, 3);
+// The grip is a bonded surface layer: keep it almost flush with the deck's
+// upper face so it cannot look like a separate floating sheet.
+makeDeckTop(0.992, 0.985, deckTopMaterial, 0.0015, 3);
 
 // A separate mapped face on the actual underside. This avoids relying on the
 // extruded deck's side-face UVs, which caused the default artwork to show instead.
