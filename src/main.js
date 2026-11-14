@@ -96,9 +96,10 @@ function rail(x, z, length, height = 0.82) {
   }
 }
 
-// Park floor with a readable world-coordinate grid. Minor lines mark 1m,
-// brighter major lines mark every 4m, making position and travel direction easier to judge.
-outlinedBox(scene, 100, 0.45, 100, mats.floor, 0, -0.25, 0);
+// Smooth concrete park slab; the obstacle layout supplies the visual structure.
+const parkFloor = new THREE.Mesh(new THREE.BoxGeometry(100, 0.45, 100), mats.floor);
+parkFloor.position.y = -0.25;
+scene.add(parkFloor);
 function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4) {
   const minor = [];
   const major = [];
@@ -122,48 +123,166 @@ function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4
     parent.add(lines);
   }
 }
-addSurfaceGrid(scene, 96, 96, 1, -0.022, 4);
+// No debug grid on the riding surface: keep the park clean and skate-realistic.
 
-// Coordinate labels around the perimeter give the grid a consistent X/Z reference.
-function coordinateLabel(text, x, z) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 96;
-  const ctx = canvas.getContext('2d');
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = 'rgba(8,8,8,0.72)';
-  ctx.fillRect(4, 4, 248, 88);
-  ctx.font = 'bold 42px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillStyle = '#d0d0d0';
-  ctx.fillText(text, 128, 48);
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
-  const label = new THREE.Sprite(material);
-  label.position.set(x, 0.025, z);
-  label.scale.set(2.8, 1.05, 1);
-  scene.add(label);
-}
-for (let coordinate = -40; coordinate <= 40; coordinate += 8) {
-  coordinateLabel(`X ${coordinate > 0 ? '+' : ''}${coordinate}`, coordinate, -46.1);
-  coordinateLabel(`Z ${coordinate > 0 ? '+' : ''}${coordinate}`, -46.1, coordinate);
+// New park layout: a dedicated in-ground bowl on the west side and a
+// separate street/flow zone to the east. All dimensions are in metres.
+const bowl = { x: -18, z: 0, radiusX: 9.5, radiusZ: 8.5, depth: 2.25, flatRatio: 0.28 };
+const quarterPipes = [];
+
+function bowlHeightAt(x, z) {
+  const nx = (x - bowl.x) / bowl.radiusX;
+  const nz = (z - bowl.z) / bowl.radiusZ;
+  const radius = Math.sqrt(nx * nx + nz * nz);
+  if (radius >= 1) return 0;
+  const t = THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1);
+  return -bowl.depth * (1 - Math.cos(t * Math.PI / 2));
 }
 
-// Skatepark obstacles.
-ramp(13, 1.45, 8, -15, -5, 0.17);
-ramp(13, 1.45, 8, 15, -5, -0.17);
-ramp(10, 1.1, 6, -15, 13, -0.14);
-ramp(10, 1.1, 6, 15, 13, 0.14);
-outlinedBox(scene, 6.5, 1, 1.35, mats.concrete, -7, 0.5, -11);
-outlinedBox(scene, 6.5, 1, 1.35, mats.concrete, 7, 0.5, 11);
-outlinedBox(scene, 4.5, 0.55, 1.1, mats.concrete, -22, 0.275, 5);
-outlinedBox(scene, 4.5, 0.55, 1.1, mats.concrete, 22, 0.275, -2);
-rail(0, -8, 8, 0.78);
-rail(-8, 8, 8, 0.78);
-rail(-10, 3, 5, 0.62);
-rail(10, -2, 5, 0.62);
+function buildBowl() {
+  const rings = 36;
+  const segments = 112;
+  const positions = [];
+  const indices = [];
+  for (let ring = 0; ring <= rings; ring++) {
+    const radius = ring / rings;
+    const y = -bowl.depth * (1 - Math.cos(
+      THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1) * Math.PI / 2
+    ));
+    for (let segment = 0; segment <= segments; segment++) {
+      const angle = segment / segments * Math.PI * 2;
+      positions.push(
+        bowl.x + Math.cos(angle) * bowl.radiusX * radius,
+        y,
+        bowl.z + Math.sin(angle) * bowl.radiusZ * radius
+      );
+    }
+  }
+  for (let ring = 0; ring < rings; ring++) {
+    for (let segment = 0; segment < segments; segment++) {
+      const a = ring * (segments + 1) + segment;
+      const b = a + segments + 1;
+      indices.push(a, b, a + 1, b, b + 1, a + 1);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const surface = new THREE.Mesh(geometry, mats.concrete);
+  surface.material.side = THREE.DoubleSide;
+  scene.add(surface);
+
+  // Continuous round steel coping follows the full elliptical lip.
+  const rimPoints = [];
+  for (let i = 0; i <= 160; i++) {
+    const angle = i / 160 * Math.PI * 2;
+    rimPoints.push(new THREE.Vector3(
+      bowl.x + Math.cos(angle) * bowl.radiusX,
+      0.035,
+      bowl.z + Math.sin(angle) * bowl.radiusZ
+    ));
+  }
+  const rimCurve = new THREE.CatmullRomCurve3(rimPoints, true, 'centripetal');
+  const coping = new THREE.Mesh(
+    new THREE.TubeGeometry(rimCurve, 192, 0.075, 10, true),
+    mats.metal
+  );
+  scene.add(coping);
+
+  // A clean, slightly raised concrete deck around the bowl gives riders
+  // room to set up, drop in and approach the coping without crowding it.
+  const deck = new THREE.Mesh(new THREE.RingGeometry(9.8, 10.5, 112), mats.concrete);
+  deck.rotation.x = -Math.PI / 2;
+  deck.position.set(bowl.x, 0.005, bowl.z);
+  deck.scale.set(1, bowl.radiusZ / bowl.radiusX, 1);
+  scene.add(deck);
+}
+buildBowl();
+
+function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
+  const depth = height;
+  const segments = 32;
+  const acrossSegments = 24;
+  const positions = [];
+  const indices = [];
+  for (let i = 0; i <= segments; i++) {
+    const t = depth * i / segments;
+    const y = height - Math.sqrt(Math.max(0.0001, height * height - t * t));
+    for (let j = 0; j <= acrossSegments; j++) {
+      const across = (j / acrossSegments - 0.5) * width;
+      if (axis === 'x') positions.push(startX + direction * t, y, startZ + across);
+      else positions.push(startX + across, y, startZ + direction * t);
+    }
+  }
+  for (let i = 0; i < segments; i++) {
+    for (let j = 0; j < acrossSegments; j++) {
+      const a = i * (acrossSegments + 1) + j;
+      const b = a + acrossSegments + 1;
+      indices.push(a, a + 1, b, a + 1, b + 1, b);
+    }
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setIndex(indices);
+  geometry.computeVertexNormals();
+  const face = new THREE.Mesh(geometry, mats.concrete);
+  face.material.side = THREE.DoubleSide;
+  scene.add(face);
+  const copingGeometry = new THREE.CylinderGeometry(0.075, 0.075, width, 12);
+  const coping = new THREE.Mesh(copingGeometry, mats.metal);
+  if (axis === 'x') {
+    coping.rotation.z = Math.PI / 2;
+    coping.position.set(startX + direction * depth, height, startZ);
+  } else {
+    coping.rotation.x = Math.PI / 2;
+    coping.position.set(startX, height, startZ + direction * depth);
+  }
+  scene.add(coping);
+  quarterPipes.push({ axis, startX, startZ, width, height, depth, direction });
+}
+function quarterPipeHeightAt(x, z) {
+  let height = 0;
+  for (const qp of quarterPipes) {
+    const across = qp.axis === 'x' ? z - qp.startZ : x - qp.startX;
+    if (Math.abs(across) > qp.width / 2) continue;
+    const distance = qp.axis === 'x'
+      ? (x - qp.startX) * qp.direction
+      : (z - qp.startZ) * qp.direction;
+    if (distance < 0 || distance > qp.depth) continue;
+    const y = qp.height - Math.sqrt(Math.max(0, qp.height * qp.height - distance * distance));
+    height = Math.max(height, y);
+  }
+  return height;
+}
+function groundHeightAt(x, z) {
+  return Math.max(bowlHeightAt(x, z), quarterPipeHeightAt(x, z));
+}
+
+// Street plaza: low, usable obstacles with clear run-ups and room to roll away.
+function bench(x, z, length = 5.2) {
+  outlinedBox(scene, length, 0.18, 0.78, mats.metal, x, 0.53, z);
+  for (const offset of [-length * 0.34, length * 0.34]) {
+    outlinedBox(scene, 0.16, 0.48, 0.58, mats.dark, x + offset, 0.24, z);
+  }
+}
+bench(10, -12, 5.4);
+bench(22, 12, 4.8);
+
+// Flat bars and a low round rail, spaced apart so their approaches do not overlap.
+rail(14, -7, 7.5, 0.62);
+rail(23, -7, 7.5, 0.82);
+rail(10, 8, 6.5, 0.58);
+
+// A mellow funbox: central manual/grind deck with shallow banks at both ends.
+outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
+ramp(4.2, 0.72, 3.2, 12.2, 0, 0.17);
+ramp(4.2, 0.72, 3.2, 21.8, 6, -0.17);
+outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
+
+// Two smooth concrete quarter pipes with coping, one on each side of the plaza.
+addQuarterPipe('x', 27, -8, 8.5, 2.15, 1);
+addQuarterPipe('z', 15, 17, 8.5, 2.0, 1);
 
 // Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
@@ -664,7 +783,7 @@ function resetBoard() {
 // - swipe down beside the board = push
 // - quick upward flick in the lower-middle screen = pop
 // - horizontal drag while grounded = carve/turn
-// - horizontal flick while airborne = kickflip/heelflip
+// - horizontal flick while airborne = shuvit
 let gesture = null;
 let touchSteer = 0;
 let manualActive = false;
@@ -911,8 +1030,6 @@ function animate() {
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
       else velocity.multiplyScalar(Math.exp(-0.14 * dt));
       if (groundedRampNormal.y < 0.999) {
-        // Gravity projected onto the ramp plane accelerates the board downhill
-        // without adding an artificial upward launch at the ramp transition.
         const downhill = new THREE.Vector3(0, -gravity, 0).addScaledVector(
           groundedRampNormal,
           gravity * groundedRampNormal.y
@@ -920,6 +1037,15 @@ function animate() {
         velocity.x += downhill.x * dt;
         velocity.z += downhill.z * dt;
       }
+      // Follow the local terrain gradient: gravity accelerates down bowl walls
+      // and quarter-pipe transitions instead of treating them as flat ground.
+      const sample = 0.22;
+      const slopeX = (groundHeightAt(board.position.x + sample, board.position.z) -
+        groundHeightAt(board.position.x - sample, board.position.z)) / (sample * 2);
+      const slopeZ = (groundHeightAt(board.position.x, board.position.z + sample) -
+        groundHeightAt(board.position.x, board.position.z - sample)) / (sample * 2);
+      velocity.x += -gravity * slopeX * dt;
+      velocity.z += -gravity * slopeZ * dt;
       if (!trickStance) {
         const targetDeckPitch = (manualActive ? manualAngle : groundedRampAngle) - steer * 0.075;
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
@@ -963,8 +1089,9 @@ function animate() {
       // origin is not the bottom of the wheels/deck, especially during tricks.
       board.updateMatrixWorld(true);
       boardWorldBounds.setFromObject(board);
-      if (boardWorldBounds.min.y <= 0 && verticalVelocity < 0) {
-        board.position.y -= boardWorldBounds.min.y;
+      const groundY = groundHeightAt(board.position.x, board.position.z);
+      if (boardWorldBounds.min.y <= groundY && verticalVelocity < 0) {
+        board.position.y += groundY - boardWorldBounds.min.y;
         const rotationSpeed = Math.abs(shuvitVelocity);
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
@@ -994,10 +1121,11 @@ function animate() {
   board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
   // Keep the complete board above the ground in every grounded stance,
   // including manuals and caught primo/Casper orientations.
-  if (!airborne) {
+  if (!airborne && !grinding) {
     board.updateMatrixWorld(true);
     boardWorldBounds.setFromObject(board);
-    if (boardWorldBounds.min.y < 0) board.position.y -= boardWorldBounds.min.y;
+    const groundY = groundHeightAt(board.position.x, board.position.z);
+    board.position.y += groundY - boardWorldBounds.min.y;
   }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
