@@ -1248,8 +1248,8 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   // The tail/nose pushes down against the ground. Its offset from the deck
   // centre creates torque that lifts the opposite end.
   const popPoint = new THREE.Vector3(kind === 'ollie' ? -0.92 : 0.92, 0, 0);
-  const popImpulse = 0.50 + flickDistance * 0.0025 + flickSpeed * 0.0008;
-  applyDeckImpulseAtPoint(popPoint, new THREE.Vector3(0, -popImpulse, 0));
+  const tailImpulseMagnitude = 0.50 + flickDistance * 0.0025 + flickSpeed * 0.0008;
+  applyDeckImpulseAtPoint(popPoint, new THREE.Vector3(0, -tailImpulseMagnitude, 0));
   grinding = false;
   grindRail = null;
 }
