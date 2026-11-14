@@ -1693,7 +1693,7 @@ function finishGesture(event) {
   } else if (airborne && quick && Math.abs(dx) > 30) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
-  } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
+  } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
     const tailFlickSpeed = Math.hypot(dx, dy) / elapsed * 1000;
