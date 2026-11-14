@@ -2057,6 +2057,7 @@ addEventListener('keydown', event => {
   const key = event.key.toLowerCase();
   if (['arrowup', 'arrowdown', 'arrowleft', 'arrowright', ' '].includes(key)) event.preventDefault();
   keys.add(key);
+  if (freeFlightActive) return;
   if (key === ' ' && !event.repeat) pop('ollie');
   if (key === 'n' && !event.repeat) pop('nollie');
   if ((key === 'j' || key === 'k') && airborne && !event.repeat) boardPhysics.applyTorqueImpulse(new THREE.Vector3(0, key === 'j' ? -0.8 : 0.8, 0));
@@ -2132,7 +2133,105 @@ function makeMenuOption(label) {
 const menuMapOption = makeMenuOption('Map');
 const customizeOption = makeMenuOption('Board customization');
 const parksOption = makeMenuOption('Parks and missions');
+const freeFlyOption = makeMenuOption('Free flying mode');
 mount.appendChild(menuPanel);
+
+// Free-flight camera controls. The board stays paused while the camera can
+// move independently around the park.
+let freeFlightActive = false;
+let freeFlyYaw = heading, freeFlyPitch = -0.18;
+const freeFlyMove = { x: 0, y: 0 };
+let freeFlyLift = 0, freeFlyLookPointer = null, freeFlyStickPointer = null;
+let freeFlyLastLook = null;
+const freeFlyOverlay = document.createElement('div');
+freeFlyOverlay.style.cssText = 'position:absolute;inset:0;z-index:39;display:none;pointer-events:none;font-family:Arial,sans-serif;color:#fff;';
+const freeFlyLookSurface = document.createElement('div');
+freeFlyLookSurface.style.cssText = 'position:absolute;right:0;top:0;width:62%;height:100%;pointer-events:auto;touch-action:none;';
+const freeFlyStick = document.createElement('div');
+freeFlyStick.style.cssText = 'position:absolute;left:24px;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);width:118px;height:118px;border:2px solid #ffffff99;border-radius:50%;background:#14212466;pointer-events:auto;touch-action:none;box-sizing:border-box;';
+const freeFlyStickKnob = document.createElement('div');
+freeFlyStickKnob.style.cssText = 'position:absolute;left:35px;top:35px;width:44px;height:44px;border:2px solid #fff;border-radius:50%;background:#8ad9c7bb;box-sizing:border-box;';
+freeFlyStick.appendChild(freeFlyStickKnob);
+const freeFlyHint = document.createElement('div');
+freeFlyHint.textContent = 'DRAG RIGHT SIDE TO LOOK';
+freeFlyHint.style.cssText = 'position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border-radius:8px;background:#10191dbb;font-size:10px;font-weight:900;letter-spacing:1px;pointer-events:none;';
+const freeFlyControls = document.createElement('div');
+freeFlyControls.style.cssText = 'position:absolute;right:16px;top:calc(env(safe-area-inset-top,0px) + 74px);display:flex;flex-direction:column;gap:8px;pointer-events:auto;';
+function makeFlyButton(label) {
+  const b=document.createElement('button');b.type='button';b.textContent=label;
+  b.style.cssText='min-width:54px;padding:12px 14px;border:1px solid #ffffff99;border-radius:10px;background:#142124cc;color:#fff;font:900 12px Arial,sans-serif;touch-action:none;';
+  return b;
+}
+const flyUpButton=makeFlyButton('UP');
+const flyDownButton=makeFlyButton('DOWN');
+const flyExitButton=makeFlyButton('EXIT');
+freeFlyControls.append(flyUpButton,flyDownButton,flyExitButton);
+freeFlyOverlay.append(freeFlyLookSurface,freeFlyStick,freeFlyHint,freeFlyControls);
+mount.appendChild(freeFlyOverlay);
+function setFlyLift(value) { freeFlyLift=value; }
+function startFreeFlight() {
+  freeFlightActive=true; gamePaused=true;
+  menuPanel.style.display='none'; menuButton.style.display='none';
+  freeFlyYaw=camera.rotation.y || heading;
+  freeFlyPitch=THREE.MathUtils.clamp(camera.rotation.x || -0.18,-1.35,1.35);
+  camera.rotation.order='YXZ';
+  freeFlyOverlay.style.display='block';
+}
+function stopFreeFlight() {
+  freeFlightActive=false; freeFlyMove.x=freeFlyMove.y=0; freeFlyLift=0;
+  freeFlyLookPointer=freeFlyStickPointer=null; freeFlyLastLook=null;
+  freeFlyStickKnob.style.transform='translate(0px,0px)';
+  freeFlyOverlay.style.display='none'; menuButton.style.display='block';
+  cameraHeading=heading; gamePaused=false;
+}
+function updateFreeFlight(dt) {
+  const keyX=(keys.has('d')||keys.has('arrowright')?1:0)-(keys.has('a')||keys.has('arrowleft')?1:0);
+  const keyY=(keys.has('w')||keys.has('arrowup')?1:0)-(keys.has('s')||keys.has('arrowdown')?1:0);
+  const moveX=THREE.MathUtils.clamp(freeFlyMove.x+keyX,-1,1);
+  const moveY=THREE.MathUtils.clamp(freeFlyMove.y+keyY,-1,1);
+  const lift=freeFlyLift+(keys.has('e')||keys.has(' ')?1:0)-(keys.has('q')||keys.has('control')?1:0);
+  const fast=keys.has('shift')?2.2:1;
+  camera.rotation.set(freeFlyPitch,freeFlyYaw,0,'YXZ');
+  const forward=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);
+  const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion);
+  const move=new THREE.Vector3().addScaledVector(forward,moveY).addScaledVector(right,moveX);
+  if(move.lengthSq()>1)move.normalize();
+  camera.position.addScaledVector(move,10*fast*dt);
+  camera.position.y+=lift*8*fast*dt;
+}
+freeFlyStick.addEventListener('pointerdown',event=>{
+  freeFlyStickPointer=event.pointerId;freeFlyStick.setPointerCapture(event.pointerId);
+  updateFlyStick(event);
+});
+function updateFlyStick(event) {
+  const r=freeFlyStick.getBoundingClientRect();
+  const dx=event.clientX-(r.left+r.width/2),dy=event.clientY-(r.top+r.height/2);
+  const len=Math.hypot(dx,dy),scale=len>39?39/len:1;
+  const x=dx*scale,y=dy*scale;
+  freeFlyStickKnob.style.transform='translate('+x+'px,'+y+'px)';
+  freeFlyMove.x=x/39;freeFlyMove.y=-y/39;
+}
+freeFlyStick.addEventListener('pointermove',event=>{if(event.pointerId===freeFlyStickPointer)updateFlyStick(event);});
+function releaseFlyStick(event) {if(event.pointerId===freeFlyStickPointer){freeFlyStickPointer=null;freeFlyMove.x=freeFlyMove.y=0;freeFlyStickKnob.style.transform='translate(0px,0px)';}}
+freeFlyStick.addEventListener('pointerup',releaseFlyStick);freeFlyStick.addEventListener('pointercancel',releaseFlyStick);
+freeFlyLookSurface.addEventListener('pointerdown',event=>{
+  freeFlyLookPointer=event.pointerId;freeFlyLookSurface.setPointerCapture(event.pointerId);
+  freeFlyLastLook={x:event.clientX,y:event.clientY};
+});
+freeFlyLookSurface.addEventListener('pointermove',event=>{
+  if(event.pointerId!==freeFlyLookPointer||!freeFlyLastLook)return;
+  const dx=event.clientX-freeFlyLastLook.x,dy=event.clientY-freeFlyLastLook.y;
+  freeFlyYaw-=dx*0.0045;freeFlyPitch=THREE.MathUtils.clamp(freeFlyPitch-dy*0.0045,-1.45,1.45);
+  freeFlyLastLook={x:event.clientX,y:event.clientY};
+});
+function releaseFlyLook(event){if(event.pointerId===freeFlyLookPointer){freeFlyLookPointer=null;freeFlyLastLook=null;}}
+freeFlyLookSurface.addEventListener('pointerup',releaseFlyLook);freeFlyLookSurface.addEventListener('pointercancel',releaseFlyLook);
+function bindFlyLift(button,value) {
+  button.addEventListener('pointerdown',event=>{event.preventDefault();button.setPointerCapture(event.pointerId);setFlyLift(value);});
+  const release=()=>setFlyLift(0);button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);
+}
+bindFlyLift(flyUpButton,1);bindFlyLift(flyDownButton,-1);
+flyExitButton.addEventListener('click',stopFreeFlight);
 
 const sectionPanel = document.createElement('div');
 sectionPanel.style.cssText = 'position:absolute;inset:0;z-index:32;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 12px) 12px 12px;background:rgba(12,17,18,.82);backdrop-filter:blur(8px);font-family:Arial,sans-serif;box-sizing:border-box;';
@@ -2404,6 +2503,7 @@ menuMapOption.addEventListener('click', () => {
 });
 customizeOption.addEventListener('click', () => openSection('Board customization'));
 parksOption.addEventListener('click', () => openSection('Parks and missions'));
+freeFlyOption.addEventListener('click',startFreeFlight);
 sectionBack.addEventListener('click', () => {
   sectionPanel.style.display = 'none';
   restoreBoardEditorPreview();
@@ -2584,6 +2684,13 @@ function animate() {
   }
   // Keep rendering the park while paused, but do not advance any board,
   // trick, camera-follow, or physics state until the menu is dismissed.
+  if (freeFlightActive) {
+    updateFreeFlight(dt);
+    renderer.render(scene,camera);
+    const errorPanel=document.getElementById('load-error');
+    if(errorPanel)errorPanel.style.display='none';
+    return;
+  }
   if (gamePaused) {
     updateEditorPreview(dt);
     renderer.render(scene, camera);
