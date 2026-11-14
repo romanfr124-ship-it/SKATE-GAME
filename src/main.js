@@ -1257,20 +1257,19 @@ function resolveObstacleContacts() {
         Math.abs(board.rotation.z) < 0.48 &&
         (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
       const heldTrickLanding = trickCaught || (boardTouchHold && rotationSpeed < 1.35);
-      if (airborne && rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
+      if (airborne) {
+        // Contact is a physical touchdown, not a trick-completion animation.
+        // Preserve the board's current orientation and angular momentum even
+        // when the shuv is still rotating or the deck is not perfectly level.
         airborne = false;
         verticalVelocity = 0;
-        trickStance = heldTrickLanding && !uprightLanding;
-        // Keep residual angular velocity; the board should not freeze on impact.
-              heading += shuvitRotation;
+        trickStance = !uprightLanding || rotationSpeed >= 1.35;
+        heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
         manualActive = false;
         manualAngle = 0;
         lastLandTime = clock.elapsedTime;
-      } else if (airborne) {
-        resetBoard();
-        break;
       }
     } else if (impactSpeed > 0.02) {
       const restitution = impactSpeed > 5.5 ? 0.12 : 0.22;
@@ -1284,9 +1283,11 @@ function resolveObstacleContacts() {
       if (Math.abs(collisionNormal.x) > 0.2) velocity.z *= tangentDamping;
       if (Math.abs(collisionNormal.z) > 0.2) velocity.x *= tangentDamping;
 
+      // Hard obstacle contact should deflect the board, not trigger a
+      // canned bail/reset that kills the trick's motion and looks like a snap.
       if (impactSpeed > 5.5) {
-        resetBoard();
-        break;
+        velocity.multiplyScalar(0.88);
+        verticalVelocity = Math.max(verticalVelocity, 0.35);
       }
     }
   }
@@ -1802,6 +1803,10 @@ function animate() {
       }
     }
 
+    // Update yaw before terrain and obstacle contact tests. Previously the
+    // collision solver used last frame's board angle during a shuv, which
+    // could leave the deck hovering until the next push refreshed its pose.
+    board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
     if (!grinding) {
       board.position.x += velocity.x * dt;
       board.position.z += velocity.z * dt;
@@ -1826,23 +1831,18 @@ function animate() {
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
           (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-        const heldTrickLanding = trickCaught || (boardTouchHold && rotationSpeed < 1.35);
-        if (rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
-          // Keep the exact caught orientation: no auto-level, auto-rotate or snap.
-          airborne = false;
-          trickStance = heldTrickLanding && !uprightLanding;
-          verticalVelocity = 0;
-          // Keep residual angular velocity; the board should not freeze on impact.
-                  heading += shuvitRotation;
-          shuvitRotation = 0;
-          shuvitTarget = 0;
-          manualActive = false;
-          manualAngle = 0;
-          lastLandTime = clock.elapsedTime;
-          velocity.multiplyScalar(0.97);
-        } else {
-          resetBoard();
-        }
+        // Let the deck touch down in whatever orientation its momentum gives
+        // it. No forced catch, rotation threshold, snap-to-upright or bail.
+        airborne = false;
+        verticalVelocity = 0;
+        trickStance = !uprightLanding || rotationSpeed >= 1.35;
+        heading += shuvitRotation;
+        shuvitRotation = 0;
+        shuvitTarget = 0;
+        manualActive = false;
+        manualAngle = 0;
+        lastLandTime = clock.elapsedTime;
+        velocity.multiplyScalar(0.99);
       }
       }
     }
