@@ -1008,11 +1008,19 @@ const boardPhysics = (() => {
   const inverseBoardRotation = new THREE.Quaternion();
   const worldPosition = new THREE.Vector3();
   const bodyRotation = new THREE.Quaternion();
+  const previousKinematicPosition = new THREE.Vector3();
+  const targetKinematicPosition = new THREE.Vector3();
+  const previousKinematicRotation = new THREE.Quaternion();
+  const targetKinematicRotation = new THREE.Quaternion();
+  const interpolatedKinematicPosition = new THREE.Vector3();
+  const interpolatedKinematicRotation = new THREE.Quaternion();
   const toRapierVector = v => ({ x: v.x, y: v.y, z: v.z });
 
   board.updateMatrixWorld(true);
   board.getWorldPosition(boardWorldPosition);
   board.getWorldQuaternion(boardWorldRotation);
+  previousKinematicPosition.copy(boardWorldPosition);
+  previousKinematicRotation.copy(boardWorldRotation);
   const deckBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.kinematicPositionBased()
       .setTranslation(boardWorldPosition.x, boardWorldPosition.y, boardWorldPosition.z)
@@ -1127,16 +1135,19 @@ const boardPhysics = (() => {
     }
   }
 
-  function setKinematicPoseFromBoard() {
+  function captureKinematicTarget() {
     board.updateMatrixWorld(true);
-    board.getWorldPosition(boardWorldPosition);
-    board.getWorldQuaternion(boardWorldRotation);
-    deckBody.setNextKinematicTranslation({
-      x: boardWorldPosition.x, y: boardWorldPosition.y, z: boardWorldPosition.z
-    });
+    board.getWorldPosition(targetKinematicPosition);
+    board.getWorldQuaternion(targetKinematicRotation);
+  }
+
+  function setInterpolatedKinematicTarget(alpha) {
+    interpolatedKinematicPosition.lerpVectors(previousKinematicPosition, targetKinematicPosition, alpha);
+    interpolatedKinematicRotation.copy(previousKinematicRotation).slerp(targetKinematicRotation, alpha);
+    deckBody.setNextKinematicTranslation(toRapierVector(interpolatedKinematicPosition));
     deckBody.setNextKinematicRotation({
-      x: boardWorldRotation.x, y: boardWorldRotation.y,
-      z: boardWorldRotation.z, w: boardWorldRotation.w
+      x: interpolatedKinematicRotation.x, y: interpolatedKinematicRotation.y,
+      z: interpolatedKinematicRotation.z, w: interpolatedKinematicRotation.w
     });
   }
 
@@ -1179,6 +1190,8 @@ const boardPhysics = (() => {
     deckBody.setLinvel(toRapierVector(linearVelocity), true);
     deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
     deckIsDynamic = true;
+    previousKinematicPosition.copy(boardWorldPosition);
+    previousKinematicRotation.copy(boardWorldRotation);
     accumulator = 0;
   }
 
@@ -1196,6 +1209,8 @@ const boardPhysics = (() => {
       z: boardWorldRotation.z, w: boardWorldRotation.w
     }, true);
     deckIsDynamic = false;
+    previousKinematicPosition.copy(boardWorldPosition);
+    previousKinematicRotation.copy(boardWorldRotation);
     accumulator = 0;
   }
 
@@ -1232,6 +1247,8 @@ const boardPhysics = (() => {
         resetBody(wheels[wheelIndex++], new THREE.Vector3(x, 0.145, z));
       }
     }
+    previousKinematicPosition.copy(boardWorldPosition);
+    previousKinematicRotation.copy(boardWorldRotation);
     accumulator = 0;
   }
 
@@ -1260,12 +1277,16 @@ const boardPhysics = (() => {
   return {
     step(dt) {
       accumulator = Math.min(accumulator + dt, fixedStep * 4);
-      let steps = 0;
-      while (accumulator >= fixedStep && steps < 4) {
-        if (!deckIsDynamic) setKinematicPoseFromBoard();
+      const steps = Math.min(4, Math.floor(accumulator / fixedStep));
+      if (!deckIsDynamic && steps > 0) captureKinematicTarget();
+      for (let i = 0; i < steps; i++) {
+        if (!deckIsDynamic) setInterpolatedKinematicTarget((i + 1) / steps);
         world.step();
         accumulator -= fixedStep;
-        steps++;
+      }
+      if (!deckIsDynamic && steps > 0) {
+        previousKinematicPosition.copy(targetKinematicPosition);
+        previousKinematicRotation.copy(targetKinematicRotation);
       }
       if (deckIsDynamic) syncDynamicDeck();
       updateComponentVisuals();
@@ -1302,6 +1323,7 @@ let bailTimer = 0;
 let steerInput = 0;
 let lastLandTime = -10;
 const gravity = 13.5;
+const airHeightScale = Math.sqrt(9.81 / gravity);
 const maxSpeed = 13.125; // 25% higher top speed
 
 function forwardVector() {
@@ -1336,7 +1358,7 @@ function releaseGrind(side = 0, flickSpeed = 500) {
     velocity.addScaledVector(away,boardSide*(1.7+Math.min(flickSpeed/650,1.5)*1.25));
   }
   grinding=false;grindRail=null;grindBalance=0;grindReadout.style.display='none';
-  airborne=true;airTime=0;verticalVelocity=3.9+Math.min(flickSpeed/1600,1.1);
+  airborne=true;airTime=0;verticalVelocity=(3.9+Math.min(flickSpeed/1600,1.1))*airHeightScale;
   trickStance=false;
   board.rotation.x=0;board.rotation.z=0;
   boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
@@ -1349,7 +1371,7 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   // Pop height scales linearly with both swipe travel and finger speed.
   // No dead zone, exponential curve, or sudden saturation.
   const popImpulse = 3.8 + flickDistance * 0.006 + flickSpeed * 0.001;
-  verticalVelocity = popImpulse + velocity.length() * 0.035;
+  verticalVelocity = (popImpulse + velocity.length() * 0.035) * airHeightScale;
   trickStance = false;
   // Keep the established pop height; Rapier calculates angular response from
   // the board's actual mass, inertia tensor and off-centre tail/nose impulse.
@@ -2386,7 +2408,7 @@ function animate() {
           grindRail = null;
           grindReadout.style.display = 'none';
           airborne = true;
-          verticalVelocity = -0.5;
+          verticalVelocity = -0.5 * airHeightScale;
           boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
         }
       }
@@ -2405,7 +2427,7 @@ function animate() {
           grindRail = null;
           grindReadout.style.display = 'none';
           airborne = true;
-          verticalVelocity = 0.75;
+          verticalVelocity = 0.75 * airHeightScale;
           velocity.addScaledVector(across, fallSide * 1.15);
           board.rotation.x = fallSide * 0.24;
           board.rotation.z = manualAngle * 0.55;
