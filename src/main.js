@@ -1065,8 +1065,10 @@ canvas.addEventListener('pointermove', event => {
   gesture.lastMoveTime = moveTime;
   // Keep manual detection forgiving: the finger can land anywhere on the
   // relevant half of the deck, including close to its centre.
-  const tailSide = gesture.deckLocalX !== null && gesture.deckLocalX * travelSign < -0.04;
-  const noseSide = gesture.deckLocalX !== null && gesture.deckLocalX * travelSign > 0.04;
+  // deckLocalX is already measured in the board's own coordinate frame,
+  // so its tail/nose identity must not be flipped when riding switch.
+  const tailSide = gesture.deckLocalX !== null && gesture.deckLocalX < -0.04;
+  const noseSide = gesture.deckLocalX !== null && gesture.deckLocalX > 0.04;
   // Manuals require a deliberate vertical drag on the correct end of the
   // deck. Ignore small vertical drift during ordinary horizontal steering.
   // A manual begins as soon as a deliberate pull starts on the correct end
