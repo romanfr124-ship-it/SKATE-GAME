@@ -1214,7 +1214,7 @@ mapClose.textContent = 'CLOSE';
 mapClose.style.cssText = 'padding:10px 14px;border:3px solid #fff;border-radius:12px;background:#65cbb8;color:#174b55;font-size:11px;font-weight:900;box-shadow:0 3px 0 #328d84;touch-action:manipulation;';
 mapHeader.append(mapTitle,mapClose);
 const mapHint = document.createElement('div');
-mapHint.textContent = 'TAP ANYWHERE ON THE MAP TO TELEPORT';
+mapHint.textContent = 'X = LEFT / RIGHT  •  Z = UP / DOWN  •  Y = HEIGHT  •  TAP MAP TO TELEPORT';
 mapHint.style.cssText = 'flex:none;color:#66818a;font-size:10px;font-weight:900;letter-spacing:1.2px;';
 const mapCanvas = document.createElement('canvas');
 mapCanvas.style.cssText = 'display:block;width:100%;height:100%;min-height:0;flex:1;border:3px solid #fff;border-radius:16px;background:#a9dfce;box-shadow:inset 0 4px 12px #527f7166;touch-action:pan-x pan-y;';
@@ -1264,12 +1264,14 @@ function drawSkateparkMap() {
   label('EXPANDED UPPER LEVEL  Y=3.2m',-37,-4,'#263332',9);
   label('LOWER LEVEL  Y=0m',-1,3,'#f1f2ed',9);
   label('SLOPED CONNECTION',-10,30,'#263332',8);
-  const [peakX,peakY]=p(25,-20),[bermX,bermY]=p(25,-15);
+  const [peakX,peakY]=p(-20,25),[bermX,bermY]=p(-15,25);
   mapCtx.beginPath();mapCtx.ellipse(peakX,peakY,7*t.scale,7*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(218,226,218,.75)';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2;mapCtx.stroke();
   mapCtx.beginPath();mapCtx.ellipse(bermX,bermY,5*t.scale,5*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(185,197,190,.8)';mapCtx.fill();mapCtx.stroke();
-  label('RAMP PLATFORM (-20,25)',25,-27,'#263332',8);
-  label('BERM Z -10 TO -20',25,-11,'#263332',7);
-  mapCtx.font='10px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
+  label('RAMP PLATFORM (-20,25)',-20,17,'#263332',8);
+  label('BERM X -20 TO -10',-15,32,'#263332',7);
+  mapCtx.font='900 11px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
+  mapCtx.fillText('X  (LEFT ↔ RIGHT)',w/2,h-8);
+  mapCtx.save();mapCtx.translate(12,h/2);mapCtx.rotate(-Math.PI/2);mapCtx.fillText('Z  (UP ↔ DOWN)',0,0);mapCtx.restore();
   for(let v=-60;v<=60;v+=10){let q=p(v,-60);mapCtx.fillText(String(v),q[0],Math.max(10,q[1]+10));q=p(-60,v);mapCtx.textAlign='left';mapCtx.fillText(String(v),q[0]+3,q[1]);mapCtx.textAlign='center';}
   const [sx,sy]=p(board.position.x,board.position.z);
   mapCtx.beginPath();mapCtx.arc(sx,sy,11,0,Math.PI*2);mapCtx.fillStyle='#fff8d9aa';mapCtx.fill();
