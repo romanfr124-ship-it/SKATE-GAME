@@ -1670,9 +1670,9 @@ canvas.addEventListener('pointermove', event => {
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
     const noseManualSteer = manualSide === -1 ? -1 : 1;
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58 * travelSign * noseManualSteer, -1, 1);
+    touchSteer = THREE.MathUtils.clamp((-gesture.dx / 100 - Math.sign(moveDx) * gesture.lastMoveSpeed / 1800) * travelSign * noseManualSteer, -1, 1);
   } else if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78 * travelSign, -1, 1);
+    touchSteer = THREE.MathUtils.clamp((-gesture.dx / 120 - Math.sign(moveDx) * gesture.lastMoveSpeed / 2200) * travelSign, -1, 1);
   }
 });
 function finishGesture(event) {
