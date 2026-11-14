@@ -74,7 +74,11 @@ function ramp(w, h, d, x, z, angle = 0) {
   mesh.rotation.z = angle;
   mesh.userData.isRamp = true;
   scene.add(mesh);
-  solidObstacles.push(mesh);
+  // Ramps are supported by the terrain-height solver below, not by the
+  // obstacle SAT solver. Treating the same ramp as both a terrain surface
+  // and a solid box caused opposing corrections that launched/teleported
+  // the board at the ramp surface.
+  rampSurfaces.push({ w, h, d, x, z, angle });
   // A matching 1m grid on the ramp surface makes the obstacle's size and
   // orientation clear as the camera follows the skater.
   const surface = new THREE.Group();
@@ -112,6 +116,7 @@ function rail(x, z, length, height = 0.82) {
 // beneath a flat floor. Its curved riding surface remains visible all the way down.
 const bowl = { x: -18, z: 0, radiusX: 10.8, radiusZ: 9.2, depth: 2.8, flatRatio: 0.24 };
 const quarterPipes = [];
+const rampSurfaces = [];
 const floorShape = new THREE.Shape();
 floorShape.moveTo(-50, -50);
 floorShape.lineTo(50, -50);
@@ -298,12 +303,42 @@ function quarterPipeHeightAt(x, z) {
   }
   return height;
 }
+function rampHeightAt(x, z) {
+  let height = -Infinity;
+  for (const ramp of rampSurfaces) {
+    const c = Math.cos(ramp.angle);
+    const sn = Math.sin(ramp.angle);
+    // Invert the rotated top-face transform to find the point in the
+    // ramp's own local footprint, then evaluate its exact inclined plane.
+    const localX = ((x - ramp.x) + sn * ramp.h / 2) / c;
+    const localZ = z - ramp.z;
+    if (Math.abs(localX) > ramp.w / 2 || Math.abs(localZ) > ramp.d / 2) continue;
+    const centerY = ramp.h / 2 - 0.02;
+    const surfaceY = centerY + sn * localX + c * ramp.h / 2;
+    height = Math.max(height, surfaceY);
+  }
+  return height;
+}
+function rampAngleAt(x, z) {
+  let angle = 0;
+  let highest = -Infinity;
+  for (const ramp of rampSurfaces) {
+    const c = Math.cos(ramp.angle);
+    const sn = Math.sin(ramp.angle);
+    const localX = ((x - ramp.x) + sn * ramp.h / 2) / c;
+    const localZ = z - ramp.z;
+    if (Math.abs(localX) > ramp.w / 2 || Math.abs(localZ) > ramp.d / 2) continue;
+    const surfaceY = ramp.h / 2 - 0.02 + sn * localX + c * ramp.h / 2;
+    if (surfaceY > highest) { highest = surfaceY; angle = ramp.angle; }
+  }
+  return angle;
+}
 function groundHeightAt(x, z) {
   const nx = (x - bowl.x) / bowl.radiusX;
   const nz = (z - bowl.z) / bowl.radiusZ;
   const insideBowl = nx * nx + nz * nz < 1;
   const bowlY = insideBowl ? bowlHeightAt(x, z) : 0;
-  return Math.max(bowlY, quarterPipeHeightAt(x, z), insideBowl ? -Infinity : 0);
+  return Math.max(bowlY, quarterPipeHeightAt(x, z), rampHeightAt(x, z), insideBowl ? -Infinity : 0);
 }
 
 // Street plaza: low, usable obstacles with clear run-ups and room to roll away.
@@ -1138,7 +1173,7 @@ function animate() {
       velocity.x += -gravity * slopeX * dt;
       velocity.z += -gravity * slopeZ * dt;
       if (!trickStance) {
-        const targetDeckPitch = (manualActive ? manualAngle : groundedRampAngle) - steer * 0.075;
+        const targetDeckPitch = (manualActive ? manualAngle : rampAngleAt(board.position.x, board.position.z)) - steer * 0.075;
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
         const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
         board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
