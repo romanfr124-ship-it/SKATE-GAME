@@ -368,21 +368,23 @@ function terrainHeightAt(x, z) {
   const eased = t * t * (3 - 2 * t);
   const base = 3.2 * (1 - eased);
 
-  // Raised summit centred at (25,-20), with a short crown and steep,
-  // smoothly rounded shoulders dropping into the berm.
-  const peakDistance = Math.hypot(x - 25, z + 20);
-  const peakT = THREE.MathUtils.clamp((peakDistance - 2.2) / 5.8, 0, 1);
-  const peakEase = peakT * peakT * (3 - 2 * peakT);
-  const peak = 5.4 - 3.9 * peakEase;
+  // Raised, flat-topped platform centred near (-20,25), with a steep
+  // transition ramp dropping toward the berm along X=-20 to X=-10.
+  const platformX = Math.abs(x + 20);
+  const platformZ = Math.abs(z - 25);
+  const platformEdge = Math.max(platformX - 3.2, platformZ - 3.2);
+  const platformT = THREE.MathUtils.clamp((platformEdge + 1.8) / 6.0, 0, 1);
+  const platformEase = platformT * platformT * (3 - 2 * platformT);
+  const platform = 5.0 - 3.5 * platformEase;
 
-  // Banked berm runs along Z=-20 to Z=-10, centred on X=25.
-  const across = Math.abs(x - 25);
+  // Banked berm runs along X=-20 to X=-10, centred near Z=25.
+  const across = Math.abs(z - 25);
   const acrossT = THREE.MathUtils.clamp((across - 1.2) / 5.0, 0, 1);
   const acrossEase = acrossT * acrossT * (3 - 2 * acrossT);
-  const alongT = THREE.MathUtils.clamp((z + 20) / 10, 0, 1);
+  const alongT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
   const berm = 1.55 * (1 - acrossEase) * Math.sin(Math.PI * alongT);
 
-  return Math.max(base, peak, berm);
+  return Math.max(base, platform, berm);
 }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
 
@@ -1265,7 +1267,7 @@ function drawSkateparkMap() {
   const [peakX,peakY]=p(25,-20),[bermX,bermY]=p(25,-15);
   mapCtx.beginPath();mapCtx.ellipse(peakX,peakY,7*t.scale,7*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(218,226,218,.75)';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2;mapCtx.stroke();
   mapCtx.beginPath();mapCtx.ellipse(bermX,bermY,5*t.scale,5*t.scale,0,0,Math.PI*2);mapCtx.fillStyle='rgba(185,197,190,.8)';mapCtx.fill();mapCtx.stroke();
-  label('HIGH POINT (25,-20)',25,-27,'#263332',8);
+  label('RAMP PLATFORM (-20,25)',25,-27,'#263332',8);
   label('BERM Z -10 TO -20',25,-11,'#263332',7);
   mapCtx.font='10px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
   for(let v=-60;v<=60;v+=10){let q=p(v,-60);mapCtx.fillText(String(v),q[0],Math.max(10,q[1]+10));q=p(-60,v);mapCtx.textAlign='left';mapCtx.fillText(String(v),q[0]+3,q[1]);mapCtx.textAlign='center';}
