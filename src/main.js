@@ -1218,7 +1218,7 @@ function releaseGrind(side = 0, flickSpeed = 500) {
   return true;
 }
 function pop(kind = 'ollie', flickSpeed = 650) {
-  if (airborne || bailTimer > 0 || velocity.length() < 0.25) return;
+  if (airborne || bailTimer > 0) return;
   airborne = true;
   airTime = 0;
   // A sharper tail/nose flick transfers more impulse into the pop.
