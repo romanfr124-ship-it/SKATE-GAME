@@ -320,8 +320,6 @@ let speed = 0;
 let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
-let flipVelocity = 0;
-let flipTarget = 0;
 let shuvitVelocity = 0;
 let boardTouchHold = false;
 let trickCaught = false;
@@ -367,12 +365,9 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   const flickPower = THREE.MathUtils.clamp((flickSpeed - 220) / 1180, 0, 1);
   const popImpulse = 4.35 + flickPower * 3.35;
   verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
-  flipVelocity = 0;
-  flipTarget = 0;
   trickCaught = false;
   trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
-  const popDirection = (kind === 'nollie' ? -1 : 1) * travelSign;
   board.rotation.x = 0;
   board.rotation.z = 0;
   grinding = false;
@@ -558,8 +553,7 @@ function tryStartGrind() {
     verticalVelocity = 0;
     velocity.x = 0;
     if (Math.abs(velocity.z) < 0.45) velocity.z = travelSign * Math.max(1.2, speedNow);
-    flipVelocity = 0;
-    shuvitVelocity = 0;
+      shuvitVelocity = 0;
     shuvitRotation = 0;
     shuvitTarget = 0;
     board.rotation.x = 0;
@@ -608,7 +602,7 @@ function resolveObstacleContacts() {
     }
 
     if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
-      const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
+      const rotationSpeed = Math.abs(shuvitVelocity);
       const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
         Math.abs(board.rotation.z) < 0.48 &&
         (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
@@ -618,8 +612,7 @@ function resolveObstacleContacts() {
         verticalVelocity = 0;
         trickStance = heldTrickLanding && !uprightLanding;
         // Keep residual angular velocity; the board should not freeze on impact.
-        flipTarget = 0;
-        heading += shuvitRotation;
+              heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
         manualActive = false;
@@ -660,8 +653,6 @@ function resetBoard() {
   board.rotation.x = 0;
   board.rotation.z = 0;
   verticalVelocity = 0;
-  flipVelocity = 0;
-  flipTarget = 0;
   shuvitVelocity = 0;
   shuvitRotation = 0;
   shuvitTarget = 0;
@@ -789,6 +780,8 @@ function finishGesture(event) {
     const flickDirection = Math.abs(dx) > 4 ? screenTurnDirection(dx) : (dy > 0 ? 1 : -1);
     flick(flickDirection, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
       0, g.deckLocalX || 0);
+  } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
+    pop('ollie', g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000));
   } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
@@ -900,7 +893,8 @@ function animate() {
         grinding = false;
         grindRail = null;
         grindReadout.style.display = 'none';
-        board.position.y = Math.max(0, board.position.y - 0.055);
+        airborne = true;
+        verticalVelocity = -0.5;
       }
     }
     if (!airborne && !grinding) {
@@ -936,12 +930,8 @@ function animate() {
       } else {
         // Preserve caught trick momentum after touchdown rather than freezing it.
         const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
-        board.rotation.x += flipVelocity * dt;
-        board.rotation.z += pitchVelocity * dt;
         heading += shuvitVelocity * dt;
         const damping = Math.exp(-groundAngularDamping * dt);
-        flipVelocity *= damping;
-        pitchVelocity *= damping;
         shuvitVelocity *= damping;
       }
     } else {
@@ -961,8 +951,10 @@ function animate() {
       }
     }
 
-    board.position.x += velocity.x * dt;
-    board.position.z += velocity.z * dt;
+    if (!grinding) {
+      board.position.x += velocity.x * dt;
+      board.position.z += velocity.z * dt;
+    }
     speed = velocity.length();
 
     if (airborne) {
@@ -986,8 +978,7 @@ function animate() {
           trickStance = heldTrickLanding && !uprightLanding;
           verticalVelocity = 0;
           // Keep residual angular velocity; the board should not freeze on impact.
-          flipTarget = 0;
-          heading += shuvitRotation;
+                  heading += shuvitRotation;
           shuvitRotation = 0;
           shuvitTarget = 0;
           manualActive = false;
