@@ -317,6 +317,8 @@ let verticalVelocity = 0;
 let flipVelocity = 0;
 let flipTarget = 0;
 let shuvitVelocity = 0;
+let boardTouchHold = false;
+let trickStance = false;
 let shuvitRotation = 0;
 let shuvitTarget = 0;
 let pitchVelocity = 0;
@@ -358,6 +360,7 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
   flipTarget = 0;
+  trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   const popDirection = kind === 'nollie' ? -1 : 1;
   pitchVelocity = popDirection * 2.0;
@@ -373,23 +376,21 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   const alongDeck = THREE.MathUtils.clamp(Math.abs(touchX) / 1.13, 0, 1);
   const yawLeverage = 0.72 + alongDeck * 0.58;
   if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
-    const impulse = fingerSpeed * (4.8 + distance * 0.105) * yawLeverage;
-    const spinSpeed = THREE.MathUtils.clamp(impulse, 5.5, 27);
-    const rotations = THREE.MathUtils.clamp(Math.round(0.72 + spinSpeed / 15 + distance / 180), 1, 2);
-    shuvitTarget = Math.PI * 2 * rotations * direction;
-    shuvitVelocity = direction * spinSpeed;
+    const impulse = fingerSpeed * (2.7 + distance * 0.055) * yawLeverage;
+    const spinSpeed = THREE.MathUtils.clamp(impulse, 2.8, 13.5);
+    shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
+    shuvitVelocity += direction * spinSpeed;
   }
   // A flick across the board's width creates a kickflip/heelflip.
   // Its direction comes from the swipe, and its leverage from the touch point.
   if (Math.abs(verticalDistance) > 22 && Math.abs(flipVelocity) < 0.1 &&
       Math.abs(board.rotation.x) < 0.1) {
     const flipDirection = verticalDistance > 0 ? 1 : -1;
-    const flipImpulse = fingerSpeed * (5.2 + Math.abs(verticalDistance) * 0.11) *
+    const flipImpulse = fingerSpeed * (3.0 + Math.abs(verticalDistance) * 0.065) *
       (0.78 + alongDeck * 0.42);
-    const flipSpeed = THREE.MathUtils.clamp(flipImpulse, 5.5, 25);
-    const rotations = THREE.MathUtils.clamp(Math.round(0.72 + flipSpeed / 16 + Math.abs(verticalDistance) / 190), 1, 2);
-    flipTarget = Math.PI * 2 * rotations * flipDirection;
-    flipVelocity = flipDirection * flipSpeed;
+    const flipSpeed = THREE.MathUtils.clamp(flipImpulse, 2.8, 13);
+    flipTarget = flipDirection; // non-zero marker: a flip impulse is active
+    flipVelocity += flipDirection * flipSpeed;
   }
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
@@ -524,16 +525,19 @@ function resolveObstacleContacts() {
     const isTopContact = collisionNormal.y > 0.62;
 
     if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
-      const landingStable = Math.abs(board.rotation.x) < 0.48 &&
+      const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
+      const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
         Math.abs(board.rotation.z) < 0.48 &&
         (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-      if (airborne && landingStable) {
+      const heldTrickLanding = boardTouchHold && rotationSpeed < 1.35;
+      if (airborne && rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
         airborne = false;
         verticalVelocity = 0;
-        board.rotation.x = 0;
-        board.rotation.z = 0;
+        trickStance = heldTrickLanding && !uprightLanding;
         flipVelocity = 0;
+        flipTarget = 0;
         shuvitVelocity = 0;
+        heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
         pitchVelocity = 0;
@@ -565,6 +569,8 @@ function resolveObstacleContacts() {
 }
 
 function resetBoard() {
+  boardTouchHold = false;
+  trickStance = false;
   board.position.y = 0;
   board.rotation.x = 0;
   board.rotation.z = 0;
@@ -633,6 +639,7 @@ canvas.addEventListener('pointerdown', event => {
     manualGesture: false,
     manualPopTriggered: false
   };
+  boardTouchHold = airborne && gesture.deckLocalX !== null;
   touchSteer = 0;
 });
 canvas.addEventListener('pointermove', event => {
@@ -716,10 +723,12 @@ function finishGesture(event) {
   touchSteer = 0;
   manualActive = false;
   manualAngle = 0;
+  boardTouchHold = false;
   gesture = null;
 }
 canvas.addEventListener('pointerup', finishGesture);
 canvas.addEventListener('pointercancel', () => {
+  boardTouchHold = false;
   gesture = null;
   touchSteer = 0;
   manualActive = false;
@@ -808,55 +817,30 @@ function animate() {
       velocity.lerp(desired, 1 - Math.exp(-redirectRate * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
       else velocity.multiplyScalar(Math.exp(-0.14 * dt));
-      const targetDeckPitch = (manualActive ? manualAngle : 0) - steer * 0.075;
-      board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
-      const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
-      board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
+      if (!trickStance) {
+        const targetDeckPitch = (manualActive ? manualAngle : 0) - steer * 0.075;
+        board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
+        const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
+        board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
+      }
     } else {
       // Limited air control; momentum remains mostly conserved.
       heading += steer * 0.32 * dt;
       velocity.multiplyScalar(Math.exp(-0.02 * dt));
       airTime += dt;
-      if (Math.abs(flipVelocity) > 0.01) {
-        const remainingFlip = flipTarget - board.rotation.x;
-        const flipDirection = Math.sign(flipTarget || flipVelocity);
-        const flipBrakingDistance = (flipVelocity * flipVelocity) / (2 * 42);
-        if (Math.abs(remainingFlip) < 0.08) {
-          board.rotation.x = flipTarget;
-          flipVelocity = 0;
-        } else {
-          if (Math.abs(remainingFlip) <= flipBrakingDistance) {
-            flipVelocity -= flipDirection * 42 * dt;
-          }
-          board.rotation.x += flipVelocity * dt;
-          if (Math.sign(flipTarget - board.rotation.x) !== flipDirection) {
-            board.rotation.x = flipTarget;
-            flipVelocity = 0;
-          }
-        }
-      }
-      // Shuvit rotation spins the whole deck around its vertical axis.
-      if (Math.abs(shuvitVelocity) > 0.01) {
-        const remaining = shuvitTarget - shuvitRotation;
-        const direction = Math.sign(shuvitTarget || shuvitVelocity);
-        if (Math.abs(remaining) < 0.08) {
-          shuvitRotation = shuvitTarget;
-          shuvitVelocity = 0;
-        } else {
-          const brakingDistance = (shuvitVelocity * shuvitVelocity) / (2 * 34);
-          if (Math.abs(remaining) <= brakingDistance) {
-            shuvitVelocity -= direction * 34 * dt;
-          }
-          shuvitRotation += shuvitVelocity * dt;
-          if (Math.sign(shuvitTarget - shuvitRotation) !== direction) {
-            shuvitRotation = shuvitTarget;
-            shuvitVelocity = 0;
-          }
-        }
-      }
-      // Let the pop impulse pitch the deck, then naturally settle it toward level.
-      pitchVelocity += (-board.rotation.z * 8 - pitchVelocity * 3) * dt;
+      // Free angular momentum: no preset rotation target or automatic snap.
+      // Air drag slows the board gradually; touching the deck adds strong,
+      // smooth damping so the player can catch and hold unusual orientations.
+      const angularDamping = boardTouchHold ? 7.5 : 1.15;
+      flipVelocity *= Math.exp(-angularDamping * dt);
+      shuvitVelocity *= Math.exp(-angularDamping * dt);
+      pitchVelocity *= Math.exp((boardTouchHold ? -8.5 : -1.7) * dt);
+      board.rotation.x += flipVelocity * dt;
+      shuvitRotation += shuvitVelocity * dt;
       board.rotation.z += pitchVelocity * dt;
+      if (Math.abs(flipVelocity) < 0.025) flipVelocity = 0;
+      if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
+      if (Math.abs(pitchVelocity) < 0.025) pitchVelocity = 0;
     }
 
     board.position.x += velocity.x * dt;
@@ -868,26 +852,25 @@ function animate() {
       verticalVelocity -= gravity * dt;
       if (board.position.y <= 0 && verticalVelocity < 0) {
         board.position.y = 0;
-        const completedFlip = Math.abs(board.rotation.x) >= Math.abs(flipTarget) * 0.94;
-        const flipAligned = Math.abs(Math.sin(board.rotation.x / 2)) < 0.38;
-        const flipComplete = !flipTarget || (completedFlip && flipAligned);
-        const pitchAligned = Math.abs(board.rotation.z) < 0.48;
-        const shuvitComplete = !shuvitTarget ||
-          (Math.abs(shuvitRotation) >= Math.abs(shuvitTarget) * 0.94 &&
-           Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-        if (flipComplete && pitchAligned && shuvitComplete) {
-          board.rotation.x = 0;
-          board.rotation.z = 0;
-          manualActive = false;
-          manualAngle = 0;
+        const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
+        const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
+          Math.abs(board.rotation.z) < 0.48 &&
+          (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
+        const heldTrickLanding = boardTouchHold && rotationSpeed < 1.35;
+        if (rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
+          // Keep the exact caught orientation: no auto-level, auto-rotate or snap.
           airborne = false;
+          trickStance = heldTrickLanding && !uprightLanding;
           verticalVelocity = 0;
           flipVelocity = 0;
           flipTarget = 0;
           shuvitVelocity = 0;
+          heading += shuvitRotation;
           shuvitRotation = 0;
           shuvitTarget = 0;
           pitchVelocity = 0;
+          manualActive = false;
+          manualAngle = 0;
           lastLandTime = clock.elapsedTime;
           velocity.multiplyScalar(0.97);
         } else {
