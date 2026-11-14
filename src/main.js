@@ -1159,6 +1159,8 @@ let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
 let shuvitVelocity = 0;
+let airPitchVelocity = 0;
+let airRollVelocity = 0;
 let boardTouchHold = false;
 let trickCaught = false;
 let trickStance = false;
@@ -1230,6 +1232,10 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   board.rotation.x = 0;
   board.rotation.z = 0;
+  // The tail/nose pop transfers a small angular impulse into the deck.
+  // Airborne finger drags can add to this momentum directly.
+  airPitchVelocity = kind === 'ollie' ? -0.85 : 0.85;
+  airRollVelocity = 0;
   grinding = false;
   grindRail = null;
 }
@@ -1541,6 +1547,8 @@ function resetBoard() {
   shuvitVelocity = 0;
   shuvitRotation = 0;
   shuvitTarget = 0;
+  airPitchVelocity = 0;
+  airRollVelocity = 0;
   airborne = false;
   bailTimer = 0.8;
   velocity.multiplyScalar(0.25);
@@ -1633,6 +1641,12 @@ canvas.addEventListener('pointermove', event => {
   const pullingNose = noseSide && gesture.dy * travelSign < -8 && verticalIntent;
   // Fast vertical flicks are ollies/nollies, not manual holds. Slow pulls
   // still activate a manual immediately on the first deliberate movement.
+  if (airborne && gesture.deckLocalX !== null) {
+    // A finger drag applies torque to the free deck while it is in the air.
+    // The accumulated angular velocity persists after the finger is lifted.
+    airPitchVelocity += -moveDy * 0.012;
+    airRollVelocity += moveDx * 0.012;
+  }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
     gesture.manualGesture = true;
@@ -2364,6 +2378,13 @@ function animate() {
       const angularDamping = boardTouchHold ? 7.5 : 1.15;
       shuvitVelocity *= Math.exp(-angularDamping * dt);
       shuvitRotation += shuvitVelocity * dt;
+      // Integrate pitch and roll as angular momentum, not preset trick poses.
+      board.rotation.z += airPitchVelocity * dt;
+      board.rotation.x += airRollVelocity * dt;
+      airPitchVelocity *= Math.exp(-angularDamping * 0.72 * dt);
+      airRollVelocity *= Math.exp(-angularDamping * 0.72 * dt);
+      if (Math.abs(airPitchVelocity) < 0.015) airPitchVelocity = 0;
+      if (Math.abs(airRollVelocity) < 0.015) airRollVelocity = 0;
       if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
       if (boardTouchHold && Math.abs(shuvitVelocity) < 1.35) {
         trickCaught = true;
