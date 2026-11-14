@@ -60,6 +60,7 @@ function ramp(w, h, d, x, z, angle = 0) {
   const mesh = new THREE.Mesh(geometry, mats.concrete);
   mesh.position.set(x, h / 2 - 0.02, z);
   mesh.rotation.z = angle;
+  mesh.userData.isRamp = true;
   scene.add(mesh);
   solidObstacles.push(mesh);
   // A matching 1m grid on the ramp surface makes the obstacle's size and
@@ -413,6 +414,9 @@ const satAxes = [];
 for (let i = 0; i < 15; i++) satAxes.push(new THREE.Vector3());
 const collisionNormal = new THREE.Vector3();
 const boardWorldBounds = new THREE.Box3();
+let contactObstacle = null;
+let groundedRampAngle = 0;
+let groundedRampNormal = new THREE.Vector3(0, 1, 0);
 
 function buildBoardLocalBounds() {
   boardLocalBounds.makeEmpty();
@@ -453,6 +457,7 @@ function getObbContact() {
 
   let bestOverlap = Infinity;
   let bestAxis = null;
+  let bestObstacle = null;
 
   for (const obstacle of solidObstacles) {
     if (!obstacle.geometry) continue;
@@ -504,15 +509,22 @@ function getObbContact() {
     if (!separated && localNormal && localBest < bestOverlap) {
       bestOverlap = localBest;
       bestAxis = localNormal;
+      bestObstacle = obstacle;
     }
   }
 
-  if (!bestAxis) return null;
+  if (!bestAxis) {
+    contactObstacle = null;
+    return null;
+  }
   collisionNormal.copy(bestAxis);
+  contactObstacle = bestObstacle;
   return bestOverlap;
 }
 
 function resolveObstacleContacts() {
+  groundedRampAngle = 0;
+  groundedRampNormal.set(0, 1, 0);
   // Two passes resolve corners where the deck meets two surfaces at once.
   for (let pass = 0; pass < 2; pass++) {
     const penetration = getObbContact();
@@ -526,6 +538,24 @@ function resolveObstacleContacts() {
       verticalVelocity * collisionNormal.y;
     const impactSpeed = Math.abs(normalSpeed);
     const isTopContact = collisionNormal.y > 0.62;
+
+    // A ramp is a rideable surface, not a wall. Record its slope so the
+    // grounded board can follow it and use gravity along its surface.
+    if (isTopContact && !airborne && contactObstacle?.userData.isRamp) {
+      const rampNormal = new THREE.Vector3(0, 1, 0).applyQuaternion(contactObstacle.quaternion).normalize();
+      if (rampNormal.y > 0.62) {
+        groundedRampNormal.copy(rampNormal);
+        const boardAlongRamp = Math.abs(forwardVector().x);
+        if (boardAlongRamp > 0.55) groundedRampAngle = contactObstacle.rotation.z;
+      }
+      // Remove only velocity entering the ramp; never bounce the grounded
+      // board upward from its support surface.
+      if (normalSpeed < 0) {
+        velocity.addScaledVector(collisionNormal, -normalSpeed * collisionNormal.y);
+      }
+      verticalVelocity = 0;
+      continue;
+    }
 
     if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
       const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
@@ -826,8 +856,18 @@ function animate() {
       velocity.lerp(desired, 1 - Math.exp(-redirectRate * dt));
       if (braking) velocity.multiplyScalar(Math.exp(-3.2 * dt));
       else velocity.multiplyScalar(Math.exp(-0.14 * dt));
+      if (groundedRampNormal.y < 0.999) {
+        // Gravity projected onto the ramp plane accelerates the board downhill
+        // without adding an artificial upward launch at the ramp transition.
+        const downhill = new THREE.Vector3(0, -gravity, 0).addScaledVector(
+          groundedRampNormal,
+          gravity * groundedRampNormal.y
+        );
+        velocity.x += downhill.x * dt;
+        velocity.z += downhill.z * dt;
+      }
       if (!trickStance) {
-        const targetDeckPitch = (manualActive ? manualAngle : 0) - steer * 0.075;
+        const targetDeckPitch = (manualActive ? manualAngle : groundedRampAngle) - steer * 0.075;
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 7, dt);
         const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
         board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 7, dt);
