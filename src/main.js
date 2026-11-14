@@ -1565,9 +1565,7 @@ function buildDeckCustomizationUI() {
     const designs=deckGraphicCatalog[deckGraphicState.category];
     const design=makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();});
     sectionContent.appendChild(editorField('Choose a design',design));
-    const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
-    colors.append(editorField('Main deck colour',makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();})),editorField('Accent colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
-    sectionContent.appendChild(colors);
+    sectionContent.appendChild(editorField('Graphic accent colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
   }
   const deckColor=makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();});
   sectionContent.appendChild(editorField('Deck base colour',deckColor));
