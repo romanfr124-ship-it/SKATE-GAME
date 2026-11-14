@@ -2349,27 +2349,44 @@ const editorCalloutSvg=document.createElementNS('http://www.w3.org/2000/svg','sv
 editorCalloutSvg.setAttribute('viewBox','0 0 100 100');editorCalloutSvg.setAttribute('preserveAspectRatio','none');
 editorCalloutSvg.style.cssText='position:absolute;inset:0;width:100%;height:100%;overflow:visible;';
 const callouts=[
- {name:'Grip tape',label:'GRIP TAPE',x:3,y:17,tx:48,ty:39},
- {name:'Deck graphics',label:'DECK GRAPHICS',x:3,y:35,tx:48,ty:52},
- {name:'Deck shape',label:'DECK SHAPE',x:3,y:55,tx:52,ty:59},
- {name:'Grip tape graphics',label:'GRIP GRAPHICS',x:3,y:75,tx:52,ty:43},
- {name:'Deck colour',label:'DECK COLOUR',x:76,y:18,tx:57,ty:49},
- {name:'Trucks',label:'TRUCKS',x:81,y:43,tx:58,ty:57},
- {name:'Wheels',label:'WHEELS',x:81,y:68,tx:58,ty:65}
+ {name:'Grip tape',label:'GRIP TAPE',x:3,y:17,anchor:new THREE.Vector3(0,.115,0)},
+ {name:'Deck graphics',label:'DECK GRAPHICS',x:3,y:35,anchor:new THREE.Vector3(0,-.115,0)},
+ {name:'Deck shape',label:'DECK SHAPE',x:3,y:55,anchor:new THREE.Vector3(.88,0,0)},
+ {name:'Grip tape graphics',label:'GRIP GRAPHICS',x:3,y:75,anchor:new THREE.Vector3(-.18,.115,0)},
+ {name:'Deck colour',label:'DECK COLOUR',x:76,y:18,anchor:new THREE.Vector3(0,-.115,0)},
+ {name:'Trucks',label:'TRUCKS',x:81,y:43,anchor:new THREE.Vector3(.58,-.02,0)},
+ {name:'Wheels',label:'WHEELS',x:81,y:68,anchor:new THREE.Vector3(.60,-.035,.245)}
 ];
 for(const c of callouts){
  const line=document.createElementNS('http://www.w3.org/2000/svg','path');
- line.setAttribute('d',`M ${c.x+(c.x<50?18:0)} ${c.y+4} L ${c.tx} ${c.ty}`);
  line.setAttribute('fill','none');line.setAttribute('stroke','#40eee8');line.setAttribute('stroke-width','.32');
- editorCalloutSvg.appendChild(line);
+ editorCalloutSvg.appendChild(line);c.line=line;
  const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
- dot.setAttribute('cx',c.tx);dot.setAttribute('cy',c.ty);dot.setAttribute('r','.8');dot.setAttribute('fill','#7afff6');editorCalloutSvg.appendChild(dot);
- const b=document.createElement('button');b.type='button';b.textContent=c.label;
+ dot.setAttribute('r','.8');dot.setAttribute('fill','#7afff6');editorCalloutSvg.appendChild(dot);c.dot=dot;
+ const b=document.createElement('button');b.type='button';b.textContent=c.label;c.button=b;
  b.style.cssText=`position:absolute;left:${c.x}%;top:${c.y}%;min-width:0;max-width:42%;padding:6px 7px;border:1px solid #42e8e2;border-radius:2px;background:rgba(7,22,29,.92);color:#eaffff;font:900 9px Arial,sans-serif;letter-spacing:.35px;box-shadow:0 2px 8px #0008;pointer-events:auto;touch-action:manipulation;`;
  b.addEventListener('click',()=>{editorCategory=c.name;aimEditorBoard(c.name);sectionCard.style.display='block';buildDeckCustomizationUI();});
  editorCallouts.appendChild(b);
 }
 editorCallouts.appendChild(editorCalloutSvg);
+function updateEditorCallouts(){
+ if(!editorPreviewActive||!editorCallouts.isConnected)return;
+ board.updateMatrixWorld(true);
+ const bounds=editorCallouts.getBoundingClientRect();
+ for(const c of callouts){
+  const world=board.localToWorld(c.anchor.clone()).project(camera);
+  const px=(world.x*.5+.5)*innerWidth,py=(-world.y*.5+.5)*innerHeight;
+  const bx=c.button.getBoundingClientRect();
+  const left=bx.left+bx.width/2,top=bx.top+bx.height/2;
+  const sx=Math.max(bx.left,Math.min(px,bx.right)),sy=Math.max(bx.top,Math.min(py,bx.bottom));
+  const x1=(sx-bounds.left)/bounds.width*100,y1=(sy-bounds.top)/bounds.height*100;
+  const x2=(px-bounds.left)/bounds.width*100,y2=(py-bounds.top)/bounds.height*100;
+  c.line.setAttribute('d',`M ${x1} ${y1} L ${x2} ${y2}`);
+  c.dot.setAttribute('cx',x2);c.dot.setAttribute('cy',y2);
+  const visible=world.z<1&&px>=0&&px<=innerWidth&&py>=0&&py<=innerHeight;
+  c.line.style.display=visible?'':'none';c.dot.style.display=visible?'':'none';
+ }
+}
 sectionPanel.appendChild(editorCallouts);
 sectionPanel.style.background='transparent';
 sectionPanel.style.backdropFilter='none';
@@ -2436,8 +2453,8 @@ function activateBoardEditorPreview(){
   board.rotation.set(0,0,Math.PI/2);
   board.scale.setScalar(0.72);
   camera.up.set(0,1,0);
-  camera.position.set(-4.4,3.0,0.48);
-  camera.lookAt(0.32,0.95,0.48);
+  camera.position.set(-4.4,2.9,0.72);
+  camera.lookAt(0,1.45,0.72);
   camera.updateProjectionMatrix();
   editorTargetRotation=board.rotation.clone();
   renderer.render(scene,camera);
@@ -2473,9 +2490,9 @@ function aimEditorBoard(category){
   // the previous X rotation was cancelled by the board's Z=90° pose, so it
   // never turned the underside toward the camera.
   camera.position.x=-4.4;
-  camera.position.y=3.0;
-  camera.position.z=0.48;
-  camera.lookAt(0.32,0.95,0.48);
+  camera.position.y=2.9;
+  camera.position.z=0.72;
+  camera.lookAt(0,1.45,0.72);
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
 }
@@ -2524,6 +2541,7 @@ function updateEditorPreview(dt){
   if(Math.abs(board.rotation.x-editorTargetRotation.x)+Math.abs(board.rotation.y-editorTargetRotation.y)+Math.abs(board.rotation.z-editorTargetRotation.z)<.004){
     board.rotation.copy(editorTargetRotation);editorTargetRotation=null;
   }
+  updateEditorCallouts();
 }
 
 function makeEditorLabel(text) {
