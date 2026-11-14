@@ -45,7 +45,7 @@ scene.add(keyLight);
 // High-resolution weathered concrete and obstacle textures, generated locally.
 // Broad irregular stains remain dominant; fine aggregate grain and abrasion
 // add close-up detail without introducing a regular repeating visual pattern.
-function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) {
+function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, addMoss = false) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -109,20 +109,46 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
   }
   ctx.globalAlpha = 1;
 
-  // Fine, restrained aggregate grain: tiny mineral flecks, not coarse noise.
-  for (let i = 0; i < 6200; i++) {
+  // Visible but fine aggregate grain, like exposed sand and tiny stone in old concrete.
+  for (let i = 0; i < 18500; i++) {
     const x = random() * size, y = random() * size;
-    ctx.globalAlpha = 0.025 + random() * 0.075;
+    ctx.globalAlpha = 0.035 + random() * 0.105;
     ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
-    const r = 0.35 + random() * 1.05;
+    const r = 0.35 + random() * 1.45;
     ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.45 + random() * 0.7), random(), 0, Math.PI * 2); ctx.fill();
   }
 
-  // Fine, irregular scratches and dragged wheel scuffs.
-  for (let i = 0; i < 2800; i++) {
+  // Scattered, broken-up moss and green mineral staining. Soft edges keep it
+  // embedded in the slab; small grain flecks make the green areas feel rough.
+  if (addMoss) {
+    for (let i = 0; i < 34; i++) {
+      const x = random() * size, y = random() * size;
+      const rx = 24 + random() * 105, ry = 12 + random() * 58;
+      const green = ['#526b3b', '#607747', '#71804b', '#485f3c'][Math.floor(random() * 4)];
+      const stain = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry));
+      stain.addColorStop(0, green + '58');
+      stain.addColorStop(0.48, green + '32');
+      stain.addColorStop(1, green + '00');
+      ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
+      ctx.fillStyle = stain; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      for (let j = 0; j < 95; j++) {
+        const px = x + (random() - 0.5) * rx * 1.7;
+        const py = y + (random() - 0.5) * ry * 1.7;
+        ctx.globalAlpha = 0.08 + random() * 0.16;
+        ctx.fillStyle = random() > 0.5 ? '#82915a' : '#354d32';
+        const r = 0.45 + random() * 1.1;
+        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Heavier, irregular scratches and dragged wheel scuffs.
+  for (let i = 0; i < 4600; i++) {
     const x = random() * size, y = random() * size;
-    const length = 3 + random() * 48;
-    ctx.globalAlpha = 0.10 + random() * 0.22;
+    const length = 4 + random() * 68;
+    ctx.globalAlpha = 0.13 + random() * 0.25;
     ctx.strokeStyle = random() > 0.24
       ? darkTones[Math.floor(random() * darkTones.length)]
       : lightTones[Math.floor(random() * lightTones.length)];
@@ -134,7 +160,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
   }
 
   // Occasional longer hairline abrasions, softened into the concrete surface.
-  for (let i = 0; i < 220; i++) {
+  for (let i = 0; i < 360; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.12 + random() * 0.16;
     ctx.strokeStyle = darkTones[Math.floor(random() * darkTones.length)];
@@ -157,7 +183,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
 }
 const concreteTexture = makeWeatheredConcreteTexture(
   '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
-  ['#929799', '#858b8e', '#777e81'], 2048
+  ['#929799', '#858b8e', '#777e81'], 2048, true
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
