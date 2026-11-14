@@ -11,12 +11,29 @@
     #game{position:fixed;inset:0}
     canvas{display:block;width:100%;height:100%;outline:none}
     #load-error{position:fixed;inset:0;display:none;place-items:center;padding:28px;color:#eee;background:#202020;font:14px/1.5 system-ui;text-align:center}
+    #hardline-loader{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:24px;box-sizing:border-box;background:radial-gradient(ellipse at 16% 16%,#16c9cb66 0,transparent 32%),radial-gradient(ellipse at 84% 25%,#ec26a866 0,transparent 36%),radial-gradient(ellipse at 52% 90%,#6338d866 0,transparent 38%),linear-gradient(145deg,#07151c 0%,#101b2c 48%,#160c20 100%);transition:opacity .6s ease,visibility .6s ease}
+    #hardline-loader:before{content:"";position:absolute;inset:0;opacity:.32;background-image:radial-gradient(circle,#fff .7px,transparent 1.4px),radial-gradient(circle,#31e8e1 1px,transparent 2px),radial-gradient(circle,#ff3ca8 1px,transparent 2px);background-size:31px 29px,67px 73px,91px 83px;background-position:0 0,18px 24px,42px 12px}
+    #hardline-loader .hl-load-content{position:relative;width:min(100%,650px);text-align:center;animation:hlLoadIn .8s cubic-bezier(.2,.8,.2,1) both}
+    #hardline-loader svg{display:block;width:100%;height:auto;filter:drop-shadow(0 9px 0 #0009) drop-shadow(0 0 20px #1eece377)}
+    #hardline-loader .hl-loading-label{margin-top:26px;color:#c5fff9;font:900 10px Arial,sans-serif;letter-spacing:.42em;text-shadow:0 0 14px #16d9dc88}
+    #hardline-loader .hl-loading-line{width:130px;height:3px;margin:18px auto 0;overflow:hidden;border-radius:4px;background:#ffffff22}
+    #hardline-loader .hl-loading-line:after{content:"";display:block;width:42%;height:100%;border-radius:4px;background:linear-gradient(90deg,#21e7df,#ff42a5);animation:hlLoadProgress 1.25s ease-in-out infinite}
+    #hardline-loader.hl-loader-out{opacity:0;visibility:hidden;pointer-events:none}
+    @keyframes hlLoadIn{from{opacity:0;transform:scale(.9) rotate(-2deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+    @keyframes hlLoadProgress{from{transform:translateX(-110%)}to{transform:translateX(340%)}}
+    @media(prefers-reduced-motion:reduce){#hardline-loader *{animation:none!important}}
   </style>
 </head>
 <body>
+  <div id="hardline-loader" aria-label="Loading HARDLINE">
+    <div class="hl-load-content">
+      <svg viewBox="0 0 1000 310" role="img" aria-label="HARDLINE"><defs><linearGradient id="hlLoadFill" x1="0" y1="0" x2=".1" y2="1"><stop offset="0" stop-color="#9dff70"/><stop offset=".24" stop-color="#19e9e1"/><stop offset=".55" stop-color="#2585ff"/><stop offset=".78" stop-color="#9c4bff"/><stop offset="1" stop-color="#ff3c9e"/></linearGradient></defs><g transform="skewX(-9) rotate(-2 500 150)" paint-order="stroke"><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlLoadFill)" stroke="#fff" stroke-width="25" stroke-linejoin="round">HARDLINE</text><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlLoadFill)" stroke="#05080d" stroke-width="13" stroke-linejoin="round">HARDLINE</text><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlLoadFill)">HARDLINE</text></g><path d="M130 235 Q290 274 475 240 T870 236" fill="none" stroke="#26e7e5" stroke-width="7" stroke-linecap="round"/><path d="M150 252 l-30 16 45 -3 M850 250 l35 13 -48 3" fill="none" stroke="#ff4da8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="hl-loading-label">SKATE THE CONCRETE</div><div class="hl-loading-line"></div>
+    </div>
+  </div>
   <main id="game" aria-label="3D skatepark"></main>
   <div id="load-error" role="alert"></div>
-  <script type="module" src="./src/main.js?v=centered-dynamic-board-callouts-20261115"></script>
+  <script type="module" src="./src/main.js?v=hardline-start-menu-20261115"></script>
   <script>
     window.addEventListener('error', function(e) {
       var box = document.getElementById('load-error');
