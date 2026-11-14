@@ -1263,7 +1263,10 @@ function resolveObstacleContacts() {
         // when the shuv is still rotating or the deck is not perfectly level.
         airborne = false;
         verticalVelocity = 0;
-        trickStance = !uprightLanding || rotationSpeed >= 1.35;
+        // Once the wheels touch down, resume continuous terrain alignment.
+        // The board keeps its impact orientation initially and eases onto the
+        // ramp through the normal damped pitch/roll response.
+        trickStance = false;
         heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
@@ -1835,7 +1838,10 @@ function animate() {
         // it. No forced catch, rotation threshold, snap-to-upright or bail.
         airborne = false;
         verticalVelocity = 0;
-        trickStance = !uprightLanding || rotationSpeed >= 1.35;
+        // Once the wheels touch down, resume continuous terrain alignment.
+        // The board keeps its impact orientation initially and eases onto the
+        // ramp through the normal damped pitch/roll response.
+        trickStance = false;
         heading += shuvitRotation;
         shuvitRotation = 0;
         shuvitTarget = 0;
