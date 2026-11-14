@@ -2171,7 +2171,7 @@ camera.position.set(0, 4.4, -4.8);
 camera.lookAt(0, -0.75, 6.0);
 
 // The park map remains available inside the pause menu rather than on the HUD.
-let gamePaused = false;
+let gamePaused = true;
 function pauseBoard() {
   gamePaused = true;
   velocity.set(0, 0, 0);
@@ -2187,7 +2187,7 @@ menuButton.type = 'button';
 menuButton.textContent = '☰';
 menuButton.setAttribute('aria-label', 'Open game menu');
 menuButton.setAttribute('aria-expanded', 'false');
-menuButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:40;width:48px;height:46px;border:2px solid rgba(255,255,255,.9);border-radius:12px;background:rgba(28,35,37,.88);color:#fff;font:900 27px/1 Arial,sans-serif;box-shadow:0 4px 14px #0006;touch-action:manipulation;';
+menuButton.style.cssText = 'display:none;position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:40;width:48px;height:46px;border:2px solid rgba(255,255,255,.9);border-radius:12px;background:rgba(28,35,37,.88);color:#fff;font:900 27px/1 Arial,sans-serif;box-shadow:0 4px 14px #0006;touch-action:manipulation;';
 mount.appendChild(menuButton);
 
 const menuPanel = document.createElement('div');
@@ -2645,6 +2645,53 @@ function openSection(title) {
     sectionCard.style.cssText='position:relative;z-index:3;width:min(100%,680px);max-height:92%;overflow:auto;margin:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
   }
 }
+
+const hardlineMenu=document.createElement('div');
+hardlineMenu.id='hardline-main-menu';
+hardlineMenu.style.cssText='position:absolute;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:auto;padding:calc(env(safe-area-inset-top,0px) + 22px) 22px calc(env(safe-area-inset-bottom,0px) + 22px);box-sizing:border-box;color:#fff;font-family:Arial,sans-serif;background:radial-gradient(ellipse at 16% 16%,#16c9cb66 0,transparent 32%),radial-gradient(ellipse at 84% 25%,#ec26a866 0,transparent 36%),radial-gradient(ellipse at 52% 90%,#6338d866 0,transparent 38%),linear-gradient(145deg,#07151c 0%,#101b2c 48%,#160c20 100%);';
+hardlineMenu.innerHTML=`
+<style>
+#hardline-main-menu:before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.32;background-image:radial-gradient(circle,#fff 0.7px,transparent 1.4px),radial-gradient(circle,#31e8e1 1px,transparent 2px),radial-gradient(circle,#ff3ca8 1px,transparent 2px);background-size:31px 29px,67px 73px,91px 83px;background-position:0 0,18px 24px,42px 12px;mask-image:linear-gradient(130deg,#000,transparent 72%);}
+#hardline-main-menu .hl-content{position:relative;z-index:1;width:min(100%,560px);display:flex;flex-direction:column;align-items:center;gap:clamp(14px,3vh,24px);margin:auto}
+#hardline-main-menu .hl-logo{width:min(100%,520px);height:auto;overflow:visible;filter:drop-shadow(0 9px 0 #0009) drop-shadow(0 0 20px #1eece377);opacity:0;animation:hlLogoIn .8s cubic-bezier(.2,.8,.2,1) .12s forwards}
+#hardline-main-menu .hl-tag{font-size:clamp(9px,2.3vw,12px);font-weight:900;letter-spacing:.42em;color:#b9fdfa;text-shadow:0 0 14px #16d9dc88;margin-top:-12px;opacity:0;animation:hlFade .6s ease .45s forwards}
+#hardline-main-menu .hl-buttons{width:min(100%,390px);display:grid;gap:11px;margin-top:clamp(12px,3vh,26px)}
+#hardline-main-menu .hl-button{min-height:58px;padding:14px 18px;border:2px solid #c6ffff;border-radius:8px;background:linear-gradient(105deg,#0a2029ed,#122335ed 55%,#24132bed);color:#fff;font-size:clamp(14px,3.5vw,17px);font-weight:1000;letter-spacing:.16em;text-align:center;text-shadow:0 2px 0 #000,0 0 12px #4fffff66;box-shadow:0 5px 0 #050a10,0 0 18px #17d8db33,inset 0 0 18px #ffffff0b;touch-action:manipulation;opacity:0;transform:translateY(12px);animation:hlButtonIn .48s cubic-bezier(.2,.8,.2,1) forwards}
+#hardline-main-menu .hl-button:nth-child(1){animation-delay:.68s;border-color:#54fff0}#hardline-main-menu .hl-button:nth-child(2){animation-delay:.82s;border-color:#63d9ff}#hardline-main-menu .hl-button:nth-child(3){animation-delay:.96s;border-color:#c78bff}#hardline-main-menu .hl-button:nth-child(4){animation-delay:1.10s;border-color:#ff78bd}
+#hardline-main-menu .hl-button:active{transform:translateY(3px);box-shadow:0 2px 0 #050a10,inset 0 0 22px #ffffff20}
+#hardline-main-menu .hl-button span{display:block;margin-top:5px;color:#b9cbd4;font-size:9px;letter-spacing:.18em;font-weight:700}
+#hardline-main-menu .hl-page{width:min(100%,520px);display:none;flex-direction:column;gap:14px;max-height:70vh;overflow:auto;padding:18px;border:1px solid #54e8e8aa;border-radius:12px;background:#07151eeb;box-shadow:0 0 28px #0edbda22;box-sizing:border-box}
+#hardline-main-menu .hl-page h2{margin:0;color:#9ffff8;font-size:clamp(19px,5vw,26px);letter-spacing:.14em;text-align:center}
+#hardline-main-menu .hl-page p{margin:0;color:#d1dce2;font-size:13px;line-height:1.55}
+#hardline-main-menu .hl-card{padding:13px;border:1px solid #ffffff28;border-radius:8px;background:linear-gradient(110deg,#ffffff0c,#ffffff05)}
+#hardline-main-menu .hl-card strong{display:block;margin-bottom:5px;color:#fff;font-size:13px;letter-spacing:.08em}
+#hardline-main-menu .hl-back{align-self:flex-start;border:1px solid #6cefe8;border-radius:6px;padding:9px 13px;background:#0b2830;color:#dfffff;font-size:11px;font-weight:900;letter-spacing:.12em}
+#hardline-main-menu .hl-status{float:right;color:#ffca70;font-size:10px;letter-spacing:.08em}
+#hardline-main-menu .hl-enter{width:100%;border:2px solid #ff5eae;border-radius:7px;padding:15px;background:linear-gradient(100deg,#63265c,#164e68);color:#fff;font-size:14px;font-weight:1000;letter-spacing:.18em}
+#hardline-main-menu .hl-footer{color:#8da4b2;font-size:9px;letter-spacing:.25em;text-align:center;margin-top:2px}
+@keyframes hlLogoIn{from{opacity:0;transform:scale(.88) rotate(-2deg)}to{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes hlFade{to{opacity:1}}@keyframes hlButtonIn{to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){#hardline-main-menu *{animation:none!important;opacity:1!important;transform:none!important}}
+</style>
+<div class="hl-content">
+<svg class="hl-logo" viewBox="0 0 1000 310" role="img" aria-label="HARDLINE"><defs><linearGradient id="hlGraffitiFill" x1="0" y1="0" x2=".1" y2="1"><stop offset="0" stop-color="#9dff70"/><stop offset=".24" stop-color="#19e9e1"/><stop offset=".55" stop-color="#2585ff"/><stop offset=".78" stop-color="#9c4bff"/><stop offset="1" stop-color="#ff3c9e"/></linearGradient><filter id="hlRough"><feTurbulence type="fractalNoise" baseFrequency=".025" numOctaves="2" seed="8" result="noise"/><feDisplacementMap in="SourceGraphic" in2="noise" scale="3"/></filter></defs><g transform="skewX(-9) rotate(-2 500 150)" filter="url(#hlRough)" paint-order="stroke"><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlGraffitiFill)" stroke="#fff" stroke-width="25" stroke-linejoin="round">HARDLINE</text><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlGraffitiFill)" stroke="#05080d" stroke-width="13" stroke-linejoin="round">HARDLINE</text><text x="500" y="208" text-anchor="middle" font-family="Impact,Haettenschweiler,Arial Black,sans-serif" font-size="190" font-weight="1000" font-style="italic" letter-spacing="-8" fill="url(#hlGraffitiFill)">HARDLINE</text></g><path d="M130 235 Q290 274 475 240 T870 236" fill="none" stroke="#26e7e5" stroke-width="7" stroke-linecap="round"/><path d="M150 252 l-30 16 45 -3 M850 250 l35 13 -48 3" fill="none" stroke="#ff4da8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+<div class="hl-tag">SKATE THE CONCRETE</div>
+<div class="hl-buttons" id="hl-main-buttons"><button class="hl-button" data-page="parks">SKATEPARKS<span>CHOOSE YOUR SPOT</span></button><button class="hl-button" data-action="customize">CUSTOMIZATION<span>MAKE THE BOARD YOURS</span></button><button class="hl-button" data-page="missions">MISSIONS<span>CHALLENGES & PROGRESSION</span></button><button class="hl-button" data-page="howto">HOW TO PLAY<span>TRICKS, CONTROLS & GRINDS</span></button></div>
+<div class="hl-page" id="hl-parks-page"><button class="hl-back" data-back>← MAIN MENU</button><h2>SKATEPARKS</h2><div class="hl-card"><strong>01 — THE YARD <span class="hl-status">AVAILABLE</span></strong><p>Your current concrete park. More locations can be added here later.</p></div><button class="hl-enter" id="hl-enter-park">ENTER THE YARD</button></div>
+<div class="hl-page" id="hl-missions-page"><button class="hl-back" data-back>← MAIN MENU</button><h2>MISSIONS</h2><div class="hl-card"><strong>COMPLETED <span class="hl-status" style="color:#79f4be">0 / 5</span></strong><p>No missions completed yet.</p></div><div class="hl-card"><strong>UP NEXT</strong><p>All five starter missions are waiting to be attempted.</p></div><div class="hl-card"><strong>01 — FIRST PUSH <span class="hl-status">NOT COMPLETED</span></strong><p>Build speed with three pushes.</p></div><div class="hl-card"><strong>02 — GET AIR <span class="hl-status">NOT COMPLETED</span></strong><p>Land a clean ollie.</p></div><div class="hl-card"><strong>03 — BOARD CONTROL <span class="hl-status">NOT COMPLETED</span></strong><p>Land a shuvit.</p></div><div class="hl-card"><strong>04 — BALANCE POINT <span class="hl-status">NOT COMPLETED</span></strong><p>Hold a manual for two seconds.</p></div><div class="hl-card"><strong>05 — LOCK IN <span class="hl-status">NOT COMPLETED</span></strong><p>Enter and ride a grind.</p></div></div>
+<div class="hl-page" id="hl-howto-page"><button class="hl-back" data-back>← MAIN MENU</button><h2>HOW TO PLAY</h2><div class="hl-card"><strong>PUSH & BUILD SPEED</strong><p>Swipe down on the ground beside your board to push forward. Swipe up to push backwards.</p></div><div class="hl-card"><strong>OLLIE & NOLLIE</strong><p>Swipe vertically across the deck. Swipe toward the tail for an ollie; swipe toward the nose for a nollie. The direction reverses when riding switch.</p></div><div class="hl-card"><strong>SHUVIT / BOARD ROTATION</strong><p>Pop off the deck, then swipe sideways across the board while airborne. Your finger movement applies rotation at its contact point.</p></div><div class="hl-card"><strong>MANUALS</strong><p>Slowly drag down on the tail to lift the nose into a manual. Drag up on the nose for a nose manual. Keep the movement deliberate rather than flicking.</p></div><div class="hl-card"><strong>GRINDS & SLIDES</strong><p>Build speed, ollie toward a rail or ledge, and line the board up directly over it. Land while descending with the board centred on the edge to lock into a grind. You need enough speed and a precise approach; the game does not magnetically pull you onto rails.</p></div><div class="hl-card"><strong>EXIT A GRIND</strong><p>Swipe sideways to release from the grind, or swipe vertically across the deck to pop out.</p></div><div class="hl-card"><strong>SWITCH STANCE</strong><p>Swipe horizontally from one screen edge to the other to change stance.</p></div></div>
+<div class="hl-footer">HARDLINE • FIND YOUR LINE</div></div>`;
+mount.appendChild(hardlineMenu);
+function showHardlinePage(name){hardlineMenu.querySelector('#hl-main-buttons').style.display='none';hardlineMenu.querySelectorAll('.hl-page').forEach(p=>p.style.display='none');const page=hardlineMenu.querySelector('#hl-'+name+'-page');if(page)page.style.display='flex';}
+function showHardlineHome(){hardlineMenu.querySelectorAll('.hl-page').forEach(p=>p.style.display='none');const buttons=hardlineMenu.querySelector('#hl-main-buttons');buttons.style.display='grid';buttons.querySelectorAll('.hl-button').forEach(b=>{b.style.animation='none';b.offsetHeight;b.style.animation='';});}
+function enterHardlinePark(){hardlineMenu.style.display='none';menuButton.style.display='block';gamePaused=false;}
+hardlineMenu.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>showHardlinePage(b.dataset.page)));
+hardlineMenu.querySelectorAll('[data-back]').forEach(b=>b.addEventListener('click',showHardlineHome));
+hardlineMenu.querySelector('#hl-enter-park').addEventListener('click',enterHardlinePark);
+hardlineMenu.querySelector('[data-action="customize"]').addEventListener('click',()=>{pauseBoard();hardlineMenu.style.display='none';openSection('Board customization');});
+const initialHardlineLoader=document.getElementById('hardline-loader');
+if(initialHardlineLoader)requestAnimationFrame(()=>{initialHardlineLoader.classList.add('hl-loader-out');setTimeout(()=>initialHardlineLoader.remove(),650);});
+
 function showGameMenu() {
   gamePaused = true;
   menuButton.setAttribute('aria-expanded', 'true');
@@ -2675,7 +2722,7 @@ sectionBack.addEventListener('click', () => {
   sectionCard.style.display='none';
   restoreBoardEditorPreview();
   sectionCard.style.cssText='width:min(100%,680px);max-height:92%;overflow:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
-  showGameMenu();
+  hardlineMenu.style.display='flex';showHardlineHome();gamePaused=true;menuButton.style.display='none';
 });
 
 // Full skatepark map. Tap any point on the plan to teleport the skater there.
