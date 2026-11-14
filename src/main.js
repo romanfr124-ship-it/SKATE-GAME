@@ -426,7 +426,10 @@ function buildBowl() {
   const segments = 112;
   const positions = [];
   const uvs = [];
+  const colors = [];
   const indices = [];
+  const bowlFloorY = -bowl.depth;
+  const darkFadeHeight = 0.4572; // 1.5 feet, using metres for world-space distance.
   for (let ring = 0; ring <= rings; ring++) {
     const radius = ring / rings;
     for (let segment = 0; segment <= segments; segment++) {
@@ -437,6 +440,11 @@ function buildBowl() {
       const worldZ=bowl.z+Math.sin(angle)*bowl.radiusZ*outline*radius;
       positions.push(worldX,y,worldZ);
       uvs.push(worldX,worldZ);
+      // A cool charcoal-grey at the flat bottom, fading smoothly back to
+      // the normal concrete over the first 1.5 feet of the transition.
+      const fade = THREE.MathUtils.smoothstep(y - bowlFloorY, 0, darkFadeHeight);
+      const shade = THREE.MathUtils.lerp(0.68, 1, fade);
+      colors.push(shade * 0.91, shade * 0.94, shade * 0.97);
     }
   }
   for (let ring = 0; ring < rings; ring++) {
@@ -450,13 +458,55 @@ function buildBowl() {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  const surface = new THREE.Mesh(geometry, mats.concrete);
-  surface.material.side = THREE.DoubleSide;
+  const bowlConcreteMaterial = mats.concrete.clone();
+  bowlConcreteMaterial.vertexColors = true;
+  bowlConcreteMaterial.side = THREE.DoubleSide;
+  const surface = new THREE.Mesh(geometry, bowlConcreteMaterial);
   surface.receiveShadow = true;
   surface.castShadow = true;
   scene.add(surface);
+
+  // Moss collects in irregular, concentrated islands around the bowl's
+  // lowest flat section, with a few smaller colonies creeping onto the
+  // first part of the transition rather than forming a circular border.
+  const mossMaterials = [
+    new THREE.MeshStandardMaterial({ color: 0x526b3b, roughness: 1, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ color: 0x637b45, roughness: 1, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ color: 0x465b34, roughness: 1, side: THREE.DoubleSide }),
+    new THREE.MeshStandardMaterial({ color: 0x71834a, roughness: 1, side: THREE.DoubleSide })
+  ];
+  let mossSeed = 726193;
+  const mossRandom = () => { mossSeed = (mossSeed * 1664525 + 1013904223) >>> 0; return mossSeed / 4294967296; };
+  for (let patch = 0; patch < 58; patch++) {
+    const angle = mossRandom() * Math.PI * 2;
+    const radius = Math.sqrt(mossRandom()) * 0.285;
+    const centerX = bowl.x + Math.cos(angle) * bowl.radiusX * radius;
+    const centerZ = bowl.z + Math.sin(angle) * bowl.radiusZ * radius;
+    const patchRadius = 0.12 + mossRandom() * 0.34;
+    const sides = 9;
+    const patchPositions = [];
+    const patchIndices = [];
+    const centerY = bowlHeightAt(centerX, centerZ) + 0.018;
+    patchPositions.push(centerX, centerY, centerZ);
+    for (let p = 0; p < sides; p++) {
+      const a = p / sides * Math.PI * 2;
+      const irregular = patchRadius * (0.62 + mossRandom() * 0.62);
+      const px = centerX + Math.cos(a) * irregular;
+      const pz = centerZ + Math.sin(a) * irregular;
+      patchPositions.push(px, bowlHeightAt(px, pz) + 0.019, pz);
+      patchIndices.push(0, p + 1, (p + 1) % sides + 1);
+    }
+    const patchGeometry = new THREE.BufferGeometry();
+    patchGeometry.setAttribute('position', new THREE.Float32BufferAttribute(patchPositions, 3));
+    patchGeometry.setIndex(patchIndices);
+    patchGeometry.computeVertexNormals();
+    const moss = new THREE.Mesh(patchGeometry, mossMaterials[Math.floor(mossRandom() * mossMaterials.length)]);
+    moss.receiveShadow = true;
+    scene.add(moss);
+  }
 
   // Continuous round steel coping follows the full elliptical lip.
   const rimPoints = [];
