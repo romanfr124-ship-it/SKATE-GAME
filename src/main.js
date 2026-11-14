@@ -1120,6 +1120,7 @@ const wheelMeshes = [];
 const wheelAngularSpeeds = [];
 const truckVisuals = [];
 const wheelVisuals = [];
+const kingpinAngle = 0.34;
 for (const x of [-0.69, 0.69]) {
   // The baseplate is bolted rigidly to the deck; only the hanger pivots.
   const baseplate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.25), mats.metal);
@@ -1128,7 +1129,6 @@ for (const x of [-0.69, 0.69]) {
 
   // Kingpin and rubber bushings stay fixed to the baseplate, surrounding
   // the hanger's pivot like a real truck's bushing stack.
-  const kingpinAngle = 0.34;
   const kingpinTilt = Math.sign(x) * kingpinAngle;
   const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), mats.dark);
   kingpin.position.set(x, 0.195, 0);
