@@ -525,15 +525,14 @@ function tryStartGrind() {
   if (!airborne || verticalVelocity >= 0) return false;
   for (const rail of grindRails) {
     const halfLength = rail.userData.railLength / 2;
-    if (Math.abs(board.position.x - rail.position.x) > 0.43 ||
+    if (Math.abs(board.position.x - rail.position.x) > 0.82 ||
         Math.abs(board.position.z - rail.position.z) > halfLength - 0.22) continue;
     const railTop = rail.position.y + 0.055;
     const targetY = railTop - 0.416;
     if (board.position.y > targetY + 0.12 || board.position.y < targetY - 0.38) continue;
-    board.position.x = rail.position.x;
     board.position.y = targetY;
     board.updateMatrixWorld(true);
-    grindContactPoint.set(rail.position.x, railTop, board.position.z);
+    grindContactPoint.set(rail.position.x, railTop, rail.position.z);
     grindLocalPoint.copy(grindContactPoint);
     board.worldToLocal(grindLocalPoint);
     const parallel = Math.abs(forwardVector().z) > 0.72;
@@ -543,10 +542,10 @@ function tryStartGrind() {
     else if (!parallel && grindLocalPoint.x < -0.58) grindType = 'TAILSLIDE';
     else if (!parallel && grindLocalPoint.x > 0.58) grindType = 'NOSESLIDE';
     else if (!parallel) grindType = 'BOARDSLIDE';
-    else if (Math.abs(grindLocalPoint.z) < 0.16) grindType = '50-50';
-    else if (grindLocalPoint.z > 0) grindType = '5-0';
-    else if (travelSign > 0) grindType = 'CROOKED';
-    else grindType = 'SALAD';
+    else if (Math.abs(grindLocalPoint.x) > 0.48) grindType = '5-0';
+    else if (grindLocalPoint.z > 0.18) grindType = 'CROOKED';
+    else if (grindLocalPoint.z < -0.18) grindType = 'SALAD';
+    else grindType = '50-50';
     grinding = true;
     grindRail = rail;
     airborne = false;
@@ -885,7 +884,6 @@ function animate() {
       else if (alongBoard > 0.12) travelSign = 1;
     }
     if (grinding && grindRail) {
-      board.position.x = grindRail.position.x;
       board.position.y = grindRail.position.y + 0.055 - 0.416;
       board.position.z += velocity.z * dt;
       velocity.z *= Math.exp(-0.075 * dt);
