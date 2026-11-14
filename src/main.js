@@ -371,9 +371,13 @@ function terrainHeightAt(x, z) {
   // Raised rectangular platform: X=-60 to -20 and Z=25 to 60.
   // It stays level across the platform, with a steep ramp down toward
   // the berm across the X=-20 to X=-10 strip.
-  const zStart = THREE.MathUtils.clamp((z - 25) / 3, 0, 1);
-  const zEnd = THREE.MathUtils.clamp((60 - z) / 3, 0, 1);
-  const platformZFade = Math.min(zStart, zEnd);
+  // Blend the high-layer berm into the second-highest terrace with a
+  // continuous Z-direction transition from Z=15 to Z=25 (no height step).
+  const zBlendT = THREE.MathUtils.clamp((z - 15) / 10, 0, 1);
+  const zBlend = zBlendT * zBlendT * (3 - 2 * zBlendT);
+  const zEndT = THREE.MathUtils.clamp((63 - z) / 3, 0, 1);
+  const zEnd = zEndT * zEndT * (3 - 2 * zEndT);
+  const platformZFade = zBlend * zEnd;
   const rampT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
   const rampEase = rampT * rampT * (3 - 2 * rampT);
   const platformHeight = 5.0 - 3.45 * rampEase;
