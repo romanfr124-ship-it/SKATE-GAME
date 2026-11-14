@@ -2290,7 +2290,7 @@ mapCanvas.addEventListener('pointerdown', event => {
   // leaves the board attached to a previous grind.
   grinding = false; grindRail = null; grindReadout.style.display='none';
   airborne = false; verticalVelocity = 0; velocity.set(0,0,0);
-  manualActive = false; manualAngle = 0; boardTouchHold = false; trickCaught = false;
+  manualActive = false; manualAngle = 0;
   bailTimer = 0;
   board.rotation.x = 0; board.rotation.z = 0;
   board.position.set(x, groundHeightAt(x,z) - 0.025, z);
@@ -2328,6 +2328,7 @@ function animate() {
     if (errorPanel) errorPanel.style.display = 'none';
     return;
   }
+  let physicsSteppedThisFrame = false;
   const keyboardTurn = (keys.has('a') || keys.has('arrowleft') ? 1 : 0) -
     (keys.has('d') || keys.has('arrowright') ? 1 : 0);
   const steer = Math.abs(keyboardTurn) > 0 ? keyboardTurn : touchSteer;
@@ -2461,77 +2462,49 @@ function animate() {
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 10, dt);
         board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetDeckRoll, manualActive ? 10 : 9, dt);
       } else {
-        // Preserve caught trick momentum after touchdown rather than freezing it.
-        const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
-        heading += airAngularVelocity.y * dt;
-        airAngularVelocity.y *= Math.exp(-groundAngularDamping * dt);
+        const nose = new THREE.Vector3(1, 0, 0).applyQuaternion(board.quaternion);
+        heading = Math.atan2(nose.x, nose.z);
       }
     } else if (airborne) {
-      // Limited air control; momentum remains mostly conserved.
-      heading += steer * 0.32 * dt;
-      velocity.multiplyScalar(Math.exp(-0.015 * dt));
+      // Rapier now owns airborne translation and full 3D orientation.
       airTime += dt;
-      // Free angular momentum: no preset rotation target or automatic snap.
-      // Air drag slows the board gradually; touching the deck adds strong,
-      // smooth damping so the player can catch and hold unusual orientations.
-      // All three axes share one angular-velocity state. Reverse finger
-      // movement applies opposing torque; release leaves momentum intact.
-      shuvitRotation += airAngularVelocity.y * dt;
-      board.rotation.z += airAngularVelocity.z * dt;
-      board.rotation.x += airAngularVelocity.x * dt;
-      const deckAirDamping = boardTouchHold ? 0.7 : 0.42;
-      airAngularVelocity.multiplyScalar(Math.exp(-deckAirDamping * dt));
-      if (airAngularVelocity.lengthSq() < 0.0004) airAngularVelocity.set(0, 0, 0);
-      if (boardTouchHold && airAngularVelocity.length() < 1.35) trickCaught = true;
+      boardPhysics.step(dt);
+      physicsSteppedThisFrame = true;
+      const motion = boardPhysics.getMotion();
+      velocity.set(motion.linear.x, 0, motion.linear.z);
+      verticalVelocity = motion.linear.y;
+
+      if (!tryStartGrind()) {
+        board.updateMatrixWorld(true);
+        const groundCorrection = groundContactCorrection();
+        if (groundCorrection >= -0.012 && verticalVelocity <= 0) {
+          if (groundCorrection > 0) board.position.y += groundCorrection;
+          boardPhysics.endAirborne();
+          airborne = false;
+          const nose = new THREE.Vector3(1, 0, 0).applyQuaternion(board.quaternion);
+          heading = Math.atan2(nose.x, nose.z);
+          verticalVelocity = 0;
+          trickStance = false;
+          manualActive = false;
+          manualAngle = 0;
+          lastLandTime = clock.elapsedTime;
+          velocity.multiplyScalar(0.99);
+        }
+      }
     }
 
-    // Update yaw before terrain and obstacle contact tests. Previously the
-    // collision solver used last frame's board angle during a shuv, which
-    // could leave the deck hovering until the next push refreshed its pose.
-    board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
-    if (!grinding) {
+    // Ground movement remains on the established controller. In flight the
+    // rigid-body pose and translation come exclusively from Rapier.
+    if (!airborne) board.rotation.y = heading - Math.PI / 2;
+    if (!airborne && !grinding) {
       board.position.x += velocity.x * dt;
       board.position.z += velocity.z * dt;
     }
     speed = velocity.length();
-
-    if (airborne) {
-      board.position.y += verticalVelocity * dt;
-      verticalVelocity -= gravity * dt;
-      tryStartGrind();
-      if (grinding) {
-        // A successful grind landing consumes this airborne update; do not
-        // immediately run the ordinary ground-contact/bail test as well.
-      } else {
-      // Use the actual rotated board geometry for ground contact. The board
-      // origin is not the bottom of the wheels/deck, especially during tricks.
-      board.updateMatrixWorld(true);
-      const groundCorrection = groundContactCorrection();
-      if (groundCorrection >= 0 && verticalVelocity < 0) {
-        board.position.y += groundCorrection;
-        // Let the deck touch down in whatever orientation its momentum gives
-        // it. No forced catch, rotation threshold, snap-to-upright or bail.
-        airborne = false;
-        airAngularVelocity.set(0, 0, 0);
-        verticalVelocity = 0;
-        // Once the wheels touch down, resume continuous terrain alignment.
-        // The board keeps its impact orientation initially and eases onto the
-        // ramp through the normal damped pitch/roll response.
-        trickStance = false;
-        heading += shuvitRotation;
-        shuvitRotation = 0;
-        airAngularVelocity.set(0, 0, 0);
-        manualActive = false;
-        manualAngle = 0;
-        lastLandTime = clock.elapsedTime;
-        velocity.multiplyScalar(0.99);
-      }
-      }
-    }
   }
 
-  resolveObstacleContacts();
-  board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
+  if (!airborne) resolveObstacleContacts();
+  if (!airborne) board.rotation.y = heading - Math.PI / 2;
   // Keep the complete board above the ground in every grounded stance,
   // including manuals and caught primo/Casper orientations.
   if (!airborne && !grinding) {
@@ -2566,7 +2539,7 @@ function animate() {
   }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
-  boardPhysics.step(dt);
+  if (!physicsSteppedThisFrame) boardPhysics.step(dt);
   updateFollowCamera(dt);
   renderer.render(scene, camera);
 
