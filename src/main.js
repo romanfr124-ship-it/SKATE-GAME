@@ -703,7 +703,11 @@ const deckGraphicState = {
   colorB: '#e64c35',
   outline: '#111111',
   deckColor: '#514078',
-  fade: 'Vertical fade'
+  fade: 'Vertical fade',
+  graphicOffsetX: 0,
+  graphicOffsetY: 0,
+  graphicScale: 1,
+  outlineThickness: 34
 };
 const deckGraphicCatalog = {
   Vintage: ['Skull & Roses','Flaming Panther','Retro Racing','Broken Heart','Lucky Dice','Desert Sunset','Classic Eagle','Wild Tiger','Vintage Comic','Snake Bite','Old School Star','Distressed Badge'],
@@ -727,7 +731,7 @@ function drawDeckGraphic(canvas, topSide) {
   const palette=[st.colorA,st.colorB,'#f3e6c8','#202020','#e9e1d2'];
   if(st.category==='Graffiti'){
     const text=st.message.trim()||'YOUR TEXT';
-    ctx.save();ctx.translate(W/2,H/2);ctx.rotate(-0.045);
+    ctx.save();ctx.translate(W/2+st.graphicOffsetX,H/2+st.graphicOffsetY);ctx.scale(st.graphicScale,st.graphicScale);ctx.rotate(-0.045);
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.font=graffitiFonts[st.graffitiStyle];
     let size=142;while(ctx.measureText(text).width>W*.82&&size>36){size-=5;ctx.font=graffitiFonts[st.graffitiStyle].replace(/\d+px/,size+'px');}
     let grad;
@@ -764,14 +768,14 @@ function drawDeckGraphic(canvas, topSide) {
       o.globalCompositeOperation='destination-in';o.drawImage(mask,0,0);
       ctx.drawImage(overlay,-W/2,-H/2);
     }
-    ctx.lineJoin='round';ctx.lineWidth=34;ctx.strokeStyle=st.outline;ctx.strokeText(text,0,0,W*.86);
+    ctx.lineJoin='round';ctx.lineWidth=st.outlineThickness;ctx.strokeStyle=st.outline;ctx.strokeText(text,0,0,W*.86);
     ctx.restore();
     ctx.restore();
     // Fixed natural drop shadow is part of the lettering; outline is only black or white.
     ctx.textAlign='center';ctx.font='bold 30px Arial';ctx.fillStyle='#ffffffaa';ctx.fillText(st.graffitiStyleNames||'',W/2,H*.84);
   } else {
     const cat=st.category, idx=st.design;
-    ctx.save();ctx.translate(W/2,H/2);
+    ctx.save();ctx.translate(W/2+st.graphicOffsetX,H/2+st.graphicOffsetY);ctx.scale(st.graphicScale,st.graphicScale);
     if(cat==='Vintage'){
       // Each catalogue entry has its own central illustration, not just a changed title.
       const labels=['SKULL & ROSES','FLAMING PANTHER','RETRO RACING','BROKEN HEART','LUCKY DICE','DESERT SUNSET','CLASSIC EAGLE','WILD TIGER','VINTAGE COMIC','SNAKE BITE','OLD SCHOOL STAR','DISTRESSED BADGE'];
@@ -1650,23 +1654,40 @@ function aimEditorBoard(category){
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
 }
+const editorPointers=new Map();
+function editorLocalPlanePoint(x,y){
+  touchNdc.set((x/innerWidth)*2-1,-(y/innerHeight)*2+1);board.updateMatrixWorld(true);touchRaycaster.setFromCamera(touchNdc,camera);
+  const wr=touchRaycaster.ray,o=board.worldToLocal(wr.origin.clone()),n=board.worldToLocal(wr.origin.clone().add(wr.direction));
+  return new THREE.Ray(o,n.sub(o).normalize()).intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),new THREE.Vector3());
+}
+function editorGraphicHit(x,y){
+  touchNdc.set((x/innerWidth)*2-1,-(y/innerHeight)*2+1);board.updateMatrixWorld(true);touchRaycaster.setFromCamera(touchNdc,camera);
+  return touchRaycaster.intersectObject(deck,false).length>0;
+}
+function editorPointerDistance(){const p=[...editorPointers.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);}
 editorStage.addEventListener('pointerdown',event=>{
-  if(!editorPreviewActive)return;
-  editorDrag={x:event.clientX,y:event.clientY,rotation:board.rotation.clone()};
-  editorStage.setPointerCapture(event.pointerId);
+  if(!editorPreviewActive)return;editorPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});editorStage.setPointerCapture(event.pointerId);
+  if(editorDrag?.mode==='graphic'){if(editorPointers.size===2){editorDrag.pinchDistance=editorPointerDistance();editorDrag.pinchScale=deckGraphicState.graphicScale;}}
+  else if(editorCategory==='Deck graphics'&&editorGraphicHit(event.clientX,event.clientY)){
+    const p=editorLocalPlanePoint(event.clientX,event.clientY);
+    if(p)editorDrag={mode:'graphic',pointerId:event.pointerId,startPoint:p.clone(),startX:deckGraphicState.graphicOffsetX,startY:deckGraphicState.graphicOffsetY,pinchDistance:0,pinchScale:deckGraphicState.graphicScale};
+  }else editorDrag={mode:'rotate',pointerId:event.pointerId,x:event.clientX,y:event.clientY,rotation:board.rotation.clone()};
   editorStage.style.cursor='grabbing';
 });
 editorStage.addEventListener('pointermove',event=>{
-  if(!editorDrag||!editorPreviewActive)return;
-  const dx=event.clientX-editorDrag.x,dy=event.clientY-editorDrag.y;
-  board.rotation.y=editorDrag.rotation.y+dx*.012;
-  board.rotation.x=editorDrag.rotation.x+dy*.012;
-  editorTargetRotation=null;
-  renderer.render(scene,camera);
+  if(!editorDrag||!editorPreviewActive||!editorPointers.has(event.pointerId))return;editorPointers.set(event.pointerId,{x:event.clientX,y:event.clientY});
+  if(editorDrag.mode==='graphic'){
+    if(editorPointers.size>=2&&editorDrag.pinchDistance>0)deckGraphicState.graphicScale=THREE.MathUtils.clamp(editorDrag.pinchScale*editorPointerDistance()/editorDrag.pinchDistance,.3,2.5);
+    else if(editorPointers.size===1){const p=editorLocalPlanePoint(event.clientX,event.clientY);if(p){deckGraphicState.graphicOffsetX=editorDrag.startX+(p.x-editorDrag.startPoint.x)*(2048/(2*1.13));deckGraphicState.graphicOffsetY=editorDrag.startY+(p.z-editorDrag.startPoint.z)*(1024/(2*.34));}}
+    refreshDeckGraphic();
+  }else{const dx=event.clientX-editorDrag.x,dy=event.clientY-editorDrag.y;board.rotation.y=editorDrag.rotation.y+dx*.012;board.rotation.x=editorDrag.rotation.x+dy*.012;editorTargetRotation=null;renderer.render(scene,camera);}
 });
-function endEditorDrag(){editorDrag=null;editorStage.style.cursor='grab';}
-editorStage.addEventListener('pointerup',endEditorDrag);
-editorStage.addEventListener('pointercancel',endEditorDrag);
+function endEditorDrag(event){
+  editorPointers.delete(event.pointerId);
+  if(editorDrag?.mode==='graphic'&&editorPointers.size===1){const [id,p]=[...editorPointers.entries()][0],q=editorLocalPlanePoint(p.x,p.y);if(q)editorDrag={mode:'graphic',pointerId:id,startPoint:q.clone(),startX:deckGraphicState.graphicOffsetX,startY:deckGraphicState.graphicOffsetY,pinchDistance:0,pinchScale:deckGraphicState.graphicScale};}
+  else if(editorPointers.size===0){editorDrag=null;editorStage.style.cursor='grab';}
+}
+editorStage.addEventListener('pointerup',endEditorDrag);editorStage.addEventListener('pointercancel',endEditorDrag);
 function updateEditorPreview(dt){
   if(!editorPreviewActive||!editorTargetRotation)return;
   board.rotation.x=THREE.MathUtils.damp(board.rotation.x,editorTargetRotation.x,7,dt);
@@ -1694,6 +1715,9 @@ function makeEditorColor(value,onChange) {
   el.style.cssText='width:100%;height:42px;padding:3px;border:1px solid #ffffff35;border-radius:9px;background:#11191b;';
   el.addEventListener('input',()=>onChange(el.value));return el;
 }
+function makeEditorRange(value,min,max,step,onChange) {
+  const el=document.createElement('input');el.type='range';el.min=String(min);el.max=String(max);el.step=String(step);el.value=String(value);el.style.cssText='width:100%;height:30px;accent-color:#b8d4ca;touch-action:pan-y;';el.addEventListener('input',()=>onChange(Number(el.value)));return el;
+}
 function makeEditorText(value,onChange) {
   const el=document.createElement('input');el.type='text';el.maxLength=24;el.value=value;el.placeholder='Type your message';
   el.style.cssText='width:100%;height:42px;padding:0 11px;box-sizing:border-box;border:1px solid #ffffff35;border-radius:9px;background:#11191b;color:#fff;font:600 14px Arial,sans-serif;';
@@ -1719,7 +1743,7 @@ function buildDeckCustomizationUI() {
   }
   sectionContent.appendChild(nav);
   if(editorCategory==='Deck graphics'){
-    const intro=document.createElement('div');intro.textContent='Choose a graphic and customise it. The 3D preview updates immediately.';
+    const intro=document.createElement('div');intro.textContent='Choose a graphic, then drag it with one finger to position it or pinch with two fingers to resize it.';
     intro.style.cssText='margin-bottom:10px;color:#c2cecb;font-size:11px;line-height:1.45;';sectionContent.appendChild(intro);
     const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti'];
     const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
@@ -1734,7 +1758,8 @@ function buildDeckCustomizationUI() {
       const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;';
       colors.append(editorField('Main colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})),editorField('Fade to',makeEditorColor(deckGraphicState.colorB,v=>{deckGraphicState.colorB=v;refreshDeckGraphic();})));
       sectionContent.appendChild(colors);
-      const note=document.createElement('div');note.textContent='Outline thickness and the natural shadow are fixed.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.4;';sectionContent.appendChild(note);
+      sectionContent.appendChild(editorField('Outline thickness',makeEditorRange(deckGraphicState.outlineThickness,2,70,1,v=>{deckGraphicState.outlineThickness=v;refreshDeckGraphic();})));
+      const note=document.createElement('div');note.textContent='Drag the artwork with one finger to move it. Pinch with two fingers to resize it. The natural shadow stays consistent.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.4;';sectionContent.appendChild(note);
     }else{
       const designs=deckGraphicCatalog[deckGraphicState.category];
       sectionContent.appendChild(editorField('Choose a design',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
