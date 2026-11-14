@@ -1069,18 +1069,17 @@ canvas.addEventListener('pointermove', event => {
   const noseSide = gesture.deckLocalX !== null && gesture.deckLocalX * travelSign > 0.04;
   // Manuals require a deliberate vertical drag on the correct end of the
   // deck. Ignore small vertical drift during ordinary horizontal steering.
-  const verticalIntent = Math.abs(gesture.dy) > 34 &&
+  // A manual begins as soon as a deliberate pull starts on the correct end
+  // of the deck. The board angle then builds progressively with finger travel.
+  const verticalIntent = Math.abs(gesture.dy) > 8 &&
     Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.35;
-  const pullingTail = tailSide && gesture.dy > 34 && verticalIntent;
-  const pullingNose = noseSide && gesture.dy < -34 && verticalIntent;
-  // A quick pop flick or a normal turning gesture must not trigger a manual.
-  // Require a sustained, slow, clearly vertical pull with meaningful travel.
-  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
-      moveTime - gesture.startTime > 500 && gesture.lastMoveSpeed < 600) {
+  const pullingTail = tailSide && gesture.dy > 8 && verticalIntent;
+  const pullingNose = noseSide && gesture.dy < -8 && verticalIntent;
+  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0) {
     gesture.manualGesture = true;
     manualActive = true;
     manualSide = pullingTail ? 1 : -1;
-    manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 34) / 110, 0, 0.48);
+    manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 8) / 140, 0, 0.48);
   }
   // A quick flick pops directly out of a manual: tail manual = ollie,
   // nose manual = nollie. The pop flick is separate from the slower manual pull.
