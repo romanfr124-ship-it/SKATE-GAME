@@ -1216,7 +1216,7 @@ canvas.addEventListener('pointermove', event => {
     gesture.manualGesture = true;
     manualActive = true;
     manualSide = pullingTail ? 1 : -1;
-    manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 8) / 140, 0, 0.48);
+    manualAngle = manualSide * THREE.MathUtils.clamp((Math.abs(gesture.dy) - 8) / 140, 0, 0.58);
   }
   // A quick flick pops directly out of a manual: tail manual = ollie,
   // nose manual = nollie. The pop flick is separate from the slower manual pull.
@@ -1685,30 +1685,27 @@ function animate() {
     board.updateMatrixWorld(true);
     board.position.y += groundContactCorrection();
 
-    // During a tail manual, check the actual underside of the tail against
-    // the terrain. A scrape adds 200% extra drag over normal ground friction.
-    // The extra drag rises exponentially as speed falls, making a scraping
-    // tail progressively harder to keep rolling at low speed.
-    if (manualActive && manualSide === 1) {
+    // Let either end of the deck scrape during its matching manual.
+    // Ground contact correction keeps the wheels/deck from penetrating while
+    // the raised end pivots down toward the concrete.
+    if (manualActive) {
       board.updateMatrixWorld(true);
-      let tailScraping = false;
+      let endScraping = false;
+      const scrapeEndX = manualSide === 1 ? -1.055 : 1.055;
       for (const localZ of [-0.13, 0, 0.13]) {
-        const tailPoint = board.localToWorld(new THREE.Vector3(-1.055, 0.410, localZ));
-        const clearance = tailPoint.y - terrainHeightAt(tailPoint.x, tailPoint.z);
+        const endPoint = board.localToWorld(new THREE.Vector3(scrapeEndX, 0.410, localZ));
+        const clearance = endPoint.y - terrainHeightAt(endPoint.x, endPoint.z);
         if (clearance <= 0.025) {
-          tailScraping = true;
+          endScraping = true;
           break;
         }
       }
-      if (tailScraping) {
+      if (endScraping) {
         const scrapeSpeed = velocity.length();
-        // Much stronger exponential scrape drag, especially as the board
-        // approaches a stop. The low-speed term grows sharply near zero.
+        // Strong exponential drag applies to both tail and nose scrapes.
         const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 5);
         const scrapeDragRate = 4 * lowSpeedMultiplier;
         velocity.multiplyScalar(Math.exp(-scrapeDragRate * dt));
-        // Exponential drag approaches zero asymptotically; snap tiny residual
-        // movement to a true stop so the tail can settle on the concrete.
         if (velocity.length() < 0.12) velocity.set(0, 0, 0);
         speed = velocity.length();
       }
