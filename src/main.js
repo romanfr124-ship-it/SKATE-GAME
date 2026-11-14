@@ -114,11 +114,11 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Visible but fine aggregate grain, like exposed sand and tiny stone in old concrete.
-  for (let i = 0; i < 18500; i++) {
+  for (let i = 0; i < 110000; i++) {
     const x = random() * size, y = random() * size;
-    ctx.globalAlpha = 0.035 + random() * 0.105;
+    ctx.globalAlpha = 0.12 + random() * 0.22;
     ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
-    const r = 0.35 + random() * 1.45;
+    const r = 0.7 + random() * 2.1;
     ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.45 + random() * 0.7), random(), 0, Math.PI * 2); ctx.fill();
   }
 
@@ -1121,7 +1121,7 @@ const boardPhysics = (() => {
     RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainCollisionVertices),
       new Uint32Array(terrainCollisionIndices)
-    ).setFriction(3.0).setRestitution(0.02),
+    ).setFriction(4.5).setRestitution(0.02),
     terrainBody
   );
 
@@ -1178,7 +1178,7 @@ const boardPhysics = (() => {
         RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
           .setDensity(20)
-          .setFriction(3.5)
+          .setFriction(5.0)
           .setRestitution(0.04),
         wheelBody
       );
