@@ -1078,7 +1078,10 @@ canvas.addEventListener('pointermove', event => {
   // Screen-space pull direction reverses with the board's travel direction.
   const pullingTail = tailSide && gesture.dy * travelSign > 8 && verticalIntent;
   const pullingNose = noseSide && gesture.dy * travelSign < -8 && verticalIntent;
-  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0) {
+  // Fast vertical flicks are ollies/nollies, not manual holds. Slow pulls
+  // still activate a manual immediately on the first deliberate movement.
+  if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
+      gesture.lastMoveSpeed < 600) {
     gesture.manualGesture = true;
     manualActive = true;
     manualSide = pullingTail ? 1 : -1;
