@@ -1690,7 +1690,7 @@ function finishGesture(event) {
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A vertical deck flick pops cleanly off the obstacle.
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000));
-  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 0.8) {
+  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.25) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
   } else if (airborne && quick && Math.abs(dy) > 18) {
@@ -1707,7 +1707,7 @@ function finishGesture(event) {
     const tailFlickSpeed = Math.hypot(dx, dy) / elapsed * 1000;
     if (dy * travelSign > 0) pop('ollie', tailFlickSpeed);
     else pop('nollie', tailFlickSpeed);
-    if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
+    if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.25) {
       flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
         dy, g.deckLocalX || 0);
     }
