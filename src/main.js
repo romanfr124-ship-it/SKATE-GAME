@@ -1644,8 +1644,8 @@ canvas.addEventListener('pointermove', event => {
   if (airborne && gesture.deckLocalX !== null) {
     // A finger drag applies torque to the free deck while it is in the air.
     // The accumulated angular velocity persists after the finger is lifted.
-    airPitchVelocity += -moveDy * 0.012;
-    airRollVelocity += moveDx * 0.012;
+    airPitchVelocity += -moveDy * 0.028;
+    airRollVelocity += moveDx * 0.032;
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1690,9 +1690,17 @@ function finishGesture(event) {
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A vertical deck flick pops cleanly off the obstacle.
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000));
-  } else if (airborne && quick && Math.abs(dx) > 30) {
+  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 0.8) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
+  } else if (airborne && quick && Math.abs(dy) > 18) {
+    // A vertical airborne swipe flicks the deck around its long axis,
+    // producing kickflips/heelflips with strength tied to finger speed and travel.
+    const flickSpeed = Math.hypot(dx,dy) / elapsed * 1000;
+    const direction = Math.sign(dy * travelSign) || 1;
+    const speedFactor = THREE.MathUtils.clamp(flickSpeed / 650, 0.35, 3.2);
+    const distanceFactor = THREE.MathUtils.clamp(Math.abs(dy) / 65, 0.35, 2.2);
+    airRollVelocity += direction * speedFactor * distanceFactor * 13.5;
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
