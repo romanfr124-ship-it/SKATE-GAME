@@ -1159,8 +1159,9 @@ let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
 let shuvitVelocity = 0;
-let airPitchVelocity = 0;
-let airRollVelocity = 0;
+const airAngularVelocity = new THREE.Vector3();
+// Approximate deck moments of inertia in its local axes (scaled for gameplay).
+const deckInertia = new THREE.Vector3(0.12, 0.62, 0.72);
 let boardTouchHold = false;
 let trickCaught = false;
 let trickStance = false;
@@ -1179,6 +1180,15 @@ let steerInput = 0;
 let lastLandTime = -10;
 const gravity = 13.5;
 const maxSpeed = 13.125; // 25% higher top speed
+
+// Apply an angular impulse at a point on the deck. The cross product creates
+// torque; dividing by the deck's local moment of inertia gives angular velocity.
+function applyDeckImpulseAtPoint(localPoint, localImpulse) {
+  const torque = new THREE.Vector3().crossVectors(localPoint, localImpulse);
+  airAngularVelocity.x += torque.x / deckInertia.x;
+  airAngularVelocity.y += torque.y / deckInertia.y;
+  airAngularVelocity.z += torque.z / deckInertia.z;
+}
 
 function forwardVector() {
   return new THREE.Vector3(Math.sin(heading), 0, Math.cos(heading));
@@ -1234,9 +1244,12 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   // Airborne finger drags can add to this momentum directly.
   // Positive pitch about the board's Z axis lifts the +X nose. An ollie
   // therefore kicks the nose upward; a nollie uses the opposite impulse.
-  const popRotation = 0.45 + flickDistance * 0.004 + flickSpeed * 0.0015;
-  airPitchVelocity = kind === 'ollie' ? popRotation : -popRotation;
-  airRollVelocity = 0;
+  airAngularVelocity.set(0, 0, 0);
+  // The tail/nose pushes down against the ground. Its offset from the deck
+  // centre creates torque that lifts the opposite end.
+  const popPoint = new THREE.Vector3(kind === 'ollie' ? -0.92 : 0.92, 0, 0);
+  const popImpulse = 0.50 + flickDistance * 0.0025 + flickSpeed * 0.0008;
+  applyDeckImpulseAtPoint(popPoint, new THREE.Vector3(0, -popImpulse, 0));
   grinding = false;
   grindRail = null;
 }
@@ -1643,11 +1656,20 @@ canvas.addEventListener('pointermove', event => {
   if (airborne && gesture.deckLocalX !== null) {
     // A finger drag applies torque to the free deck while it is in the air.
     // The accumulated angular velocity persists after the finger is lifted.
-    // Gentle per-pixel torque keeps the board controllable while dragging.
-    // Direct finger displacement adds proportional torque. The larger roll
-    // gain makes a deliberate kickflip flick complete a rotation in the air.
-    airPitchVelocity += -moveDy * 0.006;
-    airRollVelocity += moveDx * 0.012;
+    // Finger movement applies impulses at the actual deck contact point.
+    // A longer lever arm creates more rotation for the same flick force.
+    const contactX = THREE.MathUtils.clamp(gesture.deckLocalX || 0, -0.92, 0.92);
+    const contactZ = THREE.MathUtils.clamp(gesture.deckLocalZ || 0, -0.29, 0.29);
+    if (Math.abs(moveDy) > 0.01) {
+      const pitchLever = Math.abs(contactX) < 0.08 ? Math.sign(-moveDy) * 0.92 : contactX;
+      const pitchImpulse = -moveDy * 0.006 * deckInertia.z / pitchLever;
+      applyDeckImpulseAtPoint(new THREE.Vector3(pitchLever, 0, 0), new THREE.Vector3(0, pitchImpulse, 0));
+    }
+    if (Math.abs(moveDx) > 0.01) {
+      const rollLever = Math.abs(contactZ) < 0.06 ? Math.sign(moveDx) * 0.29 : contactZ;
+      const rollImpulse = -moveDx * 0.012 * deckInertia.x / rollLever;
+      applyDeckImpulseAtPoint(new THREE.Vector3(0, 0, rollLever), new THREE.Vector3(0, rollImpulse, 0));
+    }
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1706,7 +1728,14 @@ function finishGesture(event) {
     // This is deliberately stronger so a normal deliberate flick can rotate
     // the deck fully, while slower/shorter flicks still produce smaller flips.
     const rollImpulse = Math.abs(dy) * 0.11 + flickSpeed * 0.016;
-    airRollVelocity += direction * rollImpulse;
+    const contactZ = Math.abs(g.deckLocalZ || 0) < 0.06
+      ? direction * 0.29
+      : THREE.MathUtils.clamp(g.deckLocalZ, -0.29, 0.29);
+    // A kickflip flick pushes at the deck edge, producing roll torque about X.
+    applyDeckImpulseAtPoint(
+      new THREE.Vector3(0, 0, contactZ),
+      new THREE.Vector3(0, -direction * rollImpulse * deckInertia.x / contactZ, 0)
+    );
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
@@ -2207,7 +2236,7 @@ mapCanvas.addEventListener('pointerdown', event => {
   // Clear all motion/trick states so teleporting never carries momentum or
   // leaves the board attached to a previous grind.
   grinding = false; grindRail = null; grindReadout.style.display='none';
-  airborne = false; verticalVelocity = 0; velocity.set(0,0,0);
+  airborne = false; airAngularVelocity.set(0,0,0); verticalVelocity = 0; velocity.set(0,0,0);
   shuvitVelocity = 0; shuvitRotation = 0; shuvitTarget = 0;
   manualActive = false; manualAngle = 0; boardTouchHold = false; trickCaught = false;
   bailTimer = 0;
@@ -2394,13 +2423,15 @@ function animate() {
       const angularDamping = boardTouchHold ? 7.5 : 1.15;
       shuvitVelocity *= Math.exp(-angularDamping * dt);
       shuvitRotation += shuvitVelocity * dt;
-      // Integrate pitch and roll as angular momentum, not preset trick poses.
-      board.rotation.z += airPitchVelocity * dt;
-      board.rotation.x += airRollVelocity * dt;
-      airPitchVelocity *= Math.exp(-angularDamping * 0.72 * dt);
-      airRollVelocity *= Math.exp(-angularDamping * 0.72 * dt);
-      if (Math.abs(airPitchVelocity) < 0.015) airPitchVelocity = 0;
-      if (Math.abs(airRollVelocity) < 0.015) airRollVelocity = 0;
+      // Integrate angular velocity on both deck axes. Air resistance gradually
+      // removes energy; a hand on the deck adds damping without locking rotation.
+      board.rotation.z += airAngularVelocity.z * dt;
+      board.rotation.x += airAngularVelocity.x * dt;
+      const deckAirDamping = boardTouchHold ? 1.35 : 0.42;
+      airAngularVelocity.x *= Math.exp(-deckAirDamping * dt);
+      airAngularVelocity.z *= Math.exp(-deckAirDamping * dt);
+      if (Math.abs(airAngularVelocity.x) < 0.015) airAngularVelocity.x = 0;
+      if (Math.abs(airAngularVelocity.z) < 0.015) airAngularVelocity.z = 0;
       if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
       if (boardTouchHold && Math.abs(shuvitVelocity) < 1.35) {
         trickCaught = true;
@@ -2438,6 +2469,7 @@ function animate() {
         // Let the deck touch down in whatever orientation its momentum gives
         // it. No forced catch, rotation threshold, snap-to-upright or bail.
         airborne = false;
+        airAngularVelocity.set(0, 0, 0);
         verticalVelocity = 0;
         // Once the wheels touch down, resume continuous terrain alignment.
         // The board keeps its impact orientation initially and eases onto the
