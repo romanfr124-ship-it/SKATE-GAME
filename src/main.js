@@ -1056,7 +1056,7 @@ const boardPhysics = (() => {
     }
   }
   const terrainBody = world.createRigidBody(RAPIER.RigidBodyDesc.fixed());
-  world.createCollider(
+  const terrainCollider = world.createCollider(
     RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainCollisionVertices),
       new Uint32Array(terrainCollisionIndices)
@@ -1066,6 +1066,7 @@ const boardPhysics = (() => {
 
   const trucks = [];
   const wheels = [];
+  const wheelColliders = [];
   const setJointContactsOff = joint => {
     if (joint && typeof joint.setContactsEnabled === 'function') joint.setContactsEnabled(false);
   };
@@ -1112,7 +1113,7 @@ const boardPhysics = (() => {
           .enabledRotations(true, true, true)
       );
       const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
-      world.createCollider(
+      const wheelCollider = world.createCollider(
         RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
           .setDensity(20)
@@ -1120,6 +1121,7 @@ const boardPhysics = (() => {
           .setRestitution(0.04),
         wheelBody
       );
+      wheelColliders.push(wheelCollider);
       const wheelJoint = world.createImpulseJoint(
         RAPIER.JointData.revolute(
           { x: 0, y: -0.035, z },
@@ -1299,6 +1301,27 @@ const boardPhysics = (() => {
     applyTorqueImpulse,
     getMotion() {
       return { linear: deckBody.linvel(), angular: deckBody.angvel() };
+    },
+    getLandingState() {
+      let groundedWheels = 0;
+      for (const wheelCollider of wheelColliders) {
+        let touchesTerrain = false;
+        world.contactPairsWith(wheelCollider, otherCollider => {
+          if (otherCollider.handle === terrainCollider.handle) touchesTerrain = true;
+        });
+        if (touchesTerrain) groundedWheels++;
+      }
+      const rotation = deckBody.rotation();
+      const deckUpY = new THREE.Vector3(0, 1, 0)
+        .applyQuaternion(new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)).y;
+      const linear = deckBody.linvel();
+      const angular = deckBody.angvel();
+      return {
+        groundedWheels,
+        upright: deckUpY >= Math.cos(35 * Math.PI / 180),
+        verticalSpeed: Math.abs(linear.y),
+        angularSpeed: Math.hypot(angular.x, angular.y, angular.z)
+      };
     }
   };
 })();
@@ -2511,23 +2534,31 @@ function animate() {
       verticalVelocity = motion.linear.y;
 
       if (!landingContacted && !tryStartGrind()) {
-        board.updateMatrixWorld(true);
-        const groundCorrection = groundContactCorrection();
-        if (groundCorrection >= -0.012 && verticalVelocity <= 0) {
-          // Keep the complete assembly dynamic briefly after first contact.
-          // Wheel/deck impacts and friction can settle the board naturally.
+        const landing = boardPhysics.getLandingState();
+        // A touch only starts a landing candidate when at least three wheels
+        // are genuinely contacting the park collision surface and the deck is
+        // reasonably upright. Deck/tail scrapes and upside-down impacts do
+        // not count as a rideable landing.
+        if (landing.groundedWheels >= 3 && landing.upright) {
           landingContacted = true;
-          landingSettleTimer = 0.14;
+          landingSettleTimer = 0.30;
         }
       }
       if (landingContacted) {
-        landingSettleTimer -= dt;
-        if (landingSettleTimer <= 0) {
-          board.updateMatrixWorld(true);
-          const finalCorrection = groundContactCorrection();
-          const finalMotion = boardPhysics.getMotion();
-          if (finalCorrection >= -0.035 && finalMotion.linear.y < 1.0) {
-            if (finalCorrection > 0) board.position.y += finalCorrection;
+        const landing = boardPhysics.getLandingState();
+        const stableLanding =
+          landing.groundedWheels >= 3 &&
+          landing.upright &&
+          landing.verticalSpeed < 0.65 &&
+          landing.angularSpeed < 1.15;
+        if (!stableLanding) {
+          // Any bounce, loss of wheel support, excessive tilt or continuing
+          // rotation cancels the candidate. Keep the board fully dynamic.
+          landingContacted = false;
+          landingSettleTimer = 0;
+        } else {
+          landingSettleTimer -= dt;
+          if (landingSettleTimer <= 0) {
             boardPhysics.endAirborne();
             airborne = false;
             landingContacted = false;
@@ -2540,10 +2571,6 @@ function animate() {
             manualAngle = 0;
             lastLandTime = clock.elapsedTime;
             velocity.multiplyScalar(0.99);
-          } else {
-            // A bounce or missed contact means the deck stays fully dynamic.
-            landingContacted = false;
-            landingSettleTimer = 0;
           }
         }
       }
