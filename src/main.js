@@ -1313,8 +1313,10 @@ const boardPhysics = (() => {
     );
     // Mild torsional spring represents the bushings; the old over-strong
     // centering motor was suppressing the independent truck response.
-    truckJoint.setLimits(-0.32, 0.32);
-    truckJoint.configureMotorPosition(0, 4, 0.7);
+    // Soft but controlled bushing return: allow a useful lean angle,
+    // then progressively resist the hanger and bring it back toward centre.
+    truckJoint.setLimits(-0.24, 0.24);
+    truckJoint.configureMotorPosition(0, 12, 1.8);
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
