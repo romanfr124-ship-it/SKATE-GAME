@@ -2477,12 +2477,49 @@ function drawSkateparkMap() {
   label('EXPANDED UPPER LEVEL  Y=3.2m',-37,-4,'#263332',9);
   label('LOWER LEVEL  Y=0m',-1,3,'#f1f2ed',9);
   label('SLOPED CONNECTION',-10,30,'#263332',8);
-  // Map overlay: platform footprint and the berm's full north-south run.
+  // Raised platform footprint.
   polygon([p(-60,25),p(-20,25),p(-20,60),p(-60,60)],'rgba(218,226,218,.72)');
-  polygon([p(-20,-60),p(-10,-60),p(-10,60),p(-20,60)],'rgba(185,197,190,.82)');
   label('RAISED PLATFORM X -60 TO -20',-40,42,'#263332',8);
   label('Z 25 TO 60',-40,46,'#263332',7);
-  label('BERM X -20 TO -10 (FULL Z)',-15,0,'#263332',7);
+
+  // L-shaped quarter pipe: north-south run, a 10m-radius curved corner,
+  // then the east-west run ending above the stair set.
+  const pipePath=[];
+  for(let i=0;i<=12;i++) pipePath.push([-20,-60+(20*i/12)]);
+  for(let i=1;i<=16;i++){
+    const angle=Math.PI-(Math.PI/2)*(i/16);
+    pipePath.push([-10+10*Math.cos(angle),-40+10*Math.sin(angle)]);
+  }
+  for(let i=1;i<=18;i++) pipePath.push([-10+30*(i/18),-30]);
+  const drawWorldPath=(points)=>{
+    mapCtx.beginPath();
+    points.forEach((pt,i)=>{const q=p(pt[0],pt[1]);if(i===0)mapCtx.moveTo(q[0],q[1]);else mapCtx.lineTo(q[0],q[1]);});
+  };
+  drawWorldPath(pipePath);
+  mapCtx.lineCap='round';mapCtx.lineJoin='round';
+  mapCtx.strokeStyle='#536c67';mapCtx.lineWidth=6*t.scale;mapCtx.stroke();
+  drawWorldPath(pipePath);
+  mapCtx.strokeStyle='#76cdb7';mapCtx.lineWidth=4*t.scale;mapCtx.stroke();
+  drawWorldPath(pipePath);
+  mapCtx.strokeStyle='#e6ece8';mapCtx.lineWidth=Math.max(1.5,0.22*t.scale);mapCtx.stroke();
+  label('QUARTER PIPE',-17,-53,'#244b48',7);
+  label('CURVED CORNER',-9,-41,'#244b48',6.5);
+  label('QUARTER PIPE',5,-33,'#244b48',7);
+
+  // Eight descending steps start at X=20.2 and run toward positive X.
+  const stairStart=20.2, stairTread=0.78, stairWidth=6.4, stairZ=-30;
+  for(let i=0;i<8;i++){
+    const x0=stairStart+i*stairTread, x1=x0+stairTread;
+    const z0=stairZ-stairWidth/2, z1=stairZ+stairWidth/2;
+    polygon([p(x0,z0),p(x1,z0),p(x1,z1),p(x0,z1)],i%2?'#c4cbc7':'#d8ddda');
+    const c0=p(x0,z0),c1=p(x1,z0),c2=p(x1,z1),c3=p(x0,z1);
+    mapCtx.strokeStyle='#788783';mapCtx.lineWidth=0.8;
+    mapCtx.beginPath();mapCtx.moveTo(...c0);mapCtx.lineTo(...c1);mapCtx.lineTo(...c2);mapCtx.lineTo(...c3);mapCtx.closePath();mapCtx.stroke();
+  }
+  const railA=p(stairStart,stairZ),railB=p(stairStart+8*stairTread,stairZ);
+  mapCtx.beginPath();mapCtx.moveTo(...railA);mapCtx.lineTo(...railB);
+  mapCtx.strokeStyle='#52636a';mapCtx.lineWidth=Math.max(2,0.28*t.scale);mapCtx.lineCap='round';mapCtx.stroke();
+  label('STAIRS + CENTRE RAIL',23.3,-34.5,'#263332',7);
   mapCtx.font='900 11px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
   mapCtx.fillText('X  (LEFT ↔ RIGHT)',w/2,h-8);
   mapCtx.save();mapCtx.translate(12,h/2);mapCtx.rotate(-Math.PI/2);mapCtx.fillText('Z  (UP ↔ DOWN)',0,0);mapCtx.restore();
