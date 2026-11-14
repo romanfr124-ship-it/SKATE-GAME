@@ -55,7 +55,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 
   // Large soft-edged patches of grime and water staining, not speckled grain.
-  for (let i = 0; i < 115; i++) {
+  for (let i = 0; i < 150; i++) {
     const x = random() * size, y = random() * size;
     const rx = 18 + random() * 115, ry = 12 + random() * 82;
     const tone = darkTones[Math.floor(random() * darkTones.length)];
@@ -103,37 +103,11 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
     ctx.strokeStyle = '#343a3b'; ctx.globalAlpha = 0.28 + random() * 0.22;
     ctx.lineWidth = 0.7 + random() * 1.1; ctx.stroke();
     if (random() > 0.42) {
-      ctx.strokeStyle = '#637d45'; ctx.globalAlpha = 0.58;
-      ctx.lineWidth = 1.4 + random() * 2.2; ctx.stroke();
+      ctx.strokeStyle = '#454b4e'; ctx.globalAlpha = 0.42;
+      ctx.lineWidth = 0.8 + random() * 1.1; ctx.stroke();
     }
   }
   ctx.globalAlpha = 1;
-
-  // Dense moss islands are spread across the full surface, with faint green
-  // mineral traces between them for even overall coverage.
-  for (let i = 0; i < 58; i++) {
-    const x = random() * size, y = random() * size;
-    const rx = 18 + random() * 76, ry = 10 + random() * 42;
-    const halo = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry) * 1.55);
-    halo.addColorStop(0, '#536d4378'); halo.addColorStop(0.42, '#637b4a38'); halo.addColorStop(1, '#637b4a00');
-    ctx.fillStyle = halo; ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
-    ctx.beginPath(); ctx.arc(0, 0, rx * 1.55, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-    ctx.save(); ctx.translate(x, y); ctx.rotate((random() - 0.5) * 0.8);
-    ctx.fillStyle = ['#526b3b','#607b43','#71894c','#465d37'][Math.floor(random() * 4)];
-    ctx.beginPath();
-    for (let p = 0; p < 11; p++) {
-      const a = p / 11 * Math.PI * 2, r = 0.58 + random() * 0.48;
-      const px = Math.cos(a) * rx * r, py = Math.sin(a) * ry * r;
-      if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
-    }
-    ctx.closePath(); ctx.globalAlpha = 0.58 + random() * 0.30; ctx.fill();
-    for (let k = 0; k < 46; k++) {
-      const mx = (random() - 0.5) * rx * 1.6, my = (random() - 0.5) * ry * 1.5;
-      ctx.globalAlpha = 0.35 + random() * 0.45; ctx.fillStyle = random() > 0.5 ? '#82945a' : '#344d30';
-      ctx.beginPath(); ctx.ellipse(mx, my, 1 + random() * 3.8, 1 + random() * 2.4, random(), 0, Math.PI * 2); ctx.fill();
-    }
-    ctx.restore();
-  }
 
   // Fine, restrained aggregate grain: tiny mineral flecks, not coarse noise.
   for (let i = 0; i < 6200; i++) {
@@ -145,7 +119,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
   }
 
   // Fine, irregular scratches and dragged wheel scuffs.
-  for (let i = 0; i < 1900; i++) {
+  for (let i = 0; i < 2800; i++) {
     const x = random() * size, y = random() * size;
     const length = 3 + random() * 48;
     ctx.globalAlpha = 0.10 + random() * 0.22;
@@ -182,8 +156,8 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) 
   return texture;
 }
 const concreteTexture = makeWeatheredConcreteTexture(
-  '#777b7e', ['#414649', '#505559', '#5b6063', '#666b6e'],
-  ['#a0a3a4', '#929799', '#858a8d'], 2048
+  '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
+  ['#929799', '#858b8e', '#777e81'], 2048
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
@@ -426,7 +400,7 @@ function groundContactCorrection() {
 }
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
-const terrainSegments = 168, terrainMin = -60, terrainMax = 60;
+const terrainSegments = 336, terrainMin = -60, terrainMax = 60;
 for (let iz = 0; iz <= terrainSegments; iz++) {
   const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
   for (let ix = 0; ix <= terrainSegments; ix++) {
