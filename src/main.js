@@ -58,8 +58,8 @@ function makePaintTexture(base, flecks, size = 256) {
   texture.repeat.set(3, 3);
   return texture;
 }
-const concreteTexture = makePaintTexture('#e9dfc8', ['#ffffff','#b6d9ca','#e8a77f','#9dc7d0']);
-const asphaltTexture = makePaintTexture('#83c9b7', ['#d6f0d8','#4b9c91','#f4d69a']);
+const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a'], 512);
+const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a'], 512);
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
@@ -113,15 +113,15 @@ const boardGraphicTexture=makeDeckArtwork(false);
 const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
   floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, roughness: 1 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.94 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x33465a, roughness: 1 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
-  metal: new THREE.MeshStandardMaterial({ color: 0xf4c85d, metalness: 0.28, roughness: 0.42 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0xbfc5cc, metalness: 0.78, roughness: 0.28 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
-  accentMint: new THREE.MeshStandardMaterial({ color: 0x50c8b0, roughness: 0.86 }),
-  accentCoral: new THREE.MeshStandardMaterial({ color: 0xf27e68, roughness: 0.82 }),
-  accentLavender: new THREE.MeshStandardMaterial({ color: 0x9c8be8, roughness: 0.86 }),
+  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
+  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
+  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
   wheel: new THREE.MeshStandardMaterial({ color: 0xf7f4e9, roughness: 0.72 }),
   wheelBlack: new THREE.MeshStandardMaterial({ color: 0x17221f, roughness: 0.58 }),
   wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
@@ -155,9 +155,6 @@ function outlinedBox(parent, w, h, d, mat, x, y, z) {
     parent.add(surface);
     addSurfaceGrid(surface, w, d, 1, 0.012, 4);
   }
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
-  edge.position.copy(mesh.position);
-  parent.add(edge);
   return mesh;
 }
 function ramp(w, h, d, x, z, angle = 0) {
@@ -197,10 +194,6 @@ function rail(x, z, length, height = 0.82) {
   solidObstacles.push(rod);
   grindRails.push(rod);
   addGrindEdge({ x, z: z - length / 2 }, { x, z: z + length / 2 }, height, 'rail');
-  const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
-  edge.rotation.copy(rod.rotation);
-  edge.position.copy(rod.position);
-  scene.add(edge);
   for (const offset of [-length / 2 + 0.18, length / 2 - 0.18]) {
     const support = outlinedBox(scene, 0.13, height, 0.13, mats.dark, x, height / 2, z + offset);
     support.userData.isRailSupport = true;
@@ -496,12 +489,12 @@ scene.add(board);
 
 const deckShape = new THREE.Shape();
 deckShape.moveTo(-1.13, 0);
-deckShape.bezierCurveTo(-1.13, 0.20, -1.00, 0.34, -0.78, 0.34);
-deckShape.lineTo(0.78, 0.34);
-deckShape.bezierCurveTo(1.00, 0.34, 1.13, 0.20, 1.13, 0);
-deckShape.bezierCurveTo(1.13, -0.20, 1.00, -0.34, 0.78, -0.34);
-deckShape.lineTo(-0.78, -0.34);
-deckShape.bezierCurveTo(-1.00, -0.34, -1.13, -0.20, -1.13, 0);
+deckShape.bezierCurveTo(-1.13, 0.17, -1.00, 0.30, -0.78, 0.30);
+deckShape.lineTo(0.78, 0.30);
+deckShape.bezierCurveTo(1.00, 0.30, 1.13, 0.17, 1.13, 0);
+deckShape.bezierCurveTo(1.13, -0.17, 1.00, -0.30, 0.78, -0.30);
+deckShape.lineTo(-0.78, -0.30);
+deckShape.bezierCurveTo(-1.00, -0.30, -1.13, -0.17, -1.13, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
@@ -541,13 +534,6 @@ const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.43;
 board.add(deck);
 
-const deckOutline = new THREE.LineSegments(
-  new THREE.EdgesGeometry(deckGeometry, 30),
-  new THREE.LineBasicMaterial({ color: 0xaaa9b8 })
-);
-deckOutline.position.copy(deck.position);
-board.add(deckOutline);
-
 // Build the painted top from the same outline as the deck, preserving its kick and shape.
 function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   const geometry = new THREE.ShapeGeometry(deckShape, 48);
@@ -559,6 +545,12 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   positions.needsUpdate = true;
   geometry.rotateX(Math.PI / 2);
   curveDeckGeometry(geometry);
+  const uv = geometry.attributes.uv;
+  const p = geometry.attributes.position;
+  for (let i = 0; i < uv.count; i++) {
+    uv.setXY(i, (p.getX(i) + 1.13) / 2.26, (0.34 - p.getZ(i)) / 0.68);
+  }
+  uv.needsUpdate = true;
   const surface = new THREE.Mesh(geometry, material);
   surface.position.y = deck.position.y + yOffset;
   surface.renderOrder = renderOrder;
@@ -606,7 +598,7 @@ for (const x of [-0.69, 0.69]) {
   board.add(kingpin);
 
   // Rounded white urethane wheels with black/green/black side graphics.
-  for (const z of [-0.34, 0.34]) {
+  for (const z of [-0.30, 0.30]) {
     const profile=[
       new THREE.Vector2(0.105,-0.060),new THREE.Vector2(0.132,-0.052),
       new THREE.Vector2(0.143,-0.035),new THREE.Vector2(0.146,0),
