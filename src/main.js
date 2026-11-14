@@ -1319,6 +1319,8 @@ const grindEntryOffset = new THREE.Vector3();
 let grindEntryBlend = 0;
 let grindBalance = 0;
 let airTime = 0;
+let landingContacted = false;
+let landingSettleTimer = 0;
 let bailTimer = 0;
 let steerInput = 0;
 let lastLandTime = -10;
@@ -1360,6 +1362,8 @@ function releaseGrind(side = 0, flickSpeed = 500) {
   grinding=false;grindRail=null;grindBalance=0;grindReadout.style.display='none';
   airborne=true;airTime=0;verticalVelocity=(3.9+Math.min(flickSpeed/1600,1.1))*airHeightScale;
   trickStance=false;
+  landingContacted = false;
+  landingSettleTimer = 0;
   board.rotation.x=0;board.rotation.z=0;
   boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
   return true;
@@ -1373,6 +1377,8 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   const popImpulse = 3.8 + flickDistance * 0.006 + flickSpeed * 0.001;
   verticalVelocity = (popImpulse + velocity.length() * 0.035) * airHeightScale;
   trickStance = false;
+  landingContacted = false;
+  landingSettleTimer = 0;
   // Keep the established pop height; Rapier calculates angular response from
   // the board's actual mass, inertia tensor and off-centre tail/nose impulse.
   board.rotation.x = 0;
@@ -1569,6 +1575,8 @@ function tryStartGrind() {
     velocity.set(edge.tangent.x * direction * grindSpeed, 0, edge.tangent.z * direction * grindSpeed);
     board.rotation.x = 0;
     board.rotation.z = 0;
+    landingContacted = false;
+    landingSettleTimer = 0;
     boardPhysics.endAirborne();
     grindReadout.textContent = grindType;
     grindReadout.style.display = 'block';
@@ -1651,6 +1659,8 @@ function resolveObstacleContacts() {
 
 function resetBoard() {
   trickStance = false;
+  landingContacted = false;
+  landingSettleTimer = 0;
   grinding = false;
   grindRail = null;
   grindBalance = 0;
@@ -2326,6 +2336,7 @@ mapCanvas.addEventListener('pointerdown', event => {
   // leaves the board attached to a previous grind.
   grinding = false; grindRail = null; grindReadout.style.display='none';
   airborne = false; verticalVelocity = 0; velocity.set(0,0,0);
+  landingContacted = false; landingSettleTimer = 0;
   manualActive = false; manualAngle = 0;
   bailTimer = 0;
   board.rotation.x = 0; board.rotation.z = 0;
@@ -2409,6 +2420,8 @@ function animate() {
           grindReadout.style.display = 'none';
           airborne = true;
           verticalVelocity = -0.5 * airHeightScale;
+          landingContacted = false;
+          landingSettleTimer = 0;
           boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
         }
       }
@@ -2431,6 +2444,8 @@ function animate() {
           velocity.addScaledVector(across, fallSide * 1.15);
           board.rotation.x = fallSide * 0.24;
           board.rotation.z = manualAngle * 0.55;
+          landingContacted = false;
+          landingSettleTimer = 0;
           boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
           grindBalance = 0;
         } else {
@@ -2510,21 +2525,41 @@ function animate() {
       velocity.set(motion.linear.x, 0, motion.linear.z);
       verticalVelocity = motion.linear.y;
 
-      if (!tryStartGrind()) {
+      if (!landingContacted && !tryStartGrind()) {
         board.updateMatrixWorld(true);
         const groundCorrection = groundContactCorrection();
         if (groundCorrection >= -0.012 && verticalVelocity <= 0) {
-          if (groundCorrection > 0) board.position.y += groundCorrection;
-          boardPhysics.endAirborne();
-          airborne = false;
-          const nose = new THREE.Vector3(1, 0, 0).applyQuaternion(board.quaternion);
-          heading = Math.atan2(nose.x, nose.z);
-          verticalVelocity = 0;
-          trickStance = false;
-          manualActive = false;
-          manualAngle = 0;
-          lastLandTime = clock.elapsedTime;
-          velocity.multiplyScalar(0.99);
+          // Keep the complete assembly dynamic briefly after first contact.
+          // Wheel/deck impacts and friction can settle the board naturally.
+          landingContacted = true;
+          landingSettleTimer = 0.14;
+        }
+      }
+      if (landingContacted) {
+        landingSettleTimer -= dt;
+        if (landingSettleTimer <= 0) {
+          board.updateMatrixWorld(true);
+          const finalCorrection = groundContactCorrection();
+          const finalMotion = boardPhysics.getMotion();
+          if (finalCorrection >= -0.035 && finalMotion.linear.y < 1.0) {
+            if (finalCorrection > 0) board.position.y += finalCorrection;
+            boardPhysics.endAirborne();
+            airborne = false;
+            landingContacted = false;
+            landingSettleTimer = 0;
+            const nose = new THREE.Vector3(1, 0, 0).applyQuaternion(board.quaternion);
+            heading = Math.atan2(nose.x, nose.z);
+            verticalVelocity = 0;
+            trickStance = false;
+            manualActive = false;
+            manualAngle = 0;
+            lastLandTime = clock.elapsedTime;
+            velocity.multiplyScalar(0.99);
+          } else {
+            // A bounce or missed contact means the deck stays fully dynamic.
+            landingContacted = false;
+            landingSettleTimer = 0;
+          }
         }
       }
     }
