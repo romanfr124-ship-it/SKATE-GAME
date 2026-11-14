@@ -638,7 +638,7 @@ function curveDeckGeometry(geometry, taperThickness = false) {
 }
 curveDeckGeometry(deckGeometry, true);
 const deck = new THREE.Mesh(deckGeometry, mats.board);
-deck.position.y = 0.43;
+deck.position.y = 0.395;
 board.add(deck);
 
 // Build the painted top from the same outline as the deck, preserving its kick and shape.
@@ -686,7 +686,7 @@ for (const x of [-0.69, 0.69]) {
     new THREE.BoxGeometry(0.25, 0.05, 0.25),
     mats.metal
   );
-  base.position.set(x, 0.265, 0);
+  base.position.set(x, 0.240, 0);
   board.add(base);
 
   const hanger = new THREE.Mesh(
@@ -694,34 +694,34 @@ for (const x of [-0.69, 0.69]) {
     mats.metal
   );
   hanger.rotation.x = Math.PI / 2;
-  hanger.position.set(x, 0.205, 0);
+  hanger.position.set(x, 0.180, 0);
   board.add(hanger);
 
   const kingpin = new THREE.Mesh(
     new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8),
     mats.dark
   );
-  kingpin.position.set(x, 0.22, 0);
+  kingpin.position.set(x, 0.195, 0);
   board.add(kingpin);
 
   // Rounded white urethane wheels with black/green/black side graphics.
   for (const z of [-0.30, 0.30]) {
     const profile=[
-      new THREE.Vector2(0.105,-0.060),new THREE.Vector2(0.132,-0.052),
-      new THREE.Vector2(0.143,-0.035),new THREE.Vector2(0.146,0),
-      new THREE.Vector2(0.143,0.035),new THREE.Vector2(0.132,0.052),
-      new THREE.Vector2(0.105,0.060)
+      new THREE.Vector2(0.097,-0.055),new THREE.Vector2(0.122,-0.048),
+      new THREE.Vector2(0.132,-0.032),new THREE.Vector2(0.135,0),
+      new THREE.Vector2(0.132,0.032),new THREE.Vector2(0.122,0.048),
+      new THREE.Vector2(0.097,0.055)
     ];
     const wheel=new THREE.Mesh(new THREE.LatheGeometry(profile,32),mats.wheel);
-    wheel.rotation.x=Math.PI/2;wheel.position.set(x,0.17,z);board.add(wheel);wheelMeshes.push(wheel);
+    wheel.rotation.x=Math.PI/2;wheel.position.set(x,0.145,z);board.add(wheel);wheelMeshes.push(wheel);
     for(const side of [-1,1]){
       const sideDisc=(radius,depth,material,offset)=>{
         const disc=new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,depth,32),material);
-        disc.rotation.x=Math.PI/2;disc.position.set(x,0.17,z+side*offset);board.add(disc);
+        disc.rotation.x=Math.PI/2;disc.position.set(x,0.145,z+side*offset);board.add(disc);
       };
-      sideDisc(0.078,0.008,mats.wheelBlack,0.061);
-      sideDisc(0.061,0.009,mats.wheelGreen,0.067);
-      sideDisc(0.026,0.010,mats.wheelBlack,0.073);
+      sideDisc(0.072,0.008,mats.wheelBlack,0.056);
+      sideDisc(0.056,0.009,mats.wheelGreen,0.062);
+      sideDisc(0.024,0.010,mats.wheelBlack,0.068);
     }
   }
 }
@@ -1693,7 +1693,7 @@ function animate() {
       board.updateMatrixWorld(true);
       let tailScraping = false;
       for (const localZ of [-0.13, 0, 0.13]) {
-        const tailPoint = board.localToWorld(new THREE.Vector3(-1.055, 0.445, localZ));
+        const tailPoint = board.localToWorld(new THREE.Vector3(-1.055, 0.410, localZ));
         const clearance = tailPoint.y - terrainHeightAt(tailPoint.x, tailPoint.z);
         if (clearance <= 0.025) {
           tailScraping = true;
