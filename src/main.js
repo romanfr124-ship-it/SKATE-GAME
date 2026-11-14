@@ -719,18 +719,11 @@ function drawDeckGraphic(canvas, topSide) {
     ctx.shadowColor='#000';ctx.shadowBlur=18;ctx.shadowOffsetX=13;ctx.shadowOffsetY=17;
     ctx.lineJoin='round';ctx.lineWidth=34;ctx.strokeStyle=st.outline;ctx.strokeText(text,0,0,W*.86);
     ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
-    ctx.save();ctx.beginPath();ctx.strokeText(text,0,0,W*.86);ctx.clip();
-    let grad;
-    if(st.fade==='Metallic fade'){
-      grad=ctx.createLinearGradient(0,-110,0,110);grad.addColorStop(0,'#fff');grad.addColorStop(.16,st.colorA);grad.addColorStop(.34,'#fff');grad.addColorStop(.52,st.colorB);grad.addColorStop(.68,'#555');grad.addColorStop(.82,'#fff');grad.addColorStop(1,st.colorA);
-    } else if(st.fade==='Neon fade'||st.fade==='Holographic fade'||st.fade==='Iridescent fade'){
-      grad=ctx.createLinearGradient(-W*.4,-100,W*.4,100);grad.addColorStop(0,st.colorA);grad.addColorStop(.35,st.colorB);grad.addColorStop(.62,'#fff');grad.addColorStop(1,st.colorA);
-    } else if(st.fade==='Sunburst fade'){
-      grad=ctx.createRadialGradient(-80,-30,10,0,0,W*.6);grad.addColorStop(0,st.colorA);grad.addColorStop(1,st.colorB);
-    } else {
-      grad=ctx.createLinearGradient(0,-120,0,120);grad.addColorStop(0,st.colorA);grad.addColorStop(1,st.colorB);
-    }
-    ctx.fillStyle=grad;ctx.fillRect(-W/2,-H/2,W,H);
+    ctx.save();
+    ctx.fillStyle=grad;
+    ctx.fillText(text,0,0,W*.86);
+    // Texture overlays are composited only onto the lettering pixels.
+    ctx.globalCompositeOperation='source-atop';
     if(st.fade==='Dot fade'||st.fade==='Halftone fade'){
       for(let y=-H/2;y<H/2;y+=18)for(let x=-W/2;x<W/2;x+=18){const r=2+Math.abs(y)/(H/2)*5;ctx.fillStyle='#111';ctx.globalAlpha=.52;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
     } else if(st.fade==='Checker fade'){
@@ -743,9 +736,16 @@ function drawDeckGraphic(canvas, topSide) {
       for(let i=0;i<24;i++){const x=(rnd()-.5)*W;ctx.fillStyle=i%2?st.colorA:st.colorB;ctx.globalAlpha=.42;ctx.beginPath();ctx.moveTo(x,H/2);ctx.quadraticCurveTo(x-55,40,x+20,-H/2*rnd());ctx.quadraticCurveTo(x+75,40,x+42,H/2);ctx.fill();}ctx.globalAlpha=1;
     } else if(st.fade==='Spray fade'){
       for(let i=0;i<1100;i++){ctx.fillStyle=i%2?st.colorA:st.colorB;ctx.globalAlpha=.3+rnd()*.55;ctx.beginPath();ctx.arc((rnd()-.5)*W,(rnd()-.5)*H,1+rnd()*8,0,Math.PI*2);ctx.fill();}ctx.globalAlpha=1;
-    } else if(st.fade==='Neon fade'){
-      ctx.strokeStyle='#fff';ctx.globalAlpha=.65;ctx.lineWidth=7;ctx.strokeText(text,0,0,W*.86);ctx.globalAlpha=1;
+    } else if(st.fade==='Neon fade'||st.fade==='Holographic fade'||st.fade==='Iridescent fade'){
+      ctx.strokeStyle='#fff';ctx.globalAlpha=.48;ctx.lineWidth=8;ctx.strokeText(text,0,0,W*.86);ctx.globalAlpha=1;
     }
+    ctx.globalCompositeOperation='source-over';
+    ctx.restore();
+    // Reapply the crisp fixed-width outline and natural shadow above the fill.
+    ctx.shadowColor='#000';ctx.shadowBlur=18;ctx.shadowOffsetX=13;ctx.shadowOffsetY=17;
+    ctx.fillStyle='#00000001';ctx.fillText(text,0,0,W*.86);
+    ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetX=0;ctx.shadowOffsetY=0;
+    ctx.lineJoin='round';ctx.lineWidth=34;ctx.strokeStyle=st.outline;ctx.strokeText(text,0,0,W*.86);
     ctx.restore();
     ctx.restore();
     // Fixed natural drop shadow is part of the lettering; outline is only black or white.
