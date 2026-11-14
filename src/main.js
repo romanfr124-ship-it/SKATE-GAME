@@ -1554,7 +1554,15 @@ function activateBoardEditorPreview(){
   editorPreviewActive=true;
   editorSavedScene={background:scene.background,children:scene.children.map(o=>({object:o,visible:o.visible}))};
   editorSavedCamera={position:camera.position.clone(),quaternion:camera.quaternion.clone(),up:camera.up.clone(),aspect:camera.aspect};
-  editorSavedBoard={position:board.position.clone(),rotation:board.rotation.clone(),scale:board.scale.clone()};
+  editorSavedBoard={
+    position:board.position.clone(),rotation:board.rotation.clone(),scale:board.scale.clone(),
+    childPositions:board.children.map(child=>({child,position:child.position.clone()}))
+  };
+  // Rebase the model around the deck's centre before rotating it. The physics
+  // model normally uses the ground-level board origin; the editor must pivot
+  // around the deck itself so it spins in place instead of orbiting in a circle.
+  const deckCentreY=0.395;
+  for(const child of board.children) child.position.y-=deckCentreY;
   // The customization preview is a clean floating-board display: hide every
   // park surface, obstacle, grid and ground mesh, keeping only the board/lights.
   for(const child of scene.children) child.visible=(child===board||child.isLight);
@@ -1577,6 +1585,7 @@ function restoreBoardEditorPreview(){
     for(const entry of editorSavedScene.children) entry.object.visible=entry.visible;
   }
   if(editorSavedBoard){
+    for(const saved of editorSavedBoard.childPositions) saved.child.position.copy(saved.position);
     board.position.copy(editorSavedBoard.position);
     board.rotation.copy(editorSavedBoard.rotation);
     board.scale.copy(editorSavedBoard.scale);
