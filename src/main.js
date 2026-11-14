@@ -388,6 +388,15 @@ function makeDeckWoodTexture() {
   base.addColorStop(1, '#d9b17c');
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+  // Seven thin, alternating maple veneers are visible on the exposed deck edge.
+  const plyColours = ['rgba(255,231,190,0.24)','rgba(104,61,31,0.16)','rgba(255,235,199,0.20)','rgba(104,61,31,0.16)','rgba(255,235,199,0.20)','rgba(104,61,31,0.16)','rgba(255,231,190,0.24)'];
+  for (let ply = 0; ply < 7; ply++) {
+    const y = ply * canvas.height / 7;
+    ctx.fillStyle = plyColours[ply];
+    ctx.fillRect(0, y, canvas.width, canvas.height / 7);
+    ctx.fillStyle = 'rgba(75,43,24,0.34)';
+    ctx.fillRect(0, y, canvas.width, 1.2);
+  }
   let seed = 42173;
   const random = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
@@ -861,7 +870,7 @@ deckShape.bezierCurveTo(0.3745, 0.0734, 0.3902, 0.0359, 0.3937, 0);
 deckShape.bezierCurveTo(0.3902, -0.0359, 0.3745, -0.0734, 0.3432, -0.0912);
 deckShape.bezierCurveTo(0.3170, -0.1041, 0.2856, -0.1041, 0.2439, -0.1018);
 deckShape.bezierCurveTo(0.1498, -0.0963, 0.0976, -0.0929, 0, -0.0929);
-deckShape.bezierCurveTo(-0.0976, -0.0963, -0.1498, -0.0963, -0.2439, -0.1018);
+deckShape.bezierCurveTo(-0.0976, -0.0929, -0.1498, -0.0963, -0.2439, -0.1018);
 deckShape.bezierCurveTo(-0.2856, -0.1041, -0.3170, -0.1041, -0.3432, -0.0912);
 deckShape.bezierCurveTo(-0.3745, -0.0734, -0.3902, -0.0359, -0.3937, 0);
 
