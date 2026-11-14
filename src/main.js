@@ -708,6 +708,8 @@ const deckGraphicState = {
   graphicOffsetY: 0,
   graphicScale: 1,
   imageOrientation: 'Portrait',
+  imageFlipX: false,
+  imageFlipY: false,
   outlineThickness: 34
 };
 const miscellaneousDeckGraphics = [
@@ -753,6 +755,7 @@ function drawDeckGraphic(canvas, topSide) {
       ctx.scale(st.graphicScale,st.graphicScale);
       const portrait=st.imageOrientation==='Portrait';
       if(portrait)ctx.rotate(-Math.PI/2);
+      ctx.scale(st.imageFlipX?-1:1,st.imageFlipY?-1:1);
       const sourceW=portrait?image.naturalHeight:image.naturalWidth;
       const sourceH=portrait?image.naturalWidth:image.naturalHeight;
       const fit=Math.min(W*.96/sourceW,H*.96/sourceH);
@@ -1647,7 +1650,7 @@ function activateBoardEditorPreview(){
   // park surface, obstacle, grid and ground mesh, keeping only the board/lights.
   for(const child of scene.children) child.visible=(child===board||child.isLight);
   scene.background=new THREE.Color('#171e20');
-  board.position.set(0,1.45,0.82);
+  board.position.set(0,1.45,1.42);
   board.rotation.set(0,0,Math.PI/2);
   board.scale.setScalar(0.72);
   camera.up.set(0,1,0);
@@ -1686,6 +1689,7 @@ function aimEditorBoard(category){
   // the previous X rotation was cancelled by the board's Z=90° pose, so it
   // never turned the underside toward the camera.
   camera.position.x=-4.4;
+  camera.position.z=0.48;
   camera.lookAt(0,1.45,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=new THREE.Euler(0,underside?Math.PI:0,Math.PI/2,'YXZ');
@@ -1694,7 +1698,7 @@ const editorPointers=new Map();
 function editorLocalPlanePoint(x,y){
   touchNdc.set((x/innerWidth)*2-1,-(y/innerHeight)*2+1);board.updateMatrixWorld(true);touchRaycaster.setFromCamera(touchNdc,camera);
   const wr=touchRaycaster.ray,o=board.worldToLocal(wr.origin.clone()),n=board.worldToLocal(wr.origin.clone().add(wr.direction));
-  return new THREE.Ray(o,n.sub(o).normalize()).intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),new THREE.Vector3());
+  return new THREE.Ray(o,n.sub(o).normalize()).intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0.112),new THREE.Vector3());
 }
 function editorGraphicHit(x,y){
   touchNdc.set((x/innerWidth)*2-1,-(y/innerHeight)*2+1);board.updateMatrixWorld(true);touchRaycaster.setFromCamera(touchNdc,camera);
@@ -1782,7 +1786,7 @@ function buildDeckCustomizationUI() {
   }
   sectionContent.appendChild(nav);
   if(editorCategory==='Deck graphics'){
-    const intro=document.createElement('div');intro.textContent='Choose a graphic, then drag it with one finger to position it or pinch with two fingers to resize it.';
+    const intro=document.createElement('div');intro.textContent='Choose a graphic. Drag it on the board or use the position and size sliders. Pinch to resize.';
     intro.style.cssText='margin-bottom:10px;color:#c2cecb;font-size:11px;line-height:1.45;';sectionContent.appendChild(intro);
     const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti','Miscellaneous'];
     const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
@@ -1803,15 +1807,17 @@ function buildDeckCustomizationUI() {
       const designs=miscellaneousDeckGraphics.map((file,i)=>'Graphic '+String(i+1).padStart(2,'0')+' ('+file+')');
       sectionContent.appendChild(editorField('Choose a graphic · 43',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
       sectionContent.appendChild(editorField('Artwork orientation',makeEditorSelect(['Portrait','Landscape'],deckGraphicState.imageOrientation==='Portrait'?0:1,i=>{deckGraphicState.imageOrientation=i===0?'Portrait':'Landscape';refreshDeckGraphic();})));
-      sectionContent.appendChild(editorField('Move left / right',makeEditorRange(deckGraphicState.graphicOffsetX,-850,850,5,v=>{deckGraphicState.graphicOffsetX=v;refreshDeckGraphic();})));
-      sectionContent.appendChild(editorField('Move up / down',makeEditorRange(deckGraphicState.graphicOffsetY,-420,420,5,v=>{deckGraphicState.graphicOffsetY=v;refreshDeckGraphic();})));
-      sectionContent.appendChild(editorField('Graphic size',makeEditorRange(deckGraphicState.graphicScale,.3,2.5,.01,v=>{deckGraphicState.graphicScale=v;refreshDeckGraphic();})));
-      const note=document.createElement('div');note.textContent='Portrait is the default. Use the sliders to position and resize the graphic, or drag it directly on the board.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
+      sectionContent.appendChild(editorField('Flip horizontally',makeEditorSelect(['Off','On'],deckGraphicState.imageFlipX?1:0,i=>{deckGraphicState.imageFlipX=!!i;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Flip vertically',makeEditorSelect(['Off','On'],deckGraphicState.imageFlipY?1:0,i=>{deckGraphicState.imageFlipY=!!i;refreshDeckGraphic();})));
+      const note=document.createElement('div');note.textContent='Portrait is the default. Flip the artwork horizontally or vertically, then use the position and size controls below.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
     }else{
       const designs=deckGraphicCatalog[deckGraphicState.category];
       sectionContent.appendChild(editorField('Choose a design',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
       sectionContent.appendChild(editorField('Graphic colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
     }
+    sectionContent.appendChild(editorField('Move left / right',makeEditorRange(deckGraphicState.graphicOffsetX,-850,850,5,v=>{deckGraphicState.graphicOffsetX=v;refreshDeckGraphic();})));
+    sectionContent.appendChild(editorField('Move up / down',makeEditorRange(deckGraphicState.graphicOffsetY,-420,420,5,v=>{deckGraphicState.graphicOffsetY=v;refreshDeckGraphic();})));
+    sectionContent.appendChild(editorField('Graphic size',makeEditorRange(deckGraphicState.graphicScale,.3,2.5,.01,v=>{deckGraphicState.graphicScale=v;refreshDeckGraphic();})));
   }else if(editorCategory==='Deck colour'){
     sectionContent.appendChild(editorField('Deck colour',makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();})));
     const note=document.createElement('div');note.textContent='This changes the board colour independently of the deck artwork.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
