@@ -372,6 +372,57 @@ const mats = {
   wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
 };
 
+// Natural maple-ply edge grain: subtle warm timber colour with fine irregular
+// fibres and a few soft growth lines. The top and underside graphics remain
+// separate, so this texture is most visible around the deck's exposed edge.
+function makeDeckWoodTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 1024;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d');
+  const base = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  base.addColorStop(0, '#d6ad78');
+  base.addColorStop(0.28, '#b9824d');
+  base.addColorStop(0.52, '#e1bd8c');
+  base.addColorStop(0.76, '#bd8956');
+  base.addColorStop(1, '#d9b17c');
+  ctx.fillStyle = base;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  let seed = 42173;
+  const random = () => {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    return seed / 4294967296;
+  };
+  for (let i = 0; i < 190; i++) {
+    const y = random() * canvas.height;
+    const amplitude = 0.5 + random() * 2.2;
+    const phase = random() * Math.PI * 2;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    for (let x = 0; x <= canvas.width; x += 16) {
+      ctx.lineTo(x, y + Math.sin(x * (0.006 + random() * 0.002) + phase) * amplitude);
+    }
+    ctx.strokeStyle = random() > 0.5 ? 'rgba(92,53,25,0.12)' : 'rgba(255,235,199,0.17)';
+    ctx.lineWidth = 0.5 + random() * 1.2;
+    ctx.stroke();
+  }
+  for (let i = 0; i < 9000; i++) {
+    const shade = random() > 0.5 ? 65 : 255;
+    ctx.fillStyle = `rgba(${shade},${shade === 65 ? 43 : 220},${shade === 65 ? 20 : 175},${0.025 + random() * 0.045})`;
+    ctx.fillRect(random() * canvas.width, random() * canvas.height, 1 + random() * 2, 1);
+  }
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 8;
+  return texture;
+}
+const deckWoodTexture = makeDeckWoodTexture();
+mats.board.map = deckWoodTexture;
+mats.board.color.set(0xffffff);
+mats.board.metalness = 0;
+mats.board.roughness = 0.82;
+mats.board.needsUpdate = true;
+
 const solidObstacles = [];
 const grindRails = [];
 const grindEdges = [];
@@ -601,22 +652,32 @@ const deckVisualGroup = new THREE.Group();
 board.add(deckVisualGroup);
 
 const deckShape = new THREE.Shape();
+// Traditional symmetrical popsicle outline: a gently pinched waist,
+// fuller shoulders, and broad rounded nose and tail.
 deckShape.moveTo(-1.13, 0);
-deckShape.bezierCurveTo(-1.13, 0.17, -1.00, 0.30, -0.78, 0.30);
-deckShape.lineTo(0.78, 0.30);
-deckShape.bezierCurveTo(1.00, 0.30, 1.13, 0.17, 1.13, 0);
-deckShape.bezierCurveTo(1.13, -0.17, 1.00, -0.30, 0.78, -0.30);
-deckShape.lineTo(-0.78, -0.30);
-deckShape.bezierCurveTo(-1.00, -0.30, -1.13, -0.17, -1.13, 0);
+deckShape.bezierCurveTo(-1.12, 0.105, -1.075, 0.215, -0.985, 0.267);
+deckShape.bezierCurveTo(-0.91, 0.305, -0.82, 0.305, -0.70, 0.298);
+deckShape.bezierCurveTo(-0.43, 0.282, -0.28, 0.272, 0, 0.272);
+deckShape.bezierCurveTo(0.28, 0.272, 0.43, 0.282, 0.70, 0.298);
+deckShape.bezierCurveTo(0.82, 0.305, 0.91, 0.305, 0.985, 0.267);
+deckShape.bezierCurveTo(1.075, 0.215, 1.12, 0.105, 1.13, 0);
+deckShape.bezierCurveTo(1.12, -0.105, 1.075, -0.215, 0.985, -0.267);
+deckShape.bezierCurveTo(0.91, -0.305, 0.82, -0.305, 0.70, -0.298);
+deckShape.bezierCurveTo(0.43, -0.282, 0.28, -0.272, 0, -0.272);
+deckShape.bezierCurveTo(-0.28, -0.272, -0.43, -0.282, -0.70, -0.298);
+deckShape.bezierCurveTo(-0.82, -0.305, -0.91, -0.305, -0.985, -0.267);
+deckShape.bezierCurveTo(-1.075, -0.215, -1.12, -0.105, -1.13, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
+  // Keep only a fine edge break. The former oversized bevel made a raised
+  // lip visible along both long sides of the underside.
   bevelEnabled: true,
-  bevelSegments: 5,
+  bevelSegments: 3,
   steps: 1,
-  bevelSize: 0.022,
-  bevelThickness: 0.014,
-  curveSegments: 24
+  bevelSize: 0.008,
+  bevelThickness: 0.006,
+  curveSegments: 32
 });
 deckGeometry.rotateX(Math.PI / 2);
 
