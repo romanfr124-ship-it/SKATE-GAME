@@ -548,6 +548,24 @@ const deckOutline = new THREE.LineSegments(
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
+// Build the painted top from the same outline as the deck, preserving its kick and shape.
+function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
+  const geometry = new THREE.ShapeGeometry(deckShape, 48);
+  const positions = geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    positions.setX(i, positions.getX(i) * scaleX);
+    positions.setY(i, positions.getY(i) * scaleZ);
+  }
+  positions.needsUpdate = true;
+  geometry.rotateX(Math.PI / 2);
+  curveDeckGeometry(geometry);
+  const surface = new THREE.Mesh(geometry, material);
+  surface.position.y = deck.position.y + yOffset;
+  surface.renderOrder = renderOrder;
+  board.add(surface);
+  return surface;
+}
+
 // The deck has no grip-tape layer: its purple painted top is fully exposed.
 const deckTopMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
