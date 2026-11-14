@@ -535,11 +535,10 @@ function rampAngleAt(x, z) {
   return angle;
 }
 function groundHeightAt(x, z) {
-  const nx = (x - bowl.x) / bowl.radiusX;
-  const nz = (z - bowl.z) / bowl.radiusZ;
-  const insideBowl = nx * nx + nz * nz < 1;
-  const bowlY = insideBowl ? bowlHeightAt(x, z) : 0;
-  return Math.max(bowlY, quarterPipeHeightAt(x, z), rampHeightAt(x, z), insideBowl ? -Infinity : 0);
+  const nx=(x-bowl.x)/bowl.radiusX,nz=(z-bowl.z)/bowl.radiusZ;
+  const insideBowl=Math.hypot(nx,nz)/bowlOutlineScale(Math.atan2(nz,nx))<1;
+  const bowlY=insideBowl?bowlHeightAt(x,z):0;
+  return Math.max(bowlY,quarterPipeHeightAt(x,z),rampHeightAt(x,z),insideBowl?-Infinity:0);
 }
 const groundContactPoint = new THREE.Vector3();
 function groundContactCorrection() {
