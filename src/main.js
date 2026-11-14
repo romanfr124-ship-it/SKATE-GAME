@@ -787,12 +787,15 @@ function addRaisedGroundMoss() {
   moss.castShadow = true;
   const dummy = new THREE.Object3D();
   const colors = [new THREE.Color('#52683b'), new THREE.Color('#657b43'), new THREE.Color('#78884c'), new THREE.Color('#465d36'), new THREE.Color('#879052')];
+  const colonies = Array.from({ length: 130 }, () => ({
+    x: (rnd() - 0.5) * 116, z: (rnd() - 0.5) * 116
+  }));
   for (let i = 0; i < count; i++) {
-    // Clustering produces colonies with gaps, rather than evenly spaced dots.
-    const patchX = (rnd() - 0.5) * 116;
-    const patchZ = (rnd() - 0.5) * 116;
-    const x = THREE.MathUtils.clamp(patchX + (rnd() - 0.5) * 2.2, -59.5, 59.5);
-    const z = THREE.MathUtils.clamp(patchZ + (rnd() - 0.5) * 2.2, -59.5, 59.5);
+    // Twenty individual cushions grow around each colony centre, leaving
+    // irregular bare-concrete gaps between the larger patches.
+    const colony = colonies[Math.floor(i / 20)];
+    const x = THREE.MathUtils.clamp(colony.x + (rnd() - 0.5) * 2.2, -59.5, 59.5);
+    const z = THREE.MathUtils.clamp(colony.z + (rnd() - 0.5) * 2.2, -59.5, 59.5);
     const radius = 0.025 + Math.pow(rnd(), 1.7) * 0.105;
     const height = radius * (0.28 + rnd() * 0.48);
     dummy.position.set(x, terrainHeightAt(x, z) + height * 0.22, z);
