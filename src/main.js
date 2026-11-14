@@ -535,7 +535,7 @@ function resolveObstacleContacts() {
       if (airborne && rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
         airborne = false;
         verticalVelocity = 0;
-        trickStance = heldTrickLanding && !uprightLanding;
+        trickStance = heldTrickLanding;
         // Keep residual angular velocity; the board should not freeze on impact.
         flipTarget = 0;
         heading += shuvitRotation;
@@ -876,7 +876,7 @@ function animate() {
         if (rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
           // Keep the exact caught orientation: no auto-level, auto-rotate or snap.
           airborne = false;
-          trickStance = heldTrickLanding && !uprightLanding;
+          trickStance = heldTrickLanding;
           verticalVelocity = 0;
           // Keep residual angular velocity; the board should not freeze on impact.
           flipTarget = 0;
