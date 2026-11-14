@@ -936,74 +936,56 @@ function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
   return surface;
 }
 
-// Medium-grain skateboard grip tape: a charcoal base with dense, fine
-// mineral particles and a restrained amount of larger grit for realism.
+// Fine, uniform skateboard grip tape. Pixel-level grain avoids oversized
+// dots and raised-looking particles when the deck is viewed close up.
 function makeGripTapeTexture() {
+  const size = 1024;
   const canvas = document.createElement('canvas');
-  canvas.width = 1024;
-  canvas.height = 1024;
+  canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = '#252629';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const pixels = ctx.createImageData(size, size);
   let seed = 204411;
   const rnd = () => {
     seed = (seed * 1664525 + 1013904223) >>> 0;
     return seed / 4294967296;
   };
-  // Very fine, tightly packed grain forms the sandpaper-like base.
-  for (let i = 0; i < 92000; i++) {
-    const v = Math.floor(25 + rnd() * 35);
-    const a = 0.18 + rnd() * 0.38;
-    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
-    const x = rnd() * 1024, y = rnd() * 1024;
-    const r = 0.35 + rnd() * 0.8;
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const grain = Math.floor((rnd() - 0.5) * 15);
+    const base = 38 + grain;
+    pixels.data[i] = base;
+    pixels.data[i + 1] = base;
+    pixels.data[i + 2] = base + 2;
+    pixels.data[i + 3] = 255;
+  }
+  ctx.putImageData(pixels, 0, 0);
+  // Sparse, extremely small mineral flecks add a natural abrasive finish.
+  for (let i = 0; i < 18000; i++) {
+    const light = rnd() > 0.52;
+    const value = light ? 66 + Math.floor(rnd() * 24) : 13 + Math.floor(rnd() * 10);
+    ctx.fillStyle = 'rgba(' + value + ',' + value + ',' + (value + 2) + ',' + (0.12 + rnd() * 0.16) + ')';
+    const x = rnd() * size, y = rnd() * size;
+    const r = 0.35 + rnd() * 0.45;
     ctx.fillRect(x, y, r, r);
-  }
-  // Medium-sized grit catches light without looking like oversized bumps.
-  for (let i = 0; i < 15500; i++) {
-    const light = rnd() > 0.48;
-    const v = light ? 92 + Math.floor(rnd() * 48) : 8 + Math.floor(rnd() * 18);
-    const a = 0.22 + rnd() * 0.38;
-    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + a + ')';
-    const x = rnd() * 1024, y = rnd() * 1024;
-    const r = 0.7 + rnd() * 1.35;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-  // A few larger, irregular particles give the surface natural variation.
-  for (let i = 0; i < 1800; i++) {
-    const light = rnd() > 0.5;
-    const v = light ? 105 + Math.floor(rnd() * 35) : 12 + Math.floor(rnd() * 16);
-    ctx.fillStyle = 'rgba(' + v + ',' + v + ',' + (v + 2) + ',' + (0.18 + rnd() * 0.25) + ')';
-    const x = rnd() * 1024, y = rnd() * 1024;
-    const r = 1.2 + rnd() * 1.8;
-    ctx.beginPath();
-    ctx.ellipse(x, y, r, r * (0.55 + rnd() * 0.8), rnd() * Math.PI, 0, Math.PI * 2);
-    ctx.fill();
   }
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   return texture;
 }
 const gripTapeTexture = makeGripTapeTexture();
 const deckTopMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: gripTapeTexture,
-  bumpMap: gripTapeTexture,
-  bumpScale: 0.006,
   metalness: 0,
   roughness: 1,
-  side: THREE.DoubleSide,
-  polygonOffset: true,
-  polygonOffsetFactor: -1,
-  polygonOffsetUnits: -1,
-  depthWrite: false
+  side: THREE.FrontSide
 });
-// The grip is a bonded surface layer: keep it almost flush with the deck's
-// upper face so it cannot look like a separate floating sheet.
-makeDeckTop(0.992, 0.985, deckTopMaterial, 0.0015, 3);
+// Use the exact deck outline and matching nose/tail kick. A tiny offset avoids
+// z-fighting without a polygon-offset or depth-write workaround.
+makeDeckTop(1, 1, deckTopMaterial, 0.0008, 2);
 
 // A separate mapped face on the actual underside. This avoids relying on the
 // extruded deck's side-face UVs, which caused the default artwork to show instead.
