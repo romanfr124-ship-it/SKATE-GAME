@@ -351,440 +351,57 @@ function rail(x, z, length, height = 0.82) {
   }
 }
 
-// The bowl is a true cut-out in the concrete slab, not a bowl mesh buried
-// beneath a flat floor. Its curved riding surface remains visible all the way down.
-const bowl = { x: -18, z: 0, radiusX: 13.8, radiusZ: 11.7, depth: 4.05, deepExtra: 1.45, shallowCut: 1.15, flatRatio: 0.16 };
-function bowlOutlineScale(angle) { return 1 + 0.105 * Math.cos(2 * angle - 0.38) + 0.038 * Math.sin(3 * angle + 0.55); }
+// Two-level open skate landscape. Previous bowls, rails and obstacles
+// are removed; this is an empty foundation for later placement.
+// World coordinates are metres: X east/west, Z north/south.
 const quarterPipes = [];
 const rampSurfaces = [];
-const floorShape = new THREE.Shape();
-floorShape.moveTo(-50, -50);
-floorShape.lineTo(50, -50);
-floorShape.lineTo(50, 50);
-floorShape.lineTo(-50, 50);
-floorShape.closePath();
-const bowlOpening = new THREE.Path();
-for (let i = 0; i <= 192; i++) {
-  const angle=i/192*Math.PI*2, scale=bowlOutlineScale(angle), x=bowl.x+Math.cos(angle)*bowl.radiusX*scale, z=bowl.z+Math.sin(angle)*bowl.radiusZ*scale;
-  if(i===0) bowlOpening.moveTo(x,-z); else bowlOpening.lineTo(x,-z);
+const bowl = { x: 0, z: 0, radiusX: 0, radiusZ: 0, depth: 0, deepExtra: 0, shallowCut: 0, flatRatio: 0 };
+function bowlOutlineScale() { return 1; }
+function bowlHeightAt() { return 0; }
+function bowlDepthAtAngle() { return 0; }
+function addSurfaceGrid() {}
+function terrainHeightAt(x, z) {
+  const t = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  const eased = t * t * (3 - 2 * t);
+  return 3.2 * (1 - eased);
 }
-bowlOpening.closePath();
-floorShape.holes.push(bowlOpening);
-const parkFloor = new THREE.Mesh(
-  new THREE.ExtrudeGeometry(floorShape, { depth: 0.45, bevelEnabled: false, curveSegments: 64 }),
-  mats.floor
-);
-parkFloor.receiveShadow = true;
-parkFloor.rotation.x = -Math.PI / 2;
-parkFloor.position.y = -0.45;
-scene.add(parkFloor);
-function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4) {
-  // No visible construction grids: use the concrete grain instead.
-  return;
-  const minor = [];
-  const major = [];
-  for (let x = -width / 2; x <= width / 2 + 0.001; x += spacing) {
-    const target = Math.round((x + width / 2) / spacing) % majorEvery === 0 ? major : minor;
-    target.push(x, y, -depth / 2, x, y, depth / 2);
-  }
-  for (let z = -depth / 2; z <= depth / 2 + 0.001; z += spacing) {
-    const target = Math.round((z + depth / 2) / spacing) % majorEvery === 0 ? major : minor;
-    target.push(-width / 2, y, z, width / 2, y, z);
-  }
-  for (const [points, color, opacity] of [
-    [minor, 0x555555, 0.48],
-    [major, 0x858585, 0.78]
-  ]) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
-      color, transparent: true, opacity, depthWrite: false
-    }));
-    parent.add(lines);
+function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
+function rampAngleAt() { return 0; }
+const terrainPositions = [], terrainUvs = [], terrainIndices = [];
+const terrainSegments = 120, terrainMin = -50, terrainMax = 50;
+for (let iz = 0; iz <= terrainSegments; iz++) {
+  const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
+  for (let ix = 0; ix <= terrainSegments; ix++) {
+    const x = terrainMin + (terrainMax - terrainMin) * ix / terrainSegments;
+    terrainPositions.push(x, terrainHeightAt(x, z), z);
+    terrainUvs.push(x * 0.16, z * 0.16);
   }
 }
-// No debug grid on the riding surface: keep the park clean and skate-realistic.
-
-// New park layout: a dedicated in-ground bowl on the west side and a
-// separate street/flow zone to the east. All dimensions are in metres.
-function bowlDepthAtAngle(angle, radius = 1) {
-  // The left half is the deep end; the right half is a mellow shallow end.
-  const endBlend = THREE.MathUtils.smoothstep(radius, 0.08, 0.72);
-  const side = Math.cos(angle);
-  return bowl.depth - Math.max(0, side) * bowl.shallowCut * endBlend + Math.max(0, -side) * bowl.deepExtra * endBlend;
+for (let iz = 0; iz < terrainSegments; iz++) for (let ix = 0; ix < terrainSegments; ix++) {
+  const a = iz * (terrainSegments + 1) + ix, b = a + terrainSegments + 1;
+  terrainIndices.push(a, b, a + 1, b, b + 1, a + 1);
 }
-function bowlHeightAt(x, z) {
-  const nx=(x-bowl.x)/bowl.radiusX, nz=(z-bowl.z)/bowl.radiusZ, angle=Math.atan2(nz,nx);
-  const radius=Math.hypot(nx,nz)/bowlOutlineScale(angle);
-  if(radius>=1) return 0;
-  const t=THREE.MathUtils.clamp((radius-bowl.flatRatio)/(1-bowl.flatRatio),0,1);
-  return -bowlDepthAtAngle(angle, radius) * Math.cos(t * Math.PI / 2);
-}
-
-function buildBowl() {
-  const rings = 36;
-  const segments = 112;
-  const positions = [];
-  const uvs = [];
-  const colors = [];
-  const indices = [];
-  const bowlFloorY = -bowl.depth;
-  const darkFadeHeight = 0.4572; // 1.5 feet, using metres for world-space distance.
-  for (let ring = 0; ring <= rings; ring++) {
-    const radius = ring / rings;
-    for (let segment = 0; segment <= segments; segment++) {
-      const angle = segment / segments * Math.PI * 2;
-      const outline=bowlOutlineScale(angle);
-      const y=-bowlDepthAtAngle(angle,radius)*Math.cos(THREE.MathUtils.clamp((radius-bowl.flatRatio)/(1-bowl.flatRatio),0,1)*Math.PI/2);
-      const worldX=bowl.x+Math.cos(angle)*bowl.radiusX*outline*radius;
-      const worldZ=bowl.z+Math.sin(angle)*bowl.radiusZ*outline*radius;
-      positions.push(worldX,y,worldZ);
-      uvs.push(worldX,worldZ);
-      // A cool charcoal-grey at the flat bottom, fading smoothly back to
-      // the normal concrete over the first 1.5 feet of the transition.
-      const fade = THREE.MathUtils.smoothstep(y - bowlFloorY, 0, darkFadeHeight);
-      const shade = THREE.MathUtils.lerp(0.68, 1, fade);
-      colors.push(shade * 0.91, shade * 0.94, shade * 0.97);
-    }
-  }
-  for (let ring = 0; ring < rings; ring++) {
-    for (let segment = 0; segment < segments; segment++) {
-      const a = ring * (segments + 1) + segment;
-      const b = a + segments + 1;
-      // Wind triangles upward so the bowl receives correct lighting.
-      indices.push(a, a + 1, b, b, a + 1, b + 1);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const bowlConcreteMaterial = mats.concrete.clone();
-  bowlConcreteMaterial.vertexColors = true;
-  bowlConcreteMaterial.side = THREE.DoubleSide;
-  const surface = new THREE.Mesh(geometry, bowlConcreteMaterial);
-  surface.receiveShadow = true;
-  surface.castShadow = true;
-  scene.add(surface);
-
-  // Moss collects in irregular, concentrated islands around the bowl's
-  // lowest flat section, with a few smaller colonies creeping onto the
-  // first part of the transition rather than forming a circular border.
-  const mossMaterials = [
-    new THREE.MeshStandardMaterial({ color: 0x526b3b, roughness: 1, side: THREE.DoubleSide }),
-    new THREE.MeshStandardMaterial({ color: 0x637b45, roughness: 1, side: THREE.DoubleSide }),
-    new THREE.MeshStandardMaterial({ color: 0x465b34, roughness: 1, side: THREE.DoubleSide }),
-    new THREE.MeshStandardMaterial({ color: 0x71834a, roughness: 1, side: THREE.DoubleSide })
-  ];
-  let mossSeed = 726193;
-  const mossRandom = () => { mossSeed = (mossSeed * 1664525 + 1013904223) >>> 0; return mossSeed / 4294967296; };
-  for (let patch = 0; patch < 58; patch++) {
-    const angle = mossRandom() * Math.PI * 2;
-    const radius = Math.sqrt(mossRandom()) * 0.285;
-    const centerX = bowl.x + Math.cos(angle) * bowl.radiusX * radius;
-    const centerZ = bowl.z + Math.sin(angle) * bowl.radiusZ * radius;
-    const patchRadius = 0.12 + mossRandom() * 0.34;
-    const sides = 9;
-    const patchPositions = [];
-    const patchIndices = [];
-    const centerY = bowlHeightAt(centerX, centerZ) + 0.018;
-    patchPositions.push(centerX, centerY, centerZ);
-    for (let p = 0; p < sides; p++) {
-      const a = p / sides * Math.PI * 2;
-      const irregular = patchRadius * (0.62 + mossRandom() * 0.62);
-      const px = centerX + Math.cos(a) * irregular;
-      const pz = centerZ + Math.sin(a) * irregular;
-      patchPositions.push(px, bowlHeightAt(px, pz) + 0.019, pz);
-      patchIndices.push(0, p + 1, (p + 1) % sides + 1);
-    }
-    const patchGeometry = new THREE.BufferGeometry();
-    patchGeometry.setAttribute('position', new THREE.Float32BufferAttribute(patchPositions, 3));
-    patchGeometry.setIndex(patchIndices);
-    patchGeometry.computeVertexNormals();
-    const moss = new THREE.Mesh(patchGeometry, mossMaterials[Math.floor(mossRandom() * mossMaterials.length)]);
-    moss.receiveShadow = true;
-    scene.add(moss);
-  }
-
-  // Continuous round steel coping follows the full elliptical lip.
-  const rimPoints = [];
-  for (let i = 0; i <= 160; i++) {
-    const angle = i / 160 * Math.PI * 2;
-    rimPoints.push(new THREE.Vector3(
-      bowl.x + Math.cos(angle) * bowl.radiusX * bowlOutlineScale(angle),
-      0.035,
-      bowl.z + Math.sin(angle) * bowl.radiusZ * bowlOutlineScale(angle)
-    ));
-  }
-  const rimCurve = new THREE.CatmullRomCurve3(rimPoints, true, 'centripetal');
-  const coping = new THREE.Mesh(
-    new THREE.TubeGeometry(rimCurve, 192, 0.075, 10, true),
-    mats.metal
-  );
-  coping.castShadow = true;
-  coping.receiveShadow = true;
-  scene.add(coping);
-  // Divide the continuous bowl coping into overlapping grindable arcs. Each
-  // arc is long enough to ride naturally while allowing the grind to follow
-  // the elliptical lip rather than pretending it is one straight rail.
-  for (let i = 0; i < 24; i++) {
-    const a0 = i / 24 * Math.PI * 2;
-    const a1 = (i + 1) / 24 * Math.PI * 2;
-    const edge = addGrindEdge(
-      { x: bowl.x + Math.cos(a0) * bowl.radiusX * bowlOutlineScale(a0), z: bowl.z + Math.sin(a0) * bowl.radiusZ * bowlOutlineScale(a0) },
-      { x: bowl.x + Math.cos(a1) * bowl.radiusX * bowlOutlineScale(a1), z: bowl.z + Math.sin(a1) * bowl.radiusZ * bowlOutlineScale(a1) },
-      0.035, 'coping'
-    );
-    edge.previous = i === 0 ? null : grindEdges[grindEdges.length - 2];
-    if (edge.previous) edge.previous.next = edge;
-    edge.next = i === 23 ? grindEdges[grindEdges.length - 24] : null;
-  }
-
-  // A clean, slightly raised concrete deck around the bowl gives riders
-  // room to set up, drop in and approach the coping without crowding it.
-  const deckPositions=[],deckUvs=[],deckIndices=[],deckSegments=192;
-  for(let ring=0;ring<2;ring++) for(let i=0;i<=deckSegments;i++) {
-    const angle=i/deckSegments*Math.PI*2, scale=bowlOutlineScale(angle)*(ring===0?1.018:1.075);
-    const x=bowl.x+Math.cos(angle)*bowl.radiusX*scale,z=bowl.z+Math.sin(angle)*bowl.radiusZ*scale;
-    deckPositions.push(x,.005,z);deckUvs.push(x,z);
-  }
-  for(let i=0;i<deckSegments;i++){const a=i,b=i+deckSegments+1;deckIndices.push(a,a+1,b,a+1,b+1,b);}
-  const deckGeometry=new THREE.BufferGeometry();deckGeometry.setAttribute('position',new THREE.Float32BufferAttribute(deckPositions,3));deckGeometry.setAttribute('uv',new THREE.Float32BufferAttribute(deckUvs,2));deckGeometry.setIndex(deckIndices);deckGeometry.computeVertexNormals();
-  const deck=new THREE.Mesh(deckGeometry,mats.concrete);deck.material.side=THREE.DoubleSide;deck.receiveShadow=true;scene.add(deck);
-}
-buildBowl();
-
-// Recessed-looking expansion joints. Each seam is a continuous bevelled
-// channel; the dark centre sits below two raised concrete lips, not a floating line.
+const terrainGeometry = new THREE.BufferGeometry();
+terrainGeometry.setAttribute('position', new THREE.Float32BufferAttribute(terrainPositions, 3));
+terrainGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(terrainUvs, 2));
+terrainGeometry.setIndex(terrainIndices);
+terrainGeometry.computeVertexNormals();
+const terrain = new THREE.Mesh(terrainGeometry, mats.concrete);
+terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 function addConcreteJoints() {
-  const positions=[],indices=[],colors=[];
-  // Smooth, rounded U-shaped channel: the concrete rolls gently into the
-  // recess and back out, rather than forming a sharp V or square-edged slot.
-  const profile=[];
-  for(let i=0;i<=24;i++){
-    const t=-1+i/12;
-    const depression=-0.052*Math.pow(Math.max(0,1-t*t),1.7);
-    const roundedLip=0.006*Math.exp(-Math.pow((Math.abs(t)-0.88)/0.15,2));
-    profile.push([t*0.22,0.003+depression+roundedLip]);
+  const points = [];
+  for (let z = -48; z <= 48; z += 8) {
+    for (let x = -50; x < 50; x += 1) {
+      points.push(x, terrainHeightAt(x,z)+0.012,z,x+1,terrainHeightAt(x+1,z)+0.012,z);
+    }
   }
-  const emitRun=(vertical,fixed,coords)=>{
-    if(coords.length<2)return;
-    const base=positions.length/3;
-    for(const along of coords){
-      const x=vertical?fixed:along,z=vertical?along:fixed;
-      for(let p=0;p<profile.length;p++){
-        const [offset,height]=profile[p];
-        positions.push(vertical?x+offset:x,height,vertical?z:z+offset);
-        // Darker grey in the bottom, worn lighter grey along both rounded lips.
-        const edge=Math.pow(Math.abs(-1+p/12),2.2);
-        const wear=0.72+edge*0.38;
-        colors.push(0.39*wear,0.42*wear,0.43*wear);
-      }
-    }
-    for(let i=0;i<coords.length-1;i++)for(let p=0;p<profile.length-1;p++){
-      const a=base+i*profile.length+p,b=a+1,c=a+profile.length,d=c+1;
-      indices.push(a,c,b,b,c,d);
-    }
-  };
-  const addGrooveRun=(vertical,fixed,start,end)=>{
-    const steps=Math.ceil((end-start)/.4),coords=[];
-    for(let i=0;i<=steps;i++){
-      const along=start+(end-start)*i/steps,x=vertical?fixed:along,z=vertical?along:fixed;
-      const nx=(x-bowl.x)/bowl.radiusX,nz=(z-bowl.z)/bowl.radiusZ,angle=Math.atan2(nz,nx);
-      const inside=Math.hypot(nx,nz)/bowlOutlineScale(angle)<1.012;
-      if(inside){emitRun(vertical,fixed,coords.splice(0));}
-      else coords.push(along);
-    }
-    emitRun(vertical,fixed,coords);
-  };
-  for(let z=-48;z<=48;z+=8) addGrooveRun(false,z,-50,50);
-  for(let x=-48;x<=48;x+=8) addGrooveRun(true,x,-50,50);
-  const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
-  geometry.setIndex(indices);geometry.computeVertexNormals();
-  const grooves=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.99,side:THREE.DoubleSide}));
-  grooves.castShadow=true;grooves.receiveShadow=true;grooves.renderOrder=2;scene.add(grooves);
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+  scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x555b5c,transparent:true,opacity:0.32})));
 }
 addConcreteJoints();
-
-function addGraffiti(tag,position,normal,width=2.2,color='#e9e0c9') {
-  const canvas=document.createElement('canvas');canvas.width=512;canvas.height=192;const ctx=canvas.getContext('2d');
-  ctx.save();ctx.translate(256,98);ctx.rotate(-.035);ctx.font='900 112px Impact,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.lineJoin='round';
-  ctx.strokeStyle='rgba(27,22,20,.82)';ctx.lineWidth=19;ctx.strokeText(tag,0,0);ctx.fillStyle=color;ctx.fillText(tag,0,0);
-  ctx.globalAlpha=.28;ctx.strokeStyle='#f5e5d2';ctx.lineWidth=2.5;ctx.strokeText(tag,-1,-2);ctx.restore();
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
-  const material=new THREE.MeshBasicMaterial({map:texture,transparent:true,depthWrite:false,side:THREE.DoubleSide,polygonOffset:true,polygonOffsetFactor:-2});
-  const decal=new THREE.Mesh(new THREE.PlaneGeometry(width,width*.375),material),n=normal.clone().normalize(),worldUp=new THREE.Vector3(0,1,0);
-  let right=new THREE.Vector3().crossVectors(worldUp,n);if(right.lengthSq()<.01)right.set(1,0,0);else right.normalize();
-  const up=new THREE.Vector3().crossVectors(n,right).normalize();decal.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(right,up,n));
-  decal.position.copy(position).addScaledVector(n,.025);decal.renderOrder=3;scene.add(decal);return decal;
-}
-// Original skatepark tags, scattered around the bowl and street obstacles.
-for(const [tag,angle,size,color] of [['RAZE',.45,2.5,'#f0d9b8'],['KILO',1.35,2.2,'#d8e4c9'],['VEX',2.35,2.1,'#e8c8db'],['MOTEL',3.2,2.5,'#f1dfb6'],['STATIC',4.25,2.5,'#c9dce8'],['NOIR',5.35,2.2,'#f0d5bc']]){
-  const radius=.79,x=bowl.x+Math.cos(angle)*bowl.radiusX*bowlOutlineScale(angle)*radius,z=bowl.z+Math.sin(angle)*bowl.radiusZ*bowlOutlineScale(angle)*radius,y=bowlHeightAt(x,z);
-  const normal=new THREE.Vector3(-(bowlHeightAt(x+.08,z)-bowlHeightAt(x-.08,z))/.16,1,-(bowlHeightAt(x,z+.08)-bowlHeightAt(x,z-.08))/.16).normalize();
-  addGraffiti(tag,new THREE.Vector3(x,y,z),normal,size,color);
-}
-addGraffiti('GHOST',new THREE.Vector3(10,.63,-12.39),new THREE.Vector3(0,1,0),2,'#d7e6d0');
-addGraffiti('WILD',new THREE.Vector3(22,.63,11.6),new THREE.Vector3(0,1,0),1.8,'#e8cbd7');
-addGraffiti('ZERO',new THREE.Vector3(27.7,1.15,-8),new THREE.Vector3(-1,0,0),2,'#e9dfbd');
-
-function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
-  const depth = height;
-  const segments = 32;
-  const acrossSegments = 24;
-  const positions = [];
-  const uvs = [];
-  const indices = [];
-  for (let i = 0; i <= segments; i++) {
-    const t = depth * i / segments;
-    const y = height - Math.sqrt(Math.max(0.0001, height * height - t * t));
-    for (let j = 0; j <= acrossSegments; j++) {
-      const across = (j / acrossSegments - 0.5) * width;
-      if (axis === 'x') positions.push(startX + direction * t, y, startZ + across);
-      else positions.push(startX + across, y, startZ + direction * t);
-      uvs.push(i / segments * 2, j / acrossSegments * 2);
-    }
-  }
-  for (let i = 0; i < segments; i++) {
-    for (let j = 0; j < acrossSegments; j++) {
-      const a = i * (acrossSegments + 1) + j;
-      const b = a + acrossSegments + 1;
-      indices.push(a, a + 1, b, a + 1, b + 1, b);
-    }
-  }
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
-  geometry.setIndex(indices);
-  geometry.computeVertexNormals();
-  const face = new THREE.Mesh(geometry, mats.accentCoral);
-  face.material.side = THREE.DoubleSide;
-  face.castShadow = true;
-  face.receiveShadow = true;
-  scene.add(face);
-  const copingGeometry = new THREE.CylinderGeometry(0.075, 0.075, width, 12);
-  const coping = new THREE.Mesh(copingGeometry, mats.metal);
-  if (axis === 'x') {
-    // The ramp runs along X, so its lip spans the width along Z.
-    coping.rotation.x = Math.PI / 2;
-    coping.position.set(startX + direction * depth, height, startZ);
-  } else {
-    // The ramp runs along Z, so its lip spans the width along X.
-    coping.rotation.z = Math.PI / 2;
-    coping.position.set(startX, height, startZ + direction * depth);
-  }
-  coping.castShadow = true;
-  coping.receiveShadow = true;
-  scene.add(coping);
-  if (axis === 'x') addGrindEdge({ x: startX + direction * depth, z: startZ - width / 2 }, { x: startX + direction * depth, z: startZ + width / 2 }, height + 0.035, 'coping');
-  else addGrindEdge({ x: startX - width / 2, z: startZ + direction * depth }, { x: startX + width / 2, z: startZ + direction * depth }, height + 0.035, 'coping');
-  quarterPipes.push({ axis, startX, startZ, width, height, depth, direction });
-}
-function quarterPipeHeightAt(x, z) {
-  let height = -Infinity;
-  for (const qp of quarterPipes) {
-    const across = qp.axis === 'x' ? z - qp.startZ : x - qp.startX;
-    if (Math.abs(across) > qp.width / 2) continue;
-    const distance = qp.axis === 'x'
-      ? (x - qp.startX) * qp.direction
-      : (z - qp.startZ) * qp.direction;
-    if (distance < 0 || distance > qp.depth) continue;
-    const y = qp.height - Math.sqrt(Math.max(0, qp.height * qp.height - distance * distance));
-    height = Math.max(height, y);
-  }
-  return height;
-}
-function rampHeightAt(x, z) {
-  let height = -Infinity;
-  for (const ramp of rampSurfaces) {
-    const c = Math.cos(ramp.angle);
-    const sn = Math.sin(ramp.angle);
-    // Invert the rotated top-face transform to find the point in the
-    // ramp's own local footprint, then evaluate its exact inclined plane.
-    const localX = ((x - ramp.x) + sn * ramp.h / 2) / c;
-    const localZ = z - ramp.z;
-    if (Math.abs(localX) > ramp.w / 2 || Math.abs(localZ) > ramp.d / 2) continue;
-    const centerY = ramp.h / 2 - 0.02;
-    const surfaceY = centerY + sn * localX + c * ramp.h / 2;
-    height = Math.max(height, surfaceY);
-  }
-  return height;
-}
-function rampAngleAt(x, z) {
-  let angle = 0;
-  let highest = -Infinity;
-  for (const ramp of rampSurfaces) {
-    const c = Math.cos(ramp.angle);
-    const sn = Math.sin(ramp.angle);
-    const localX = ((x - ramp.x) + sn * ramp.h / 2) / c;
-    const localZ = z - ramp.z;
-    if (Math.abs(localX) > ramp.w / 2 || Math.abs(localZ) > ramp.d / 2) continue;
-    const surfaceY = ramp.h / 2 - 0.02 + sn * localX + c * ramp.h / 2;
-    if (surfaceY > highest) { highest = surfaceY; angle = ramp.angle; }
-  }
-  return angle;
-}
-function groundHeightAt(x, z) {
-  const nx=(x-bowl.x)/bowl.radiusX,nz=(z-bowl.z)/bowl.radiusZ;
-  const insideBowl=Math.hypot(nx,nz)/bowlOutlineScale(Math.atan2(nz,nx))<1;
-  const bowlY=insideBowl?bowlHeightAt(x,z):0;
-  return Math.max(bowlY,quarterPipeHeightAt(x,z),rampHeightAt(x,z),insideBowl?-Infinity:0);
-}
-const groundContactPoint = new THREE.Vector3();
-function groundContactCorrection() {
-  // Use the four actual wheel contact points. Comparing the board's lowest
-  // world-space bounding-box corner with terrain height at its centre makes
-  // a board on a curved wall look deeply embedded, causing large snap-outs.
-  let correction = -Infinity;
-  for (const wheel of wheelMeshes) {
-    wheel.getWorldPosition(groundContactPoint);
-    const surfaceY = groundHeightAt(groundContactPoint.x, groundContactPoint.z);
-    correction = Math.max(correction, surfaceY - (groundContactPoint.y - 0.145));
-  }
-  return Number.isFinite(correction) ? correction : 0;
-}
-
-// Street plaza: low, usable obstacles with clear run-ups and room to roll away.
-function bench(x, z, length = 5.2) {
-  const top = outlinedBox(scene, length, 0.18, 0.78, mats.accentCoral, x, 0.53, z);
-  top.userData.grindSurface = true;
-  const topY = 0.53 + 0.09;
-  addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x + length / 2, z: z - 0.39 }, topY);
-  addGrindEdge({ x: x - length / 2, z: z + 0.39 }, { x: x + length / 2, z: z + 0.39 }, topY);
-  addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x - length / 2, z: z + 0.39 }, topY);
-  addGrindEdge({ x: x + length / 2, z: z - 0.39 }, { x: x + length / 2, z: z + 0.39 }, topY);
-  for (const offset of [-length * 0.34, length * 0.34]) {
-    outlinedBox(scene, 0.16, 0.48, 0.58, mats.dark, x + offset, 0.24, z);
-  }
-}
-bench(10, -12, 5.4);
-bench(22, 12, 4.8);
-
-// Flat bars and a low round rail, spaced apart so their approaches do not overlap.
-rail(14, -7, 7.5, 0.62);
-rail(23, -7, 7.5, 0.82);
-rail(10, 8, 6.5, 0.58);
-
-// A mellow funbox: central manual/grind deck with shallow banks at both ends.
-const funboxDeck = outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
-funboxDeck.userData.grindSurface = true;
-const funboxTop = 0.26 + 0.52 / 2;
-for (const zEdge of [3 - 1.6, 3 + 1.6]) addGrindEdge({ x: 17 - 2.7, z: zEdge }, { x: 17 + 2.7, z: zEdge }, funboxTop);
-for (const xEdge of [17 - 2.7, 17 + 2.7]) addGrindEdge({ x: xEdge, z: 3 - 1.6 }, { x: xEdge, z: 3 + 1.6 }, funboxTop);
-ramp(4.2, 0.72, 3.2, 12.2, 0, 0.17);
-ramp(4.2, 0.72, 3.2, 21.8, 3, -0.17);
-const funboxRail = outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
-funboxRail.userData.grindSurface = true;
-addGrindEdge({ x: 14.6, z: 3 }, { x: 19.4, z: 3 }, 0.61 + 0.09, 'rail');
-
-// Two smooth concrete quarter pipes with coping, one on each side of the plaza.
-addQuarterPipe('x', 27, -8, 8.5, 2.15, 1);
-addQuarterPipe('z', 15, 17, 8.5, 2.0, 1);
-
+// No obstacle constructors are called in this foundation build.
 // Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
 scene.add(board);
@@ -1552,7 +1169,7 @@ mapPanel.appendChild(mapCard);
 mount.appendChild(mapPanel);
 
 const mapCtx = mapCanvas.getContext('2d');
-const mapBounds = { minX: -32, maxX: 34, minZ: -24, maxZ: 24 };
+const mapBounds = { minX: -50, maxX: 50, minZ: -50, maxZ: 50 };
 function mapTransform() {
   const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
   const scale = Math.min(w / (mapBounds.maxX - mapBounds.minX), h / (mapBounds.maxZ - mapBounds.minZ));
@@ -1581,44 +1198,20 @@ function drawSkateparkMap() {
     mapCtx.textAlign='center';mapCtx.textBaseline='middle';mapCtx.lineWidth=3;
     mapCtx.strokeStyle='#fff';mapCtx.strokeText(txt,px,py);mapCtx.fillStyle=color;mapCtx.fillText(txt,px,py);
   };
-  const bg=mapCtx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#b9ead8');bg.addColorStop(1,'#8fcbbb');
+  const bg=mapCtx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#b8c0bd');bg.addColorStop(1,'#777f7e');
   mapCtx.fillStyle=bg;mapCtx.fillRect(0,0,w,h);
-  mapCtx.save();mapCtx.globalAlpha=.18;mapCtx.fillStyle='#fff';
-  for(let x=8;x<w;x+=18)for(let y=8;y<h;y+=18){mapCtx.beginPath();mapCtx.arc(x,y,1.2,0,Math.PI*2);mapCtx.fill();}
-  mapCtx.restore();
-  block(0,0,64,46,'#e9d9b9');
-  const [bx,by]=p(bowl.x,bowl.z);
-  mapCtx.beginPath();mapCtx.ellipse(bx+2,by+4,bowl.radiusX*t.scale+4,bowl.radiusZ*t.scale+4,0,0,Math.PI*2);
-  mapCtx.fillStyle='#557e78';mapCtx.fill();
-  mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*t.scale,bowl.radiusZ*t.scale,0,0,Math.PI*2);
-  const bowlGrad=mapCtx.createRadialGradient(bx-5,by-5,2,bx,by,bowl.radiusX*t.scale);
-  bowlGrad.addColorStop(0,'#8bd5d1');bowlGrad.addColorStop(.55,'#55b9b7');bowlGrad.addColorStop(1,'#347e91');
-  mapCtx.fillStyle=bowlGrad;mapCtx.fill();
-  for(let i=0;i<5;i++){mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*t.scale*(.28+i*.14),bowl.radiusZ*t.scale*(.28+i*.14),0,0,Math.PI*2);mapCtx.strokeStyle='rgba(255,255,255,'+(.28-i*.035)+')';mapCtx.lineWidth=1.4;mapCtx.stroke();}
-  mapCtx.lineWidth=5;mapCtx.strokeStyle='#fff1c9';mapCtx.stroke();mapCtx.lineWidth=2;mapCtx.strokeStyle='#ef9b70';mapCtx.stroke();
-  mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*bowl.flatRatio*t.scale,bowl.radiusZ*bowl.flatRatio*t.scale,0,0,Math.PI*2);
-  mapCtx.fillStyle='#a7e1d4';mapCtx.fill();mapCtx.strokeStyle='#e7fff1';mapCtx.lineWidth=1.5;mapCtx.stroke();
-  label('THE BOWL',bowl.x,bowl.z,'#286e78',10);
-  block(10,-12,5.4,.78,'#f18b6b');block(22,12,4.8,.78,'#f18b6b');
-  label('BENCH',10,-13.1);label('BENCH',22,10.8);
-  for(const [x,z,len,col] of [[14,-7,7.5,'#f5c85c'],[23,-7,7.5,'#e989b0'],[10,8,6.5,'#8f87df']]){
-    const a=p(x,z-len/2),b=p(x,z+len/2);mapCtx.lineCap='round';mapCtx.lineWidth=5;mapCtx.strokeStyle='#527f79';
-    mapCtx.beginPath();mapCtx.moveTo(a[0]+1,a[1]+3);mapCtx.lineTo(b[0]+1,b[1]+3);mapCtx.stroke();
-    mapCtx.lineWidth=3;mapCtx.strokeStyle=col;mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
-    mapCtx.fillStyle='#fff';for(const q of [a,b]){mapCtx.beginPath();mapCtx.arc(q[0],q[1],2,0,Math.PI*2);mapCtx.fill();}
-  }
-  block(17,3,5.4,3.2,'#8d87df');block(17,3,4.8,.72,'#f5c85d');label('FUNBOX',17,5.2);
-  block(28.075,-8,2.15,8.5,'#f18b6b');block(15,21,8.5,2,'#f18b6b');
-  for(const [x,z,dx,dz] of [[28.2,-8,1,0],[15,18.5,0,1]]){
-    const a=p(x,z),b=p(x+dx*2.2,z+dz*2.2);mapCtx.lineCap='round';mapCtx.lineWidth=4;mapCtx.strokeStyle='#fff1c9';
-    mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
-  }
-  label('QUARTER',28,-13.2);label('QUARTER',20.5,21);
-  for(const [x,z,c] of [[-27,-18,'#f28d70'],[29,16,'#f3c65f'],[-27,18,'#8e8ae0']]){
-    const [px,py]=p(x,z);mapCtx.fillStyle=c;
-    for(let k=0;k<5;k++){const a=k*Math.PI*2/5;mapCtx.beginPath();mapCtx.arc(px+Math.cos(a)*4,py+Math.sin(a)*4,2.4,0,Math.PI*2);mapCtx.fill();}
-    mapCtx.beginPath();mapCtx.arc(px,py,2.2,0,Math.PI*2);mapCtx.fillStyle='#fff4d5';mapCtx.fill();
-  }
+  const polygon=(pts,fill)=>{mapCtx.beginPath();pts.forEach((q,i)=>i?mapCtx.lineTo(q[0],q[1]):mapCtx.moveTo(q[0],q[1]));mapCtx.closePath();mapCtx.fillStyle=fill;mapCtx.fill();};
+  polygon([p(-50,-50),p(-20,-50),p(-20,50),p(-50,50)],'#aeb6b3');
+  polygon([p(-20,-50),p(-10,-50),p(-10,50),p(-20,50)],'#929b98');
+  polygon([p(-10,-50),p(50,-50),p(50,50),p(-10,50)],'#737c7b');
+  mapCtx.lineWidth=1;mapCtx.strokeStyle='rgba(255,255,255,.25)';
+  for(let v=-50;v<=50;v+=5){let a=p(v,-50),b=p(v,50);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();a=p(-50,v);b=p(50,v);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();}
+  mapCtx.lineWidth=2;mapCtx.strokeStyle='rgba(255,255,255,.85)';let a=p(-15,-50),b=p(-15,50);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
+  label('UPPER LEVEL  Y=3.2m',-35,-4,'#263332',10);
+  label('LOWER LEVEL  Y=0m',20,-4,'#f1f2ed',10);
+  label('SLOPED CONNECTION',-15,19,'#263332',8);
+  mapCtx.font='10px Arial';mapCtx.fillStyle='#fff';mapCtx.textAlign='center';
+  for(let v=-50;v<=50;v+=10){let q=p(v,-50);mapCtx.fillText(String(v),q[0],Math.max(10,q[1]+10));q=p(-50,v);mapCtx.textAlign='left';mapCtx.fillText(String(v),q[0]+3,q[1]);mapCtx.textAlign='center';}
   const [sx,sy]=p(board.position.x,board.position.z);
   mapCtx.beginPath();mapCtx.arc(sx,sy,11,0,Math.PI*2);mapCtx.fillStyle='#fff8d9aa';mapCtx.fill();
   mapCtx.beginPath();mapCtx.arc(sx,sy,6.5,0,Math.PI*2);mapCtx.fillStyle='#ff6e73';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2.5;mapCtx.stroke();
