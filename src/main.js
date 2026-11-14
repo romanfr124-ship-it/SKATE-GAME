@@ -586,38 +586,7 @@ function addConcreteJoints() {
     addJoint('z', p);
   }
 
-  // Fine, irregular moss clumps sit within the dark centre of each seam.
-  const mossGeometry = new THREE.SphereGeometry(1, 7, 5);
-  const mossInstances = mossMaterials.map(material =>
-    new THREE.InstancedMesh(mossGeometry, material, 5000)
-  );
-  const mossCounts = [0, 0, 0];
-  const dummy = new THREE.Object3D();
-  for (let p = -56; p <= 56; p += 8) {
-    for (const axis of ['x', 'z']) {
-      for (let t = -59.5; t <= 59.5; t += 0.27) {
-        if (Math.random() > 0.66) continue;
-        const x = axis === 'x' ? t : p + (Math.random() - 0.5) * 0.025;
-        const z = axis === 'x' ? p + (Math.random() - 0.5) * 0.025 : t;
-        const r = 0.009 + Math.random() * 0.014;
-        dummy.position.set(x, terrainHeightAt(x, z) + 0.008, z);
-        dummy.rotation.set(Math.random() * 0.7, Math.random() * Math.PI, Math.random() * 0.7);
-        dummy.scale.set(r * (0.8 + Math.random()), r * (0.35 + Math.random() * 0.45), r * (0.8 + Math.random()));
-        dummy.updateMatrix();
-        const materialIndex = Math.floor(Math.random() * mossInstances.length);
-        const index = mossCounts[materialIndex]++;
-        if (index < 5000) mossInstances[materialIndex].setMatrixAt(index, dummy.matrix);
-      }
-    }
-  }
-  mossInstances.forEach((mesh, i) => {
-    mesh.count = mossCounts[i];
-    mesh.instanceMatrix.needsUpdate = true;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    mesh.renderOrder = 3;
-    scene.add(mesh);
-  });
+
 }
 addConcreteJoints();
 // No obstacle constructors are called in this foundation build.
