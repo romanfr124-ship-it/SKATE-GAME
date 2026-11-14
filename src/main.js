@@ -746,6 +746,9 @@ let shuvitTarget = 0;
 let grinding = false;
 let grindRail = null;
 let grindType = '';
+// Small decaying offset blends the board onto a grind instead of snapping it.
+const grindEntryOffset = new THREE.Vector3();
+let grindEntryBlend = 0;
 let airTime = 0;
 let bailTimer = 0;
 let steerInput = 0;
@@ -969,19 +972,26 @@ function tryStartGrind() {
     const lateral = Math.hypot(board.position.x - closest.x, board.position.z - closest.z);
     // The deck can bridge a rail/ledge even when its centre is not directly
     // over it. Allow the board's footprint plus a small landing tolerance.
-    if (lateral > 1.02) continue;
+    // Generous deck-footprint capture makes rails and ledges easier to lock onto.
+    if (lateral > 1.42) continue;
     const targetY = edge.y - 0.416;
-    if (board.position.y > targetY + 0.24 || board.position.y < targetY - 0.52) continue;
+    if (board.position.y > targetY + 0.48 || board.position.y < targetY - 0.82) continue;
     const boardAlignment = Math.abs(boardForward.dot(edge.tangent));
     const velocityAlong = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
     const velocityAcross = Math.abs(velocity.x * edge.tangent.z - velocity.z * edge.tangent.x);
     // Accept both a lengthwise grind and a perpendicular boardslide. The
     // approach can be across the rail; the landing redirects onto its length.
+    const entryPosition = board.position.clone();
     board.position.set(closest.x, targetY, closest.z);
     board.updateMatrixWorld(true);
     grindContactPoint.set(closest.x, edge.y, closest.z);
     grindLocalPoint.copy(grindContactPoint);
     board.worldToLocal(grindLocalPoint);
+    // Preserve the approach offset and ease it away over a fraction of a second.
+    // This avoids the hard positional snap that made grind entries feel choppy.
+    grindEntryOffset.copy(entryPosition).sub(board.position);
+    grindEntryBlend = 1;
+    board.position.copy(entryPosition);
     const parallel = boardAlignment > 0.72;
     const nearEnd = along < 0.75 || along > edge.length - 0.75;
     if (!parallel && nearEnd && speedNow < 1.5 && grindLocalPoint.x < -0.58) grindType = 'TAIL STALL';
@@ -1512,7 +1522,14 @@ function animate() {
         }
       }
       if (grinding && grindRail) {
-        board.position.set(next.x, edge.y - 0.416, next.z);
+        const entryEase = grindEntryBlend;
+        grindEntryBlend *= Math.exp(-18 * dt);
+        if (grindEntryBlend < 0.015) grindEntryBlend = 0;
+        board.position.set(
+          next.x + grindEntryOffset.x * entryEase,
+          edge.y - 0.416 + grindEntryOffset.y * entryEase,
+          next.z + grindEntryOffset.z * entryEase
+        );
         velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
         velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
       }
@@ -1558,10 +1575,15 @@ function animate() {
         const noseDirection = forwardVector();
         const pitchAlongNose = slopeX * noseDirection.x + slopeZ * noseDirection.z;
         const terrainPitch = Math.atan(pitchAlongNose);
+        // The board's local Z axis spans its width. Sample the cross-slope too,
+        // so banks and quarter-pipes tilt the deck sideways as well as nose-up/down.
+        const acrossDirection = new THREE.Vector3(-noseDirection.z, 0, noseDirection.x);
+        const slopeAcrossDeck = slopeX * acrossDirection.x + slopeZ * acrossDirection.z;
+        const terrainRoll = -Math.atan(slopeAcrossDeck);
         const targetDeckPitch = (manualActive ? manualAngle : terrainPitch) - steer * 0.075;
+        const targetDeckRoll = (manualActive ? steer * 0.17 : terrainRoll + steer * 0.035);
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 10, dt);
-        const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
-        board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetKickturnLean, manualActive ? 10 : 8, dt);
+        board.rotation.x = THREE.MathUtils.damp(board.rotation.x, targetDeckRoll, manualActive ? 10 : 9, dt);
       } else {
         // Preserve caught trick momentum after touchdown rather than freezing it.
         const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
