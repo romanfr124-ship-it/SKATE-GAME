@@ -1559,8 +1559,7 @@ function resetBoard() {
   shuvitVelocity = 0;
   shuvitRotation = 0;
   shuvitTarget = 0;
-  airPitchVelocity = 0;
-  airRollVelocity = 0;
+  airAngularVelocity.set(0, 0, 0);
   airborne = false;
   bailTimer = 0.8;
   velocity.multiplyScalar(0.25);
