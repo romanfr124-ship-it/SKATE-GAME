@@ -357,6 +357,7 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   const popImpulse = 4.35 + flickPower * 3.35;
   verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
+  flipTarget = 0;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   const popDirection = kind === 'nollie' ? -1 : 1;
   pitchVelocity = popDirection * 2.0;
@@ -374,7 +375,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     const impulse = fingerSpeed * (4.8 + distance * 0.105) * yawLeverage;
     const spinSpeed = THREE.MathUtils.clamp(impulse, 5.5, 27);
-    const rotations = THREE.MathUtils.clamp(0.72 + spinSpeed / 15 + distance / 180, 1, 2.25);
+    const rotations = THREE.MathUtils.clamp(Math.round(0.72 + spinSpeed / 15 + distance / 180), 1, 2);
     shuvitTarget = Math.PI * 2 * rotations * direction;
     shuvitVelocity = direction * spinSpeed;
   }
@@ -386,7 +387,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
     const flipImpulse = fingerSpeed * (5.2 + Math.abs(verticalDistance) * 0.11) *
       (0.78 + alongDeck * 0.42);
     const flipSpeed = THREE.MathUtils.clamp(flipImpulse, 5.5, 25);
-    const rotations = THREE.MathUtils.clamp(0.72 + flipSpeed / 16 + Math.abs(verticalDistance) / 190, 1, 2.1);
+    const rotations = THREE.MathUtils.clamp(Math.round(0.72 + flipSpeed / 16 + Math.abs(verticalDistance) / 190), 1, 2);
     flipTarget = Math.PI * 2 * rotations * flipDirection;
     flipVelocity = flipDirection * flipSpeed;
   }
