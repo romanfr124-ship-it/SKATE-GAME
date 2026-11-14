@@ -318,6 +318,7 @@ let flipVelocity = 0;
 let flipTarget = 0;
 let shuvitVelocity = 0;
 let boardTouchHold = false;
+let trickCaught = false;
 let trickStance = false;
 let shuvitRotation = 0;
 let shuvitTarget = 0;
@@ -360,6 +361,7 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   verticalVelocity = popImpulse + Math.min(velocity.length() * 0.055, 0.55);
   flipVelocity = 0;
   flipTarget = 0;
+  trickCaught = false;
   trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   const popDirection = kind === 'nollie' ? -1 : 1;
@@ -529,7 +531,7 @@ function resolveObstacleContacts() {
       const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
         Math.abs(board.rotation.z) < 0.48 &&
         (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-      const heldTrickLanding = boardTouchHold && rotationSpeed < 1.35;
+      const heldTrickLanding = trickCaught || (boardTouchHold && rotationSpeed < 1.35);
       if (airborne && rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
         airborne = false;
         verticalVelocity = 0;
@@ -570,6 +572,7 @@ function resolveObstacleContacts() {
 
 function resetBoard() {
   boardTouchHold = false;
+  trickCaught = false;
   trickStance = false;
   board.position.y = 0;
   board.rotation.x = 0;
@@ -841,6 +844,9 @@ function animate() {
       if (Math.abs(flipVelocity) < 0.025) flipVelocity = 0;
       if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
       if (Math.abs(pitchVelocity) < 0.025) pitchVelocity = 0;
+      if (boardTouchHold && Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity) < 1.35) {
+        trickCaught = true;
+      }
     }
 
     board.position.x += velocity.x * dt;
@@ -856,7 +862,7 @@ function animate() {
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
           (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-        const heldTrickLanding = boardTouchHold && rotationSpeed < 1.35;
+        const heldTrickLanding = trickCaught || (boardTouchHold && rotationSpeed < 1.35);
         if (rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
           // Keep the exact caught orientation: no auto-level, auto-rotate or snap.
           airborne = false;
