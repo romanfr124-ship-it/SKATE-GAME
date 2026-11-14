@@ -1370,7 +1370,7 @@ const boardPhysics = (() => {
   world.createCollider(
     RAPIER.ColliderDesc.cuboid(BOARD_HALF_LENGTH, BOARD_DECK_THICKNESS / 2, BOARD_HALF_WIDTH)
       .setTranslation(0, BOARD_DECK_TOP - BOARD_DECK_THICKNESS / 2, 0)
-      .setDensity(6.5)
+      .setDensity(450)
       .setFriction(0.85),
     deckBody
   );
@@ -1422,7 +1422,7 @@ const boardPhysics = (() => {
     );
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(0.048, 0.0155, 0.11)
-        .setDensity(20)
+        .setDensity(450)
         .setFriction(0.9),
       truckBody
     );
@@ -1456,7 +1456,7 @@ const boardPhysics = (() => {
       const wheelCollider = world.createCollider(
         RAPIER.ColliderDesc.cylinder(0.011, 0.027)
           .setRotation(axleRotation)
-          .setDensity(20)
+          .setDensity(1600)
           .setFriction(5.0)
           .setRestitution(0.04),
         wheelBody
