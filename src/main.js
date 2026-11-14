@@ -535,15 +535,18 @@ for (let i = 0; i < qpPath.length - 1; i++) {
   });
 }
 function baseGroundHeight(x, z) {
-  const t = THREE.MathUtils.clamp((x + 15) / 10, 0, 1);
-  const eased = t * t * (3 - 2 * t);
-  const base = 3.2 * (1 - eased);
-  const zStartT = THREE.MathUtils.clamp((z - 25) / 3, 0, 1);
+  // The raised platform occupies only the north-west corner. Its edge blends
+  // into the full-length berm, which runs from X=-20 to X=-10.
+  const xT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  const xFade = xT * xT * (3 - 2 * xT);
+  const zStartT = THREE.MathUtils.clamp((z - 22) / 3, 0, 1);
   const zStart = zStartT * zStartT * (3 - 2 * zStartT);
   const zEndT = THREE.MathUtils.clamp((63 - z) / 3, 0, 1);
   const zEnd = zEndT * zEndT * (3 - 2 * zEndT);
   const platformZFade = zStart * zEnd;
-  return 5.0 * platformZFade + base * (1 - platformZFade);
+  const secondLevel = 3.2 * (1 - xFade);
+  const raisedPlatformExtra = 1.8 * platformZFade * (1 - xFade);
+  return secondLevel + raisedPlatformExtra;
 }
 function quarterPipeSample(x, z) {
   let best = null;
