@@ -1235,7 +1235,8 @@ canvas.addEventListener('pointermove', event => {
   }
   if (!airborne && manualActive && gesture.manualGesture && Math.abs(gesture.dx) > 5) {
     // During a manual, horizontal movement controls a sharper rear-wheel pivot.
-    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58 * travelSign, -1, 1);
+    const noseManualSteer = manualSide === -1 ? -1 : 1;
+    touchSteer = THREE.MathUtils.clamp(-gesture.dx / 58 * travelSign * noseManualSteer, -1, 1);
   } else if (!airborne && Math.abs(gesture.dx) > 10 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 0.7) {
     touchSteer = THREE.MathUtils.clamp(-gesture.dx / 78 * travelSign, -1, 1);
   }
@@ -1559,7 +1560,7 @@ function animate() {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
-      heading += steer * travelSign * (manualActive ? -1 : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
+      heading += steer * travelSign * (manualActive ? -manualSide : 1) * (0.30 + currentSpeed * 0.105) * kickturnMultiplier * dt;
       // Redirect momentum toward the active travel direction. Using the
       // board's nose vector here while rolling backwards would fight the
       // existing velocity every frame and steadily bleed speed.
