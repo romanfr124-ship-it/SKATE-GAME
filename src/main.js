@@ -896,59 +896,9 @@ const deck = new THREE.Mesh(deckGeometry, mats.board);
 deck.position.y = 0.395;
 deckVisualGroup.add(deck);
 
-// Build both deck faces from the active deck outline. Their surface heights
-// are derived from the same kick and thickness profile as the solid deck,
-// so grip and artwork stay bonded to the wood even when the outline changes.
-function makeDeckTop(material, face, surfaceOffset, renderOrder) {
-  const geometry = new THREE.ShapeGeometry(deckShape, 64);
-  geometry.rotateX(Math.PI / 2);
-  // ExtrudeGeometry's bevel expands the deck's outer footprint by 8 mm.
-  // Extend the face overlays by that same amount so no bare bevelled wood
-  // remains around the grip or printed underside.
-  if (face === 'top' || face === 'bottom') {
-    geometry.scale(1.03, 1, 1.008);
-  }
-  const positions = geometry.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    const x = positions.getX(i);
-    const kick = deckKick(x);
-    const faceY = face === 'bottom'
-      ? -0.10 * deckThicknessAt(x) + kick - surfaceOffset
-      : kick + surfaceOffset;
-    positions.setY(i, faceY);
-  }
-  positions.needsUpdate = true;
-  geometry.computeVertexNormals();
-
-  // Rebuild UVs from the actual active outline, not fixed rectangular bounds.
-  const uv = geometry.attributes.uv;
-  const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
-  for (let i = 0; i < positions.count; i++) {
-    bounds.minX = Math.min(bounds.minX, positions.getX(i));
-    bounds.maxX = Math.max(bounds.maxX, positions.getX(i));
-    bounds.minZ = Math.min(bounds.minZ, positions.getZ(i));
-    bounds.maxZ = Math.max(bounds.maxZ, positions.getZ(i));
-  }
-  const width = Math.max(0.001, bounds.maxX - bounds.minX);
-  const length = Math.max(0.001, bounds.maxZ - bounds.minZ);
-  for (let i = 0; i < uv.count; i++) {
-    uv.setXY(i,
-      (positions.getX(i) - bounds.minX) / width,
-      (bounds.maxZ - positions.getZ(i)) / length
-    );
-  }
-  uv.needsUpdate = true;
-
-  const surface = new THREE.Mesh(geometry, material);
-  surface.position.y = deck.position.y;
-  surface.renderOrder = renderOrder;
-  surface.frustumCulled = false;
-  deckVisualGroup.add(surface);
-  return surface;
-}
-
-// Grip tape sits just above the wood, with its underside effectively touching
-// the deck. DoubleSide is required because the rotated shape faces downward.
+// The deck's top, sides, and underside are assigned materials directly on
+// the same extruded mesh. This prevents wood geometry from sitting over either
+// surface or z-fighting with a second graphic plane.
 function makeGripTapeTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 1024;
@@ -1011,66 +961,79 @@ const deckTopMaterial = new THREE.MeshStandardMaterial({
   roughness: 1,
   side: THREE.DoubleSide
 });
-// Assign grip directly to the deck's real upper cap. ExtrudeGeometry groups
-// both end caps together, so split that cap group by its computed face normal:
-// upward-facing triangles receive grip; downward-facing triangles stay wood.
-{
-  const geometry = deck.geometry;
-  const position = geometry.attributes.position;
-  const normal = geometry.attributes.normal;
-  const index = geometry.index;
-  const originalGroups = geometry.groups.slice();
-  const newGroups = [];
-  geometry.clearGroups();
-
-  for (const group of originalGroups) {
-    if (group.materialIndex !== 1) {
-      newGroups.push({ start: group.start, count: group.count, materialIndex: 0 });
-      continue;
-    }
-    let runStart = group.start;
-    let runMaterial = -1;
-    for (let offset = group.start; offset < group.start + group.count; offset += 3) {
-      let normalY = 0;
-      for (let corner = 0; corner < 3; corner++) {
-        const vertex = index ? index.getX(offset + corner) : offset + corner;
-        normalY += normal.getY(vertex);
-      }
-      const materialIndex = normalY > 0 ? 1 : 0;
-      if (runMaterial === -1) {
-        runMaterial = materialIndex;
-        runStart = offset;
-      } else if (materialIndex !== runMaterial) {
-        newGroups.push({ start: runStart, count: offset - runStart, materialIndex: runMaterial });
-        runStart = offset;
-        runMaterial = materialIndex;
-      }
-    }
-    if (runMaterial !== -1) {
-      newGroups.push({ start: runStart, count: group.start + group.count - runStart, materialIndex: runMaterial });
-    }
-  }
-  for (const group of newGroups) {
-    geometry.addGroup(group.start, group.count, group.materialIndex);
-  }
-  deck.material = [mats.board, deckTopMaterial];
-}
-// Grip is now part of the deck mesh itself, not a separate surface. to the deck's actual top cap below; there is no
-// separate floating mesh or expanded overlay.
-
+// Apply grip and printed artwork to the actual deck faces, including the
+// bevels. The bevel used to remain wood, which formed a raised lip over grip
+// and intruded around the edges of the underside graphic.
 const undersideGraphicMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff,
   map: boardGraphicTexture,
   metalness: 0.12,
   roughness: 0.48,
-  side: THREE.DoubleSide,
-  polygonOffset: true,
-  polygonOffsetFactor: -1,
-  polygonOffsetUnits: -1
+  side: THREE.DoubleSide
 });
-// Follow the actual tapered underside face instead of using a flat offset
-// plane, which left exposed wood where the deck kicks upward.
-makeDeckTop(undersideGraphicMaterial, 'bottom', 0.0015, 4);
+
+{
+  const geometry = deck.geometry;
+  const position = geometry.attributes.position;
+  const normal = geometry.attributes.normal;
+  const uv = geometry.attributes.uv;
+  const index = geometry.index;
+  const vertexAt = offset => index ? index.getX(offset) : offset;
+
+  let minX = Infinity, maxX = -Infinity, minZ = Infinity, maxZ = -Infinity;
+  for (let i = 0; i < position.count; i++) {
+    minX = Math.min(minX, position.getX(i));
+    maxX = Math.max(maxX, position.getX(i));
+    minZ = Math.min(minZ, position.getZ(i));
+    maxZ = Math.max(maxZ, position.getZ(i));
+  }
+  const width = Math.max(0.001, maxX - minX);
+  const length = Math.max(0.001, maxZ - minZ);
+  const originalGroups = geometry.groups.slice();
+  const assignedGroups = [];
+
+  geometry.clearGroups();
+  for (const group of originalGroups) {
+    let runStart = group.start;
+    let runMaterial = -1;
+    for (let offset = group.start; offset < group.start + group.count; offset += 3) {
+      let normalY = 0;
+      const vertices = [vertexAt(offset), vertexAt(offset + 1), vertexAt(offset + 2)];
+      for (const vertex of vertices) normalY += normal.getY(vertex) / 3;
+
+      // The upper bevel belongs to the grip; the lower bevel belongs to the
+      // printed underside. Only near-vertical perimeter faces remain wood.
+      const materialIndex = normalY > 0.025 ? 1 : normalY < -0.025 ? 2 : 0;
+      if (materialIndex !== 0) {
+        for (const vertex of vertices) {
+          const x = position.getX(vertex);
+          const z = position.getZ(vertex);
+          uv.setXY(vertex, (x - minX) / width, (maxZ - z) / length);
+        }
+      }
+      if (runMaterial === -1) {
+        runStart = offset;
+        runMaterial = materialIndex;
+      } else if (materialIndex !== runMaterial) {
+        assignedGroups.push({ start: runStart, count: offset - runStart, materialIndex: runMaterial });
+        runStart = offset;
+        runMaterial = materialIndex;
+      }
+    }
+    if (runMaterial !== -1) {
+      assignedGroups.push({
+        start: runStart,
+        count: group.start + group.count - runStart,
+        materialIndex: runMaterial
+      });
+    }
+  }
+  for (const group of assignedGroups) {
+    geometry.addGroup(group.start, group.count, group.materialIndex);
+  }
+  uv.needsUpdate = true;
+  deck.material = [mats.board, deckTopMaterial, undersideGraphicMaterial];
+}
 
 /* Board graphic customisation: procedural, high-resolution deck artwork. */
 const deckGraphicState = {
