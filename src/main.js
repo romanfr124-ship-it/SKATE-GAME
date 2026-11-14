@@ -2534,12 +2534,14 @@ function endEditorDrag(event){
 }
 editorStage.addEventListener('pointerup',endEditorDrag);editorStage.addEventListener('pointercancel',endEditorDrag);
 function updateEditorPreview(dt){
-  if(!editorPreviewActive||!editorTargetRotation)return;
-  board.rotation.x=THREE.MathUtils.damp(board.rotation.x,editorTargetRotation.x,7,dt);
-  board.rotation.y=THREE.MathUtils.damp(board.rotation.y,editorTargetRotation.y,7,dt);
-  board.rotation.z=THREE.MathUtils.damp(board.rotation.z,editorTargetRotation.z,7,dt);
-  if(Math.abs(board.rotation.x-editorTargetRotation.x)+Math.abs(board.rotation.y-editorTargetRotation.y)+Math.abs(board.rotation.z-editorTargetRotation.z)<.004){
-    board.rotation.copy(editorTargetRotation);editorTargetRotation=null;
+  if(!editorPreviewActive)return;
+  if(editorTargetRotation){
+    board.rotation.x=THREE.MathUtils.damp(board.rotation.x,editorTargetRotation.x,7,dt);
+    board.rotation.y=THREE.MathUtils.damp(board.rotation.y,editorTargetRotation.y,7,dt);
+    board.rotation.z=THREE.MathUtils.damp(board.rotation.z,editorTargetRotation.z,7,dt);
+    if(Math.abs(board.rotation.x-editorTargetRotation.x)+Math.abs(board.rotation.y-editorTargetRotation.y)+Math.abs(board.rotation.z-editorTargetRotation.z)<.004){
+      board.rotation.copy(editorTargetRotation);editorTargetRotation=null;
+    }
   }
   updateEditorCallouts();
 }
