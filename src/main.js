@@ -960,7 +960,7 @@ function refreshDeckGraphic() {
   boardGraphicTexture.needsUpdate=true;
   undersideGraphicMaterial.map=boardGraphicTexture;
   undersideGraphicMaterial.needsUpdate=true;
-  mats.board.color.set(deckGraphicState.deckColor);
+  mats.board.color.set(0xffffff); // Preserve natural maple grain on the deck's exposed ply edge.
   deckTopMaterial.color.set(deckGraphicState.deckColor);
   deckTopMaterial.needsUpdate=true;
   mats.board.needsUpdate=true;
