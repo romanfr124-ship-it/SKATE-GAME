@@ -1274,6 +1274,9 @@ const boardPhysics = (() => {
   const trucks = [];
   const wheels = [];
   const wheelColliders = [];
+  const wheelJoints = [];
+  let commandedWheelAngularSpeed = 0;
+  let wheelDriveEnabled = false;
   const setJointContactsOff = joint => {
     if (joint && typeof joint.setContactsEnabled === 'function') joint.setContactsEnabled(false);
   };
@@ -1339,7 +1342,10 @@ const boardPhysics = (() => {
         wheelBody,
         true
       );
+      // The wheel axle is a free revolute joint. A velocity motor couples
+      // its spin to the board's measured ground speed while rolling.
       setJointContactsOff(wheelJoint);
+      wheelJoints.push(wheelJoint);
       wheels.push(wheelBody);
     }
   }
@@ -1483,7 +1489,18 @@ const boardPhysics = (() => {
     deckBody.applyTorqueImpulse(toRapierVector(worldTorque), true);
   }
 
+  function setWheelDriveSpeed(angularSpeed, enabled) {
+    commandedWheelAngularSpeed = Number.isFinite(angularSpeed) ? angularSpeed : 0;
+    wheelDriveEnabled = !!enabled;
+    for (const joint of wheelJoints) {
+      // A modest motor force prevents the wheels from free-spinning through
+      // the ground while still allowing contact forces to slow or slip them.
+      joint.configureMotorVelocity(wheelDriveEnabled ? commandedWheelAngularSpeed : 0, wheelDriveEnabled ? 0.85 : 0);
+    }
+  }
+
   return {
+    setWheelDriveSpeed,
     step(dt) {
       accumulator = Math.min(accumulator + dt, fixedStep * 4);
       const steps = Math.min(4, Math.floor(accumulator / fixedStep));
@@ -2953,22 +2970,13 @@ function animate() {
       }
     }
   }
-  // Wheel rotation follows the distance travelled, with the wheel's
-  // angular speed coupled to ground speed while rolling. In the air the
-  // wheels retain their spin and coast down gradually instead of stopping.
+  // Couple each wheel's physical axle motor to measured board speed.
+  // The motor is released during tricks, grinds and bails so the wheels can
+  // spin freely from their own angular momentum while airborne.
   const wheelRadius = 0.145;
   const forwardSpeed = velocity.x * Math.sin(heading) + velocity.z * Math.cos(heading);
-  const rolling = !airborne && !grinding && bailTimer <= 0;
-  const targetWheelAngularSpeed = rolling ? forwardSpeed / wheelRadius : null;
-  for (let i = 0; i < wheelMeshes.length; i++) {
-    if (rolling) {
-      const blend = 1 - Math.exp(-18 * dt);
-      wheelAngularSpeeds[i] += (targetWheelAngularSpeed - wheelAngularSpeeds[i]) * blend;
-    } else {
-      wheelAngularSpeeds[i] *= Math.exp(-0.12 * dt);
-    }
-    wheelMeshes[i].rotation.y += wheelAngularSpeeds[i] * dt;
-  }
+  const wheelRolling = !airborne && !grinding && bailTimer <= 0;
+  boardPhysics.setWheelDriveSpeed(forwardSpeed / wheelRadius, wheelRolling);
   if (!physicsSteppedThisFrame) boardPhysics.step(dt);
   updateFollowCamera(dt);
   renderer.render(scene, camera);
