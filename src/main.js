@@ -2337,12 +2337,40 @@ mount.appendChild(sectionPanel);
 // The editor reuses the live 3D skateboard, isolating it from the park while
 // the game is paused. The original scene and camera are restored on exit.
 const editorStage=document.createElement('div');
-editorStage.style.cssText='position:absolute;inset:66px 0 78px clamp(88px,27vw,116px);z-index:1;touch-action:none;cursor:grab;';
+editorStage.style.cssText='position:absolute;inset:62px 0 76px 0;z-index:1;touch-action:none;cursor:grab;';
 const editorHint=document.createElement('div');
 editorHint.textContent='DRAG TO ROTATE  •  LIVE 3D PREVIEW';
 editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 84px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
 editorStage.appendChild(editorHint);
 sectionPanel.appendChild(editorStage);
+const editorCallouts=document.createElement('div');
+editorCallouts.style.cssText='position:absolute;inset:62px 0 70px;z-index:4;pointer-events:none;';
+const editorCalloutSvg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+editorCalloutSvg.setAttribute('viewBox','0 0 100 100');editorCalloutSvg.setAttribute('preserveAspectRatio','none');
+editorCalloutSvg.style.cssText='position:absolute;inset:0;width:100%;height:100%;overflow:visible;';
+const callouts=[
+ {name:'Grip tape',label:'GRIP TAPE',x:3,y:17,tx:48,ty:39},
+ {name:'Deck graphics',label:'DECK GRAPHICS',x:3,y:35,tx:48,ty:52},
+ {name:'Deck shape',label:'DECK SHAPE',x:3,y:55,tx:52,ty:59},
+ {name:'Grip tape graphics',label:'GRIP GRAPHICS',x:3,y:75,tx:52,ty:43},
+ {name:'Deck colour',label:'DECK COLOUR',x:76,y:18,tx:57,ty:49},
+ {name:'Trucks',label:'TRUCKS',x:81,y:43,tx:58,ty:57},
+ {name:'Wheels',label:'WHEELS',x:81,y:68,tx:58,ty:65}
+];
+for(const c of callouts){
+ const line=document.createElementNS('http://www.w3.org/2000/svg','path');
+ line.setAttribute('d',`M ${c.x+(c.x<50?18:0)} ${c.y+4} L ${c.tx} ${c.ty}`);
+ line.setAttribute('fill','none');line.setAttribute('stroke','#40eee8');line.setAttribute('stroke-width','.32');
+ editorCalloutSvg.appendChild(line);
+ const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+ dot.setAttribute('cx',c.tx);dot.setAttribute('cy',c.ty);dot.setAttribute('r','.8');dot.setAttribute('fill','#7afff6');editorCalloutSvg.appendChild(dot);
+ const b=document.createElement('button');b.type='button';b.textContent=c.label;
+ b.style.cssText=`position:absolute;left:${c.x}%;top:${c.y}%;min-width:0;max-width:42%;padding:6px 7px;border:1px solid #42e8e2;border-radius:2px;background:rgba(7,22,29,.92);color:#eaffff;font:900 9px Arial,sans-serif;letter-spacing:.35px;box-shadow:0 2px 8px #0008;pointer-events:auto;touch-action:manipulation;`;
+ b.addEventListener('click',()=>{editorCategory=c.name;aimEditorBoard(c.name);sectionCard.style.display='block';buildDeckCustomizationUI();});
+ editorCallouts.appendChild(b);
+}
+editorCallouts.appendChild(editorCalloutSvg);
+sectionPanel.appendChild(editorCallouts);
 sectionPanel.style.background='transparent';
 sectionPanel.style.backdropFilter='none';
 sectionPanel.style.webkitBackdropFilter='none';
@@ -2364,7 +2392,7 @@ sectionTitle.style.display='none';
 sectionMessage.style.display='none';
 sectionBack.style.display='none';
 const editorColourDock=document.createElement('div');
-editorColourDock.style.cssText='position:absolute;z-index:5;left:0;right:0;bottom:0;min-height:68px;padding:7px 12px calc(env(safe-area-inset-bottom,0px) + 7px);display:flex;align-items:center;gap:10px;box-sizing:border-box;background:rgba(9,18,22,.96);border-top:1px solid #35e2dc88;box-shadow:0 -6px 20px #0007;';
+editorColourDock.style.cssText='position:absolute;z-index:5;left:0;right:0;bottom:0;min-height:58px;padding:7px 12px calc(env(safe-area-inset-bottom,0px) + 7px);display:flex;align-items:center;gap:10px;box-sizing:border-box;background:rgba(9,18,22,.96);border-top:1px solid #35e2dc88;box-shadow:0 -6px 20px #0007;';
 const editorColourLabel=document.createElement('div');
 editorColourLabel.textContent='DECK\nCOLOUR';
 editorColourLabel.style.cssText='white-space:pre-line;color:#e9ffff;font:900 9px/1.35 Arial,sans-serif;letter-spacing:.7px;';
@@ -2381,7 +2409,7 @@ editorColourDock.append(editorColourLabel,editorColourInput,editorHue);
 sectionPanel.appendChild(editorColourDock);
 sectionPanel.style.alignItems='stretch';
 sectionPanel.style.justifyContent='flex-start';
-sectionCard.style.cssText='position:relative;z-index:3;width:clamp(88px,27vw,116px);min-width:clamp(88px,27vw,116px);height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
+sectionCard.style.cssText='display:none;position:absolute;z-index:6;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:auto;max-height:34%;overflow:auto;margin:0;padding:12px 14px;border:1px solid #37e4df88;border-radius:8px;background:rgba(8,19,24,.96);color:#fff;box-shadow:0 8px 28px #0009;box-sizing:border-box;pointer-events:auto;';
 let editorPreviewActive=false, editorSavedScene=null, editorSavedCamera=null, editorSavedBoard=null;
 let editorCategory='Deck graphics', editorTargetRotation=null, editorDrag=null;
 function activateBoardEditorPreview(){
@@ -2527,21 +2555,11 @@ function editorField(label,control) {
   const wrap=document.createElement('div');wrap.append(makeEditorLabel(label),control);return wrap;
 }
 function buildDeckCustomizationUI() {
-  sectionCard.style.cssText='position:relative;z-index:3;width:clamp(88px,27vw,116px);min-width:clamp(88px,27vw,116px);height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 78px) 9px calc(env(safe-area-inset-bottom,0px) + 88px);border:0;border-right:1px solid #36d9e733;border-radius:0;background:rgba(18,27,31,.96);color:#fff;box-shadow:8px 0 26px #0005;box-sizing:border-box;';
+  sectionCard.style.cssText='display:none;position:absolute;z-index:6;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:auto;max-height:34%;overflow:auto;margin:0;padding:12px 14px;border:1px solid #37e4df88;border-radius:8px;background:rgba(8,19,24,.96);color:#fff;box-shadow:0 8px 28px #0009;box-sizing:border-box;pointer-events:auto;';
   sectionContent.replaceChildren();
   sectionTitle.textContent='BOARD CUSTOMIZATION';
   sectionMessage.textContent='Choose a component. Drag the board to inspect it from any angle.';
-  const nav=document.createElement('div');
-  nav.style.cssText='display:grid;grid-template-columns:1fr;gap:6px;margin:0 0 14px;';
-  const categories=['Deck graphics','Deck shape','Wheels','Trucks','Grip tape','Grip tape graphics','Deck colour'];
-  for(const name of categories){
-    const button=document.createElement('button');
-    button.type='button';button.textContent=name;
-    button.style.cssText='min-height:34px;padding:7px 8px;border:1px solid '+(editorCategory===name?'#28e4df':'#36d9e755')+';border-radius:3px;background:'+(editorCategory===name?'#123f48':'#0b171c')+';color:'+(editorCategory===name?'#72fff4':'#d8e6e8')+';font:800 10px Arial,sans-serif;letter-spacing:.35px;text-align:left;touch-action:manipulation;';
-    button.addEventListener('click',()=>{editorCategory=name;aimEditorBoard(name);buildDeckCustomizationUI();});
-    nav.appendChild(button);
-  }
-  sectionContent.appendChild(nav);
+  sectionCard.style.cssText='display:block;position:absolute;z-index:6;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 78px);width:auto;max-height:34%;overflow:auto;margin:0;padding:12px 14px;border:1px solid #37e4df88;border-radius:8px;background:rgba(8,19,24,.96);color:#fff;box-shadow:0 8px 28px #0009;box-sizing:border-box;pointer-events:auto;';
   if(editorCategory==='Deck graphics'){
     const intro=document.createElement('div');intro.textContent='Choose a graphic. Drag it on the board or use the position and size sliders. Pinch to resize.';
     intro.style.cssText='margin-bottom:10px;color:#c2cecb;font-size:11px;line-height:1.45;';sectionContent.appendChild(intro);
@@ -2598,6 +2616,7 @@ function openSection(title) {
     activateBoardEditorPreview();
     editorCategory='Deck graphics';
     aimEditorBoard(editorCategory);
+    sectionCard.style.display='none';
     buildDeckCustomizationUI();
   }else{
     sectionTitle.textContent=title.toUpperCase();
@@ -2633,6 +2652,7 @@ parksOption.addEventListener('click', () => openSection('Parks and missions'));
 freeFlyOption.addEventListener('click',startFreeFlight);
 sectionBack.addEventListener('click', () => {
   sectionPanel.style.display = 'none';
+  sectionCard.style.display='none';
   restoreBoardEditorPreview();
   sectionCard.style.cssText='width:min(100%,680px);max-height:92%;overflow:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
   showGameMenu();
