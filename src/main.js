@@ -1516,7 +1516,7 @@ mount.appendChild(sectionPanel);
 // The editor reuses the live 3D skateboard, isolating it from the park while
 // the game is paused. The original scene and camera are restored on exit.
 const editorStage=document.createElement('div');
-editorStage.style.cssText='position:absolute;inset:0 0 0 220px;z-index:1;touch-action:none;cursor:grab;';
+editorStage.style.cssText='position:absolute;inset:0 0 0 170px;z-index:1;touch-action:none;cursor:grab;';
 const editorHint=document.createElement('div');
 editorHint.textContent='DRAG TO ROTATE  •  LIVE 3D PREVIEW';
 editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
@@ -1525,7 +1525,7 @@ sectionPanel.appendChild(editorStage);
 sectionPanel.style.background='rgba(7,11,12,.24)';
 sectionPanel.style.alignItems='stretch';
 sectionPanel.style.justifyContent='flex-start';
-sectionCard.style.cssText='position:relative;z-index:3;width:220px;min-width:220px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 14px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
+sectionCard.style.cssText='position:relative;z-index:3;width:170px;min-width:170px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 10px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
 let editorPreviewActive=false, editorSavedScene=null, editorSavedCamera=null, editorSavedBoard=null;
 let editorCategory='Deck graphics', editorTargetRotation=null, editorDrag=null;
 function activateBoardEditorPreview(){
@@ -1540,8 +1540,8 @@ function activateBoardEditorPreview(){
   board.rotation.set(0,0,Math.PI/2);
   board.scale.setScalar(1);
   camera.up.set(0,1,0);
-  camera.position.set(-5.35,0.28,0);
-  camera.lookAt(0,0.28,0);
+  camera.position.set(-4.4,0.30,0.48);
+  camera.lookAt(0,0.30,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=board.rotation.clone();
   renderer.render(scene,camera);
@@ -1626,7 +1626,7 @@ function editorField(label,control) {
   const wrap=document.createElement('div');wrap.append(makeEditorLabel(label),control);return wrap;
 }
 function buildDeckCustomizationUI() {
-  sectionCard.style.cssText='position:relative;z-index:3;width:220px;min-width:220px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
+  sectionCard.style.cssText='position:relative;z-index:3;width:170px;min-width:170px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
   sectionContent.replaceChildren();
   sectionTitle.textContent='BOARD CUSTOMIZATION';
   sectionMessage.textContent='Choose a component. Drag the board to inspect it from any angle.';
