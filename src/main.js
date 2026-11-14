@@ -1335,14 +1335,98 @@ function updateFollowCamera(dt) {
 camera.position.set(0, 4.4, -4.8);
 camera.lookAt(0, -0.75, 6.0);
 
-// Full skatepark map. Tap any point on the plan to teleport the skater there.
-const mapButton = document.createElement('button');
-mapButton.type = 'button';
-mapButton.textContent = 'MAP';
-mapButton.setAttribute('aria-label', 'Open skatepark map');
-mapButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:20;padding:12px 18px;border:3px solid #fff;border-radius:15px;background:linear-gradient(145deg,#ff956e,#f36d83);color:#fff;font:900 12px Arial,sans-serif;letter-spacing:1.8px;text-shadow:0 2px 0 #bd5367;box-shadow:0 5px 0 #a94d62,0 8px 18px #27475a66;touch-action:manipulation;';
-mount.appendChild(mapButton);
+// The park map remains available inside the pause menu rather than on the HUD.
+let gamePaused = false;
+function pauseBoard() {
+  gamePaused = true;
+  velocity.set(0, 0, 0);
+  verticalVelocity = 0;
+  touchSteer = 0;
+  keys.clear();
+  gesture = null;
+  boardTouchHold = false;
+  manualActive = false;
+  manualAngle = 0;
+}
+const menuButton = document.createElement('button');
+menuButton.type = 'button';
+menuButton.textContent = '☰';
+menuButton.setAttribute('aria-label', 'Open game menu');
+menuButton.setAttribute('aria-expanded', 'false');
+menuButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:40;width:48px;height:46px;border:2px solid rgba(255,255,255,.9);border-radius:12px;background:rgba(28,35,37,.88);color:#fff;font:900 27px/1 Arial,sans-serif;box-shadow:0 4px 14px #0006;touch-action:manipulation;';
+mount.appendChild(menuButton);
 
+const menuPanel = document.createElement('div');
+menuPanel.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 70px);left:14px;z-index:41;display:none;min-width:230px;padding:10px;border:1px solid #ffffff66;border-radius:15px;background:rgba(25,32,34,.96);box-shadow:0 12px 32px #0008;backdrop-filter:blur(12px);font-family:Arial,sans-serif;';
+const menuTitle = document.createElement('div');
+menuTitle.textContent = 'GAME MENU';
+menuTitle.style.cssText = 'padding:8px 10px 12px;color:#aeb9b7;font-size:10px;font-weight:900;letter-spacing:2px;';
+menuPanel.appendChild(menuTitle);
+function makeMenuOption(label) {
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.textContent = label;
+  button.style.cssText = 'display:block;width:100%;padding:14px 12px;margin:3px 0;border:1px solid #ffffff20;border-radius:9px;background:#ffffff0d;color:#fff;text-align:left;font:700 14px Arial,sans-serif;letter-spacing:.3px;touch-action:manipulation;';
+  menuPanel.appendChild(button);
+  return button;
+}
+const menuMapOption = makeMenuOption('Map');
+const customizeOption = makeMenuOption('Board customization');
+const parksOption = makeMenuOption('Parks and missions');
+mount.appendChild(menuPanel);
+
+const sectionPanel = document.createElement('div');
+sectionPanel.style.cssText = 'position:absolute;inset:0;z-index:32;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 18px 18px;background:rgba(12,17,18,.76);backdrop-filter:blur(8px);font-family:Arial,sans-serif;';
+const sectionCard = document.createElement('div');
+sectionCard.style.cssText = 'width:min(100%,420px);padding:22px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;';
+const sectionTitle = document.createElement('div');
+sectionTitle.style.cssText = 'margin-bottom:12px;font-size:17px;font-weight:900;letter-spacing:1px;';
+const sectionMessage = document.createElement('div');
+sectionMessage.textContent = 'This section is ready for its features to be added.';
+sectionMessage.style.cssText = 'margin-bottom:22px;color:#c2cecb;font-size:13px;line-height:1.5;';
+const sectionBack = document.createElement('button');
+sectionBack.type = 'button';
+sectionBack.textContent = 'BACK TO MENU';
+sectionBack.style.cssText = 'padding:12px 15px;border:0;border-radius:9px;background:#e6ece9;color:#20292b;font-size:11px;font-weight:900;letter-spacing:1px;touch-action:manipulation;';
+sectionCard.append(sectionTitle, sectionMessage, sectionBack);
+sectionPanel.appendChild(sectionCard);
+mount.appendChild(sectionPanel);
+
+function openSection(title) {
+  menuPanel.style.display = 'none';
+  sectionTitle.textContent = title.toUpperCase();
+  sectionPanel.style.display = 'flex';
+}
+function showGameMenu() {
+  gamePaused = true;
+  menuButton.setAttribute('aria-expanded', 'true');
+  menuPanel.style.display = 'block';
+}
+function hideGameMenu() {
+  menuPanel.style.display = 'none';
+  menuButton.setAttribute('aria-expanded', 'false');
+  gamePaused = false;
+}
+menuButton.addEventListener('click', () => {
+  if (gamePaused && menuPanel.style.display === 'block') hideGameMenu();
+  else {
+    pauseBoard();
+    showGameMenu();
+  }
+});
+menuMapOption.addEventListener('click', () => {
+  menuPanel.style.display = 'none';
+  mapPanel.style.display = 'flex';
+  drawSkateparkMap();
+});
+customizeOption.addEventListener('click', () => openSection('Board customization'));
+parksOption.addEventListener('click', () => openSection('Parks and missions'));
+sectionBack.addEventListener('click', () => {
+  sectionPanel.style.display = 'none';
+  showGameMenu();
+});
+
+// Full skatepark map. Tap any point on the plan to teleport the skater there.
 const mapPanel = document.createElement('div');
 mapPanel.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 14px 18px;background:rgba(35,63,77,.72);backdrop-filter:blur(7px);box-sizing:border-box;';
 const mapCard = document.createElement('div');
@@ -1425,12 +1509,11 @@ function drawSkateparkMap() {
   mapCtx.beginPath();mapCtx.moveTo(sx,sy);mapCtx.lineTo(hx,hy);mapCtx.strokeStyle='#31516a';mapCtx.lineWidth=3;mapCtx.lineCap='round';mapCtx.stroke();
   label('YOU',board.position.x,board.position.z-1.7,'#e95e6c',8);
 }
-function closeParkMap() { mapPanel.style.display='none'; }
+function closeParkMap() {
+  mapPanel.style.display = 'none';
+  showGameMenu();
+}
 window.addEventListener('resize', drawSkateparkMap);
-mapButton.addEventListener('click', () => {
-  mapPanel.style.display='flex';
-  drawSkateparkMap();
-});
 mapClose.addEventListener('click', closeParkMap);
 mapPanel.addEventListener('click', event => {
   if (event.target === mapPanel) closeParkMap();
@@ -1475,6 +1558,14 @@ function animate() {
       renderer.setSize(innerWidth, innerHeight, false);
     }
     qualityCheckTime = 0; qualityFrameCount = 0;
+  }
+  // Keep rendering the park while paused, but do not advance any board,
+  // trick, camera-follow, or physics state until the menu is dismissed.
+  if (gamePaused) {
+    renderer.render(scene, camera);
+    const errorPanel = document.getElementById('load-error');
+    if (errorPanel) errorPanel.style.display = 'none';
+    return;
   }
   const keyboardTurn = (keys.has('a') || keys.has('arrowleft') ? 1 : 0) -
     (keys.has('d') || keys.has('arrowright') ? 1 : 0);
