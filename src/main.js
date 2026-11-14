@@ -1704,8 +1704,8 @@ function animate() {
         const scrapeSpeed = velocity.length();
         // Much stronger exponential scrape drag, especially as the board
         // approaches a stop. The low-speed term grows sharply near zero.
-        const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 0.7);
-        const scrapeDragRate = 0.84 * lowSpeedMultiplier;
+        const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 2.1);
+        const scrapeDragRate = 1.26 * lowSpeedMultiplier;
         velocity.multiplyScalar(Math.exp(-scrapeDragRate * dt));
         // Exponential drag approaches zero asymptotically; snap tiny residual
         // movement to a true stop so the tail can settle on the concrete.
