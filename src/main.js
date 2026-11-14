@@ -1158,7 +1158,6 @@ let speed = 0;
 let heading = 0;
 let airborne = false;
 let verticalVelocity = 0;
-let shuvitVelocity = 0;
 const airAngularVelocity = new THREE.Vector3();
 // Approximate deck moments of inertia in its local axes (scaled for gameplay).
 const deckInertia = new THREE.Vector3(0.12, 0.62, 0.72);
@@ -1166,7 +1165,6 @@ let boardTouchHold = false;
 let trickCaught = false;
 let trickStance = false;
 let shuvitRotation = 0;
-let shuvitTarget = 0;
 let grinding = false;
 let grindRail = null;
 let grindType = '';
@@ -1225,6 +1223,8 @@ function releaseGrind(side = 0, flickSpeed = 500) {
   airborne=true;airTime=0;verticalVelocity=3.9+Math.min(flickSpeed/1600,1.1);
   trickCaught=false;trickStance=false;
   board.rotation.x=0;board.rotation.z=0;
+  airAngularVelocity.set(0, 0, 0);
+  shuvitRotation = 0;
   return true;
 }
 function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
@@ -1252,21 +1252,6 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   applyDeckImpulseAtPoint(popPoint, new THREE.Vector3(0, -tailImpulseMagnitude, 0));
   grinding = false;
   grindRail = null;
-}
-function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0, touchX = 0) {
-  if (!airborne || airTime > 0.48) return;
-  // Treat the finger as applying an impulse at the point it contacts the deck.
-  // Faster, longer flicks add more angular momentum; touching nearer the nose
-  // or tail gives the same force more leverage for a horizontal-axis shuvit.
-  // Spin responds linearly to the overall finger speed. Swipe distance and
-  // deck contact position no longer multiply the impulse into sudden jumps.
-  const spinSpeed = distance * 0.012 + flickSpeed * 0.0025;
-  if (distance > 0 && spinSpeed > 0 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
-    shuvitTarget = direction;
-    shuvitVelocity += direction * spinSpeed;
-  }
-  // Vertical flicks are reserved for ollies and nollies. Airborne flicks
-  // only add shuvit rotation; no kickflip-style axis spin.
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
 // This includes the deck, trucks and wheels, so nose/tail/side impacts are detected.
@@ -1452,9 +1437,8 @@ function tryStartGrind() {
     if (!direction) direction = Math.sign(boardForward.dot(edge.tangent) || travelSign || 1);
     const grindSpeed = Math.max(1.2, Math.abs(velocityAlong), speedNow * 0.42);
     velocity.set(edge.tangent.x * direction * grindSpeed, 0, edge.tangent.z * direction * grindSpeed);
-    shuvitVelocity = 0;
+    airAngularVelocity.set(0, 0, 0);
     shuvitRotation = 0;
-    shuvitTarget = 0;
     board.rotation.x = 0;
     board.rotation.z = 0;
     grindReadout.textContent = grindType;
@@ -1500,11 +1484,6 @@ function resolveObstacleContacts() {
     }
 
     if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
-      const rotationSpeed = Math.abs(shuvitVelocity);
-      const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
-        Math.abs(board.rotation.z) < 0.48 &&
-        (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
-      const heldTrickLanding = trickCaught || (boardTouchHold && rotationSpeed < 1.35);
       if (airborne) {
         // Contact is a physical touchdown, not a trick-completion animation.
         // Preserve the board's current orientation and angular momentum even
@@ -1517,7 +1496,7 @@ function resolveObstacleContacts() {
         trickStance = false;
         heading += shuvitRotation;
         shuvitRotation = 0;
-        shuvitTarget = 0;
+        airAngularVelocity.set(0, 0, 0);
         manualActive = false;
         manualAngle = 0;
         lastLandTime = clock.elapsedTime;
@@ -1556,9 +1535,7 @@ function resetBoard() {
   board.rotation.x = 0;
   board.rotation.z = 0;
   verticalVelocity = 0;
-  shuvitVelocity = 0;
   shuvitRotation = 0;
-  shuvitTarget = 0;
   airAngularVelocity.set(0, 0, 0);
   airborne = false;
   bailTimer = 0.8;
@@ -1596,6 +1573,24 @@ function deckTouchLocalPoint(clientX, clientY) {
 function deckTouchLocalX(clientX, clientY) {
   const point = deckTouchLocalPoint(clientX, clientY);
   return point ? point.x : null;
+}
+
+// One impulse per finger movement, applied at the current contact point.
+// The cross product gives the contact point real leverage across all axes.
+function applyAirControlDelta(activeGesture, deltaX, deltaY, clientX, clientY) {
+  if (!airborne || activeGesture.deckLocalX === null) return;
+  const point = deckTouchLocalPoint(clientX, clientY);
+  if (point) {
+    activeGesture.deckLocalX = point.x;
+    activeGesture.deckLocalZ = point.z;
+  }
+  const contact = new THREE.Vector3(
+    THREE.MathUtils.clamp(activeGesture.deckLocalX, -0.92, 0.92),
+    0,
+    THREE.MathUtils.clamp(activeGesture.deckLocalZ || 0, -0.29, 0.29)
+  );
+  const impulse = new THREE.Vector3(deltaX * 0.05, -deltaY * 0.04, deltaX * 0.05);
+  applyDeckImpulseAtPoint(contact, impulse);
 }
 canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
@@ -1652,23 +1647,8 @@ canvas.addEventListener('pointermove', event => {
   const pullingNose = noseSide && gesture.dy * travelSign < -8 && verticalIntent;
   // Fast vertical flicks are ollies/nollies, not manual holds. Slow pulls
   // still activate a manual immediately on the first deliberate movement.
-  if (airborne && gesture.deckLocalX !== null) {
-    // A finger drag applies torque to the free deck while it is in the air.
-    // The accumulated angular velocity persists after the finger is lifted.
-    // Finger movement applies impulses at the actual deck contact point.
-    // A longer lever arm creates more rotation for the same flick force.
-    const contactX = THREE.MathUtils.clamp(gesture.deckLocalX || 0, -0.92, 0.92);
-    const contactZ = THREE.MathUtils.clamp(gesture.deckLocalZ || 0, -0.29, 0.29);
-    if (Math.abs(moveDy) > 0.01) {
-      const pitchLever = Math.abs(contactX) < 0.08 ? Math.sign(-moveDy) * 0.92 : contactX;
-      const pitchImpulse = -moveDy * 0.006 * deckInertia.z / pitchLever;
-      applyDeckImpulseAtPoint(new THREE.Vector3(pitchLever, 0, 0), new THREE.Vector3(0, pitchImpulse, 0));
-    }
-    if (Math.abs(moveDx) > 0.01) {
-      const rollLever = Math.abs(contactZ) < 0.06 ? Math.sign(moveDx) * 0.29 : contactZ;
-      const rollImpulse = -moveDx * 0.012 * deckInertia.x / rollLever;
-      applyDeckImpulseAtPoint(new THREE.Vector3(0, 0, rollLever), new THREE.Vector3(0, rollImpulse, 0));
-    }
+  if (airborne && gesture.deckLocalX !== null && (moveDx !== 0 || moveDy !== 0)) {
+    applyAirControlDelta(gesture, moveDx, moveDy, event.clientX, event.clientY);
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1707,34 +1687,15 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 800;
+  const releaseDx = event.clientX - g.lastX;
+  const releaseDy = event.clientY - g.lastY;
+  if (airborne && g.deckLocalX !== null && (releaseDx !== 0 || releaseDy !== 0)) {
+    applyAirControlDelta(g, releaseDx, releaseDy, event.clientX, event.clientY);
+  }
   if (grinding && quick && Math.abs(dx) > 30) {
-    // A horizontal swipe is an intentional lateral grind exit, not a shuvit.
     releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
-    // A vertical deck flick pops cleanly off the obstacle.
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000),Math.abs(dy));
-  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.6) {
-    const flickDirection=screenTurnDirection(dx);
-    flick(flickDirection,Math.abs(dx),Math.hypot(dx,dy)/elapsed*1000,0,g.deckLocalX || 0);
-  } else if (airborne && quick && Math.abs(dy) > 12) {
-    // A vertical airborne swipe flicks the deck around its long axis,
-    // producing kickflips/heelflips with strength tied to finger speed and travel.
-    const flickSpeed = Math.hypot(dx,dy) / elapsed * 1000;
-    const direction = Math.sign(dy * travelSign) || 1;
-    // A single linear impulse: faster flicks rotate faster, without a
-    // distance multiplier or an artificial minimum spin.
-    // Kickflip/heelflip torque scales linearly with swipe distance and speed.
-    // This is deliberately stronger so a normal deliberate flick can rotate
-    // the deck fully, while slower/shorter flicks still produce smaller flips.
-    const rollImpulse = Math.abs(dy) * 0.11 + flickSpeed * 0.016;
-    const contactZ = Math.abs(g.deckLocalZ || 0) < 0.06
-      ? direction * 0.29
-      : THREE.MathUtils.clamp(g.deckLocalZ, -0.29, 0.29);
-    // A kickflip flick pushes at the deck edge, producing roll torque about X.
-    applyDeckImpulseAtPoint(
-      new THREE.Vector3(0, 0, contactZ),
-      new THREE.Vector3(0, -direction * rollImpulse * deckInertia.x / contactZ, 0)
-    );
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
@@ -1742,8 +1703,7 @@ function finishGesture(event) {
     if (dy * travelSign > 0) pop('ollie', tailFlickSpeed, Math.abs(dy));
     else pop('nollie', tailFlickSpeed, Math.abs(dy));
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 1.25) {
-      flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
-        dy, g.deckLocalX || 0);
+      applyAirControlDelta(g, dx, 0, event.clientX, event.clientY);
     }
   } else if (!airborne && !grinding && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
@@ -1779,7 +1739,7 @@ addEventListener('keydown', event => {
   keys.add(key);
   if (key === ' ' && !event.repeat) pop('ollie');
   if (key === 'n' && !event.repeat) pop('nollie');
-  if ((key === 'j' || key === 'k') && (airborne || grinding) && !event.repeat) flick(key === 'j' ? -1 : 1);
+  if ((key === 'j' || key === 'k') && airborne && !event.repeat) airAngularVelocity.y += key === 'j' ? -4 : 4;
   if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.75);
 });
 addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
@@ -2236,7 +2196,7 @@ mapCanvas.addEventListener('pointerdown', event => {
   // leaves the board attached to a previous grind.
   grinding = false; grindRail = null; grindReadout.style.display='none';
   airborne = false; airAngularVelocity.set(0,0,0); verticalVelocity = 0; velocity.set(0,0,0);
-  shuvitVelocity = 0; shuvitRotation = 0; shuvitTarget = 0;
+  shuvitRotation = 0;
   manualActive = false; manualAngle = 0; boardTouchHold = false; trickCaught = false;
   bailTimer = 0;
   board.rotation.x = 0; board.rotation.z = 0;
@@ -2407,9 +2367,8 @@ function animate() {
       } else {
         // Preserve caught trick momentum after touchdown rather than freezing it.
         const groundAngularDamping = boardTouchHold ? 8.5 : 1.8;
-        heading += shuvitVelocity * dt;
-        const damping = Math.exp(-groundAngularDamping * dt);
-        shuvitVelocity *= damping;
+        heading += airAngularVelocity.y * dt;
+        airAngularVelocity.y *= Math.exp(-groundAngularDamping * dt);
       }
     } else if (airborne) {
       // Limited air control; momentum remains mostly conserved.
@@ -2419,22 +2378,15 @@ function animate() {
       // Free angular momentum: no preset rotation target or automatic snap.
       // Air drag slows the board gradually; touching the deck adds strong,
       // smooth damping so the player can catch and hold unusual orientations.
-      const angularDamping = boardTouchHold ? 7.5 : 1.15;
-      shuvitVelocity *= Math.exp(-angularDamping * dt);
-      shuvitRotation += shuvitVelocity * dt;
-      // Integrate angular velocity on both deck axes. Air resistance gradually
-      // removes energy; a hand on the deck adds damping without locking rotation.
+      // All three axes share one angular-velocity state. Reverse finger
+      // movement applies opposing torque; release leaves momentum intact.
+      shuvitRotation += airAngularVelocity.y * dt;
       board.rotation.z += airAngularVelocity.z * dt;
       board.rotation.x += airAngularVelocity.x * dt;
-      const deckAirDamping = boardTouchHold ? 1.35 : 0.42;
-      airAngularVelocity.x *= Math.exp(-deckAirDamping * dt);
-      airAngularVelocity.z *= Math.exp(-deckAirDamping * dt);
-      if (Math.abs(airAngularVelocity.x) < 0.015) airAngularVelocity.x = 0;
-      if (Math.abs(airAngularVelocity.z) < 0.015) airAngularVelocity.z = 0;
-      if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
-      if (boardTouchHold && Math.abs(shuvitVelocity) < 1.35) {
-        trickCaught = true;
-      }
+      const deckAirDamping = boardTouchHold ? 0.7 : 0.42;
+      airAngularVelocity.multiplyScalar(Math.exp(-deckAirDamping * dt));
+      if (airAngularVelocity.lengthSq() < 0.0004) airAngularVelocity.set(0, 0, 0);
+      if (boardTouchHold && airAngularVelocity.length() < 1.35) trickCaught = true;
     }
 
     // Update yaw before terrain and obstacle contact tests. Previously the
@@ -2461,10 +2413,6 @@ function animate() {
       const groundCorrection = groundContactCorrection();
       if (groundCorrection >= 0 && verticalVelocity < 0) {
         board.position.y += groundCorrection;
-        const rotationSpeed = Math.abs(shuvitVelocity);
-        const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
-          Math.abs(board.rotation.z) < 0.48 &&
-          (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
         // Let the deck touch down in whatever orientation its momentum gives
         // it. No forced catch, rotation threshold, snap-to-upright or bail.
         airborne = false;
@@ -2476,7 +2424,7 @@ function animate() {
         trickStance = false;
         heading += shuvitRotation;
         shuvitRotation = 0;
-        shuvitTarget = 0;
+        airAngularVelocity.set(0, 0, 0);
         manualActive = false;
         manualAngle = 0;
         lastLandTime = clock.elapsedTime;
