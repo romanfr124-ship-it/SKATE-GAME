@@ -959,6 +959,24 @@ for (const x of [-0.69, 0.69]) {
     wheelVisual.add(wheel);
     wheelMeshes.push(wheel);
 
+    // Small uneven rubber scuffs around the tread make wheel rotation obvious.
+    // They are children of the wheel body, so the marks spin with the wheel.
+    const treadScuffMaterials = [
+      new THREE.MeshStandardMaterial({ color: 0x77736b, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: 0xaaa397, roughness: 1 }),
+      new THREE.MeshStandardMaterial({ color: 0x343434, roughness: 1 })
+    ];
+    const scuffGeometry = new THREE.SphereGeometry(1, 8, 6);
+    for (let mark = 0; mark < 9; mark++) {
+      const angle = (mark / 9) * Math.PI * 2 + (mark % 3) * 0.11;
+      const radius = 0.133 + (mark % 2) * 0.001;
+      const scuff = new THREE.Mesh(scuffGeometry, treadScuffMaterials[mark % treadScuffMaterials.length]);
+      scuff.position.set(Math.cos(angle) * radius, Math.sin(angle) * radius, ((mark % 3) - 1) * 0.025);
+      scuff.scale.set(0.0035, 0.010 + (mark % 3) * 0.002, 0.006);
+      scuff.rotation.z = angle;
+      wheelVisual.add(scuff);
+    }
+
     for (const side of [-1,1]) {
       const sideDisc = (radius, depth, material, offset) => {
         const disc = new THREE.Mesh(new THREE.CylinderGeometry(radius,radius,depth,32),material);
