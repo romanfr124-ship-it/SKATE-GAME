@@ -306,7 +306,7 @@ function groundHeightAt(x, z) {
 function bench(x, z, length = 5.2) {
   const top = outlinedBox(scene, length, 0.18, 0.78, mats.metal, x, 0.53, z);
   top.userData.grindSurface = true;
-  const topY = 0.53 + 0.09 + 0.416;
+  const topY = 0.53 + 0.09;
   addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x + length / 2, z: z - 0.39 }, topY);
   addGrindEdge({ x: x - length / 2, z: z + 0.39 }, { x: x + length / 2, z: z + 0.39 }, topY);
   addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x - length / 2, z: z + 0.39 }, topY);
@@ -326,14 +326,14 @@ rail(10, 8, 6.5, 0.58);
 // A mellow funbox: central manual/grind deck with shallow banks at both ends.
 const funboxDeck = outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
 funboxDeck.userData.grindSurface = true;
-const funboxTop = 0.26 + 0.52 / 2 + 0.416;
+const funboxTop = 0.26 + 0.52 / 2;
 for (const zEdge of [3 - 1.6, 3 + 1.6]) addGrindEdge({ x: 17 - 2.7, z: zEdge }, { x: 17 + 2.7, z: zEdge }, funboxTop);
 for (const xEdge of [17 - 2.7, 17 + 2.7]) addGrindEdge({ x: xEdge, z: 3 - 1.6 }, { x: xEdge, z: 3 + 1.6 }, funboxTop);
 ramp(4.2, 0.72, 3.2, 12.2, 0, 0.17);
 ramp(4.2, 0.72, 3.2, 21.8, 3, -0.17);
 const funboxRail = outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
 funboxRail.userData.grindSurface = true;
-addGrindEdge({ x: 14.6, z: 3 }, { x: 19.4, z: 3 }, 0.61 + 0.09 + 0.416, 'rail');
+addGrindEdge({ x: 14.6, z: 3 }, { x: 19.4, z: 3 }, 0.61 + 0.09, 'rail');
 
 // Two smooth concrete quarter pipes with coping, one on each side of the plaza.
 addQuarterPipe('x', 27, -8, 8.5, 2.15, 1);
