@@ -2174,6 +2174,12 @@ function startFreeFlight() {
   menuPanel.style.display='none'; menuButton.style.display='none';
   freeFlyYaw=camera.rotation.y || heading;
   freeFlyPitch=THREE.MathUtils.clamp(camera.rotation.x || -0.18,-1.35,1.35);
+  // Expand both the camera clipping plane and atmospheric fog range so the
+  // whole park remains visible while flying, without changing riding visuals.
+  camera.far=1000;
+  camera.updateProjectionMatrix();
+  scene.fog.near=220;
+  scene.fog.far=850;
   camera.rotation.order='YXZ';
   freeFlyOverlay.style.display='block';
 }
@@ -2182,6 +2188,10 @@ function stopFreeFlight() {
   freeFlyLookPointer=freeFlyStickPointer=null; freeFlyLastLook=null;
   freeFlyStickKnob.style.transform='translate(0px,0px)';
   freeFlyOverlay.style.display='none'; menuButton.style.display='block';
+  camera.far=180;
+  camera.updateProjectionMatrix();
+  scene.fog.near=42;
+  scene.fog.far=112;
   cameraHeading=heading; gamePaused=false;
 }
 function updateFreeFlight(dt) {
