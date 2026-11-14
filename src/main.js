@@ -15,7 +15,8 @@ try {
   panel.style.display = 'grid';
   throw error;
 }
-renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+let renderPixelRatio = Math.min(devicePixelRatio || 1, 2);
+renderer.setPixelRatio(renderPixelRatio);
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -59,44 +60,62 @@ function makePaintTexture(base, flecks, size = 256) {
 }
 const concreteTexture = makePaintTexture('#e9dfc8', ['#ffffff','#b6d9ca','#e8a77f','#9dc7d0']);
 const asphaltTexture = makePaintTexture('#83c9b7', ['#d6f0d8','#4b9c91','#f4d69a']);
-function makeDeckArtwork(grip = false) {
-  const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=512;
+function makeDeckArtwork(top = false) {
+  const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
-  if(grip){
-    ctx.fillStyle='#202a27';ctx.fillRect(0,0,1024,512);
-    let seed=314159;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
-    for(let i=0;i<4200;i++){ctx.fillStyle=rnd()>.5?'#ffffff18':'#00000024';ctx.fillRect(rnd()*1024,rnd()*512,1.5,1.5);}
-    ctx.save();ctx.translate(512,256);
-    ctx.fillStyle='#f4e7c9';ctx.beginPath();ctx.moveTo(-245,-42);ctx.lineTo(-420,-168);ctx.lineTo(-360,12);ctx.lineTo(-235,88);ctx.lineTo(-180,150);ctx.lineTo(0,190);ctx.lineTo(180,150);ctx.lineTo(235,88);ctx.lineTo(360,12);ctx.lineTo(420,-168);ctx.lineTo(245,-42);ctx.lineTo(150,-108);ctx.lineTo(0,-145);ctx.lineTo(-150,-108);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#49c5a2';ctx.beginPath();ctx.moveTo(-225,-38);ctx.lineTo(-370,-130);ctx.lineTo(-305,5);ctx.lineTo(-190,60);ctx.lineTo(-145,105);ctx.lineTo(0,140);ctx.lineTo(145,105);ctx.lineTo(190,60);ctx.lineTo(305,5);ctx.lineTo(370,-130);ctx.lineTo(225,-38);ctx.lineTo(130,-80);ctx.lineTo(0,-112);ctx.lineTo(-130,-80);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#202a27';ctx.beginPath();ctx.moveTo(-125,-12);ctx.lineTo(-42,-42);ctx.lineTo(-8,4);ctx.lineTo(-82,28);ctx.closePath();ctx.fill();
-    ctx.beginPath();ctx.moveTo(125,-12);ctx.lineTo(42,-42);ctx.lineTo(8,4);ctx.lineTo(82,28);ctx.closePath();ctx.fill();
-    ctx.fillStyle='#f3a65e';ctx.beginPath();ctx.moveTo(-42,66);ctx.lineTo(0,42);ctx.lineTo(42,66);ctx.lineTo(0,98);ctx.closePath();ctx.fill();
-    ctx.strokeStyle='#202a27';ctx.lineWidth=16;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-95,112);ctx.quadraticCurveTo(0,170,95,112);ctx.stroke();ctx.restore();
-    ctx.fillStyle='#f4e7c9';ctx.font='900 48px Arial';ctx.textAlign='center';ctx.fillText('WILD SIDE',512,475);
-    ctx.fillStyle='#49c5a2';ctx.font='900 22px Arial';ctx.fillText('SKATE CLUB  •  EST. 1998',512,42);
-  }else{
-    ctx.fillStyle='#bd8956';ctx.fillRect(0,0,1024,512);
-    for(let i=0;i<34;i++){ctx.beginPath();ctx.moveTo(0,i*16);ctx.bezierCurveTo(250,i*16-18,690,i*16+22,1024,i*16-7);ctx.strokeStyle=i%3===0?'#70462d55':'#f1c38a55';ctx.lineWidth=i%4===0?5:2;ctx.stroke();}
-    ctx.fillStyle='#e9c58f';ctx.beginPath();ctx.arc(512,256,184,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#244c3e';ctx.beginPath();ctx.arc(512,256,158,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#e9a45f';ctx.beginPath();ctx.arc(512,256,128,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle='#f6dfb6';for(let i=0;i<16;i++){const a=i*Math.PI/8;ctx.beginPath();ctx.moveTo(512+Math.cos(a)*142,256+Math.sin(a)*142);ctx.lineTo(512+Math.cos(a+.045)*178,256+Math.sin(a+.045)*178);ctx.lineTo(512+Math.cos(a-.045)*178,256+Math.sin(a-.045)*178);ctx.fill();}
-    ctx.fillStyle='#244c3e';ctx.font='900 92px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('WILD',512,230);
-    ctx.fillStyle='#f6dfb6';ctx.font='900 35px Arial';ctx.fillText('SIDE',512,305);
-    ctx.strokeStyle='#244c3e';ctx.lineWidth=22;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(115,95);ctx.bezierCurveTo(255,5,280,178,405,120);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(909,417);ctx.bezierCurveTo(769,507,744,334,619,392);ctx.stroke();
-    ctx.fillStyle='#244c3e';ctx.font='900 28px Arial';ctx.fillText('MAPLE DECK CO.',512,470);
+  const purple='#514078', deepPurple='#302747', silver='#aeb3c1', paleSilver='#d8dbe1', green='#4f9b65', darkGreen='#244d38';
+  ctx.fillStyle=purple;ctx.fillRect(0,0,2048,1024);
+  // Subtle metallic grain gives the painted deck depth without looking chrome-plated.
+  let seed=74291;const rnd=()=>{seed=(seed*1664525+1013904223)>>>0;return seed/4294967296;};
+  for(let i=0;i<5600;i++){const x=rnd()*2048,y=rnd()*1024;ctx.globalAlpha=.08+rnd()*.16;ctx.fillStyle=i%3===0?paleSilver:(i%2?silver:deepPurple);ctx.fillRect(x,y,1+rnd()*3,1+rnd()*2);}
+  ctx.globalAlpha=1;
+  // Worn clear-coat and chipped purple paint around both truck bolt patterns and ends.
+  function scratchCluster(cx,cy,spreadX,spreadY,count){
+    for(let i=0;i<count;i++){const x=cx+(rnd()-.5)*spreadX,y=cy+(rnd()-.5)*spreadY;const len=3+rnd()*22;
+      ctx.strokeStyle=rnd()>.42?paleSilver:'#241f31';ctx.globalAlpha=.28+rnd()*.48;ctx.lineWidth=.8+rnd()*2.2;
+      ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+len,y+(rnd()-.5)*5);ctx.stroke();}
+    ctx.globalAlpha=1;
   }
-  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;return texture;
+  if(top){
+    // Centred hand-illustrated skull with a living green serpent coiling around it.
+    ctx.save();ctx.translate(1024,512);
+    ctx.fillStyle='#d9d7d0';ctx.strokeStyle='#252633';ctx.lineWidth=20;
+    ctx.beginPath();ctx.moveTo(-155,-170);ctx.quadraticCurveTo(-205,-310,-55,-330);ctx.quadraticCurveTo(110,-370,175,-220);ctx.quadraticCurveTo(225,-95,145,25);ctx.lineTo(95,145);ctx.lineTo(-95,145);ctx.lineTo(-160,20);ctx.quadraticCurveTo(-220,-70,-155,-170);ctx.closePath();ctx.fill();ctx.stroke();
+    ctx.fillStyle='#302b3b';ctx.beginPath();ctx.ellipse(-78,-75,47,61,-.2,0,Math.PI*2);ctx.ellipse(78,-75,47,61,.2,0,Math.PI*2);ctx.fill();
+    ctx.beginPath();ctx.moveTo(-24,22);ctx.lineTo(0,-5);ctx.lineTo(24,22);ctx.lineTo(0,48);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#514078';for(let j=0;j<6;j++){ctx.fillRect(-75+j*30,105,18,54);}
+    ctx.strokeStyle='#252633';ctx.lineWidth=13;ctx.beginPath();ctx.moveTo(-112,165);ctx.lineTo(112,165);ctx.stroke();
+    // Serpent coils sweep around the skull in a bold S-shaped wrap.
+    ctx.lineCap='round';ctx.lineJoin='round';ctx.strokeStyle=darkGreen;ctx.lineWidth=92;ctx.beginPath();ctx.moveTo(-410,-255);ctx.bezierCurveTo(-280,-430,35,-410,210,-255);ctx.bezierCurveTo(390,-95,330,110,110,165);ctx.bezierCurveTo(-90,215,-300,85,-270,-65);ctx.bezierCurveTo(-245,-190,-70,-205,65,-125);ctx.stroke();
+    ctx.strokeStyle=green;ctx.lineWidth=65;ctx.beginPath();ctx.moveTo(-410,-255);ctx.bezierCurveTo(-280,-430,35,-410,210,-255);ctx.bezierCurveTo(390,-95,330,110,110,165);ctx.bezierCurveTo(-90,215,-300,85,-270,-65);ctx.bezierCurveTo(-245,-190,-70,-205,65,-125);ctx.stroke();
+    // Head and tapered tail, deliberately kept inside the deck silhouette.
+    ctx.fillStyle=green;ctx.beginPath();ctx.moveTo(-410,-255);ctx.quadraticCurveTo(-475,-310,-455,-370);ctx.quadraticCurveTo(-390,-350,-350,-300);ctx.quadraticCurveTo(-380,-260,-410,-255);ctx.fill();
+    ctx.fillStyle='#d8e7b9';ctx.beginPath();ctx.ellipse(-420,-307,8,13,-.5,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='#d8e7b9';ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(-435,-340);ctx.lineTo(-450,-363);ctx.moveTo(-405,-344);ctx.lineTo(-410,-370);ctx.stroke();
+    ctx.strokeStyle=darkGreen;ctx.lineWidth=9;ctx.beginPath();ctx.moveTo(65,-125);ctx.quadraticCurveTo(155,-70,250,-15);ctx.stroke();
+    ctx.restore();
+    ctx.fillStyle=paleSilver;ctx.font='900 48px Georgia';ctx.textAlign='center';ctx.fillText('SERPENT SOCIETY',1024,82);
+    ctx.fillStyle='#d8d1e8';ctx.font='bold 27px Arial';ctx.fillText('PURPLE HAZE • DECK SERIES',1024,958);
+    scratchCluster(160,210,230,250,110);scratchCluster(1888,210,230,250,110);
+    scratchCluster(90,500,120,430,80);scratchCluster(1958,500,120,430,80);
+  } else {
+    // Underside: restrained metallic silver pinstripes and matching worn ends.
+    ctx.strokeStyle='#aeb3c188';ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(220,170);ctx.bezierCurveTo(620,60,1428,60,1828,170);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(220,854);ctx.bezierCurveTo(620,964,1428,964,1828,854);ctx.stroke();
+    scratchCluster(210,240,250,260,130);scratchCluster(1838,240,250,260,130);
+    scratchCluster(210,780,250,260,130);scratchCluster(1838,780,250,260,130);
+  }
+  // Bolt-area paint wear: four small clusters around each truck, visible from either side.
+  for(const x of [640,1408])for(const y of [400,624])scratchCluster(x,y,74,72,22);
+  const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;texture.anisotropy=8;return texture;
 }
 const boardGraphicTexture=makeDeckArtwork(false);
-const gripGraphicTexture=makeDeckArtwork(true);
+const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
   floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, roughness: 1 }),
   concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.94 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x33465a, roughness: 1 }),
-  board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, roughness: 0.68 }),
+  board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshStandardMaterial({ color: 0xf4c85d, metalness: 0.28, roughness: 0.42 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
@@ -524,54 +543,24 @@ board.add(deck);
 
 const deckOutline = new THREE.LineSegments(
   new THREE.EdgesGeometry(deckGeometry, 30),
-  new THREE.LineBasicMaterial({ color: 0x35495e })
+  new THREE.LineBasicMaterial({ color: 0xaaa9b8 })
 );
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
 
-// The deck itself has a black top with a very slim exposed white rim.
-// Both top layers are generated from the exact deck outline, so the edges
-// follow the nose, tail and side curves without separate grip-tape geometry.
-function makeDeckTop(scaleX, scaleZ, material, yOffset, renderOrder) {
-  const geometry = new THREE.ShapeGeometry(deckShape, 48);
-  const positions = geometry.attributes.position;
-  for (let i = 0; i < positions.count; i++) {
-    positions.setX(i, positions.getX(i) * scaleX);
-    positions.setY(i, positions.getY(i) * scaleZ);
-  }
-  positions.needsUpdate = true;
-  geometry.rotateX(Math.PI / 2);
-  curveDeckGeometry(geometry);
-  const surface = new THREE.Mesh(geometry, material);
-  surface.position.y = deck.position.y + yOffset;
-  surface.renderOrder = renderOrder;
-  board.add(surface);
-  return surface;
-}
-
-const deckTopWhite = new THREE.MeshBasicMaterial({
-  color: 0xd8d8d8,
+// The deck has no grip-tape layer: its purple painted top is fully exposed.
+const deckTopMaterial = new THREE.MeshStandardMaterial({
+  color: 0xffffff,
+  map: deckTopGraphicTexture,
+  metalness: 0.12,
+  roughness: 0.48,
   side: THREE.DoubleSide,
   polygonOffset: true,
   polygonOffsetFactor: -1,
   polygonOffsetUnits: -1,
   depthWrite: false
 });
-const deckTopBlack = new THREE.MeshBasicMaterial({
-  color: 0xffffff,
-  map: gripGraphicTexture,
-  side: THREE.DoubleSide,
-  polygonOffset: true,
-  polygonOffsetFactor: -2,
-  polygonOffsetUnits: -2,
-  depthWrite: false
-});
-
-// White underlayer leaves only a fine border visible around the black top.
-makeDeckTop(0.992, 0.985, deckTopWhite, 0.006, 2);
-makeDeckTop(0.972, 0.955, deckTopBlack, 0.009, 3);
-
-// The complete custom grip graphic is painted into gripGraphicTexture.
+makeDeckTop(0.992, 0.985, deckTopMaterial, 0.009, 3);
 
 // Trucks: base plates, hangers, axles and kingpins.
 const wheelMeshes = [];
@@ -1319,9 +1308,25 @@ mapCanvas.addEventListener('pointerdown', event => {
 });
 
 const clock = new THREE.Clock();
+let qualityCheckTime = 0;
+let qualityFrameCount = 0;
+let adaptivePixelRatio = renderPixelRatio;
 function animate() {
   requestAnimationFrame(animate);
   const dt = Math.min(clock.getDelta(), 0.025);
+  qualityCheckTime += dt;
+  qualityFrameCount++;
+  if (qualityCheckTime >= 1.5) {
+    const measuredFps = qualityFrameCount / qualityCheckTime;
+    const maxRatio = Math.min(devicePixelRatio || 1, 2);
+    if (measuredFps < 48 && adaptivePixelRatio > 1.15) adaptivePixelRatio = Math.max(1.15, adaptivePixelRatio - 0.15);
+    else if (measuredFps > 57 && adaptivePixelRatio < maxRatio) adaptivePixelRatio = Math.min(maxRatio, adaptivePixelRatio + 0.1);
+    if (Math.abs(renderer.getPixelRatio() - adaptivePixelRatio) > 0.02) {
+      renderer.setPixelRatio(adaptivePixelRatio);
+      renderer.setSize(innerWidth, innerHeight, false);
+    }
+    qualityCheckTime = 0; qualityFrameCount = 0;
+  }
   const keyboardTurn = (keys.has('a') || keys.has('arrowleft') ? 1 : 0) -
     (keys.has('d') || keys.has('arrowright') ? 1 : 0);
   const steer = Math.abs(keyboardTurn) > 0 ? keyboardTurn : touchSteer;
@@ -1506,5 +1511,6 @@ addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
-  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.25));
+  renderPixelRatio = Math.min(devicePixelRatio || 1, 2);
+  renderer.setPixelRatio(renderPixelRatio);
 });
