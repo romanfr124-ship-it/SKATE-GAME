@@ -37,6 +37,7 @@ const mats = {
 };
 
 const solidObstacles = [];
+const grindRails = [];
 
 function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const geometry = new THREE.BoxGeometry(w, h, d);
@@ -80,14 +81,18 @@ function rail(x, z, length, height = 0.82) {
   const rod = new THREE.Mesh(geometry, mats.metal);
   rod.rotation.x = Math.PI / 2;
   rod.position.set(x, height, z);
+  rod.userData.isRail = true;
+  rod.userData.railLength = length;
   scene.add(rod);
   solidObstacles.push(rod);
+  grindRails.push(rod);
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
   edge.rotation.copy(rod.rotation);
   edge.position.copy(rod.position);
   scene.add(edge);
   for (const offset of [-length / 2 + 0.18, length / 2 - 0.18]) {
-    outlinedBox(scene, 0.13, height, 0.13, mats.dark, x, height / 2, z + offset);
+    const support = outlinedBox(scene, 0.13, height, 0.13, mats.dark, x, height / 2, z + offset);
+    support.userData.isRailSupport = true;
   }
 }
 
@@ -323,7 +328,9 @@ let trickCaught = false;
 let trickStance = false;
 let shuvitRotation = 0;
 let shuvitTarget = 0;
-let pitchVelocity = 0;
+let grinding = false;
+let grindRail = null;
+let grindType = '';
 let airTime = 0;
 let bailTimer = 0;
 let steerInput = 0;
@@ -366,9 +373,10 @@ function pop(kind = 'ollie', flickSpeed = 650) {
   trickStance = false;
   // A tail pop (ollie) and nose pop (nollie) use opposite deck-pitch impulses.
   const popDirection = (kind === 'nollie' ? -1 : 1) * travelSign;
-  pitchVelocity = popDirection * 2.0;
   board.rotation.x = 0;
-  board.rotation.z = popDirection * 0.12;
+  board.rotation.z = 0;
+  grinding = false;
+  grindRail = null;
 }
 function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0, touchX = 0) {
   if (!airborne || airTime > 0.48) return;
@@ -384,16 +392,8 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
     shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
     shuvitVelocity += direction * spinSpeed;
   }
-  // A flick across the board's width creates a kickflip/heelflip.
-  // Its direction comes from the swipe, and its leverage from the touch point.
-  if (Math.abs(verticalDistance) > 22 && Math.abs(flipVelocity) < 0.1) {
-    const flipDirection = verticalDistance > 0 ? 1 : -1;
-    const flipImpulse = fingerSpeed * (3.0 + Math.abs(verticalDistance) * 0.065) *
-      (0.78 + alongDeck * 0.42);
-    const flipSpeed = THREE.MathUtils.clamp(flipImpulse * 3, 8.4, 39);
-    flipTarget = flipDirection; // non-zero marker: a flip impulse is active
-    flipVelocity += flipDirection * flipSpeed;
-  }
+  // Vertical flicks are reserved for ollies and nollies. Airborne flicks
+  // only add shuvit rotation; no kickflip-style axis spin.
 }
 // Resolve contact using the complete skateboard model bounds, not just its centre.
 // This includes the deck, trucks and wheels, so nose/tail/side impacts are detected.
@@ -414,6 +414,11 @@ for (let i = 0; i < 15; i++) satAxes.push(new THREE.Vector3());
 const collisionNormal = new THREE.Vector3();
 const boardWorldBounds = new THREE.Box3();
 let contactObstacle = null;
+const grindContactPoint = new THREE.Vector3();
+const grindLocalPoint = new THREE.Vector3();
+const grindReadout = document.createElement('div');
+grindReadout.style.cssText = 'position:absolute;left:50%;top:12%;transform:translateX(-50%);color:white;font:600 14px Arial,sans-serif;letter-spacing:2px;text-shadow:0 1px 5px #000;pointer-events:none;display:none;z-index:5;';
+mount.appendChild(grindReadout);
 let groundedRampAngle = 0;
 let groundedRampNormal = new THREE.Vector3(0, 1, 0);
 
@@ -521,6 +526,51 @@ function getObbContact() {
   return bestOverlap;
 }
 
+function tryStartGrind() {
+  if (!airborne || verticalVelocity >= 0) return false;
+  for (const rail of grindRails) {
+    const halfLength = rail.userData.railLength / 2;
+    if (Math.abs(board.position.x - rail.position.x) > 0.43 ||
+        Math.abs(board.position.z - rail.position.z) > halfLength - 0.22) continue;
+    const railTop = rail.position.y + 0.055;
+    const targetY = railTop - 0.416;
+    if (board.position.y > targetY + 0.12 || board.position.y < targetY - 0.38) continue;
+    board.position.x = rail.position.x;
+    board.position.y = targetY;
+    board.updateMatrixWorld(true);
+    grindContactPoint.set(rail.position.x, railTop, board.position.z);
+    grindLocalPoint.copy(grindContactPoint);
+    board.worldToLocal(grindLocalPoint);
+    const parallel = Math.abs(forwardVector().z) > 0.72;
+    const speedNow = velocity.length();
+    const nearEnd = Math.abs(board.position.z - rail.position.z) > halfLength - 0.8;
+    if (!parallel && nearEnd && speedNow < 1.5 && grindLocalPoint.x < -0.58) grindType = 'TAIL STALL';
+    else if (!parallel && grindLocalPoint.x < -0.58) grindType = 'TAILSLIDE';
+    else if (!parallel && grindLocalPoint.x > 0.58) grindType = 'NOSESLIDE';
+    else if (!parallel) grindType = 'BOARDSLIDE';
+    else if (Math.abs(grindLocalPoint.z) < 0.16) grindType = '50-50';
+    else if (grindLocalPoint.z > 0) grindType = '5-0';
+    else if (travelSign > 0) grindType = 'CROOKED';
+    else grindType = 'SALAD';
+    grinding = true;
+    grindRail = rail;
+    airborne = false;
+    verticalVelocity = 0;
+    velocity.x = 0;
+    if (Math.abs(velocity.z) < 0.45) velocity.z = travelSign * Math.max(1.2, speedNow);
+    flipVelocity = 0;
+    shuvitVelocity = 0;
+    shuvitRotation = 0;
+    shuvitTarget = 0;
+    board.rotation.x = 0;
+    board.rotation.z = 0;
+    grindReadout.textContent = grindType;
+    grindReadout.style.display = 'block';
+    return true;
+  }
+  return false;
+}
+
 function resolveObstacleContacts() {
   groundedRampAngle = 0;
   groundedRampNormal.set(0, 1, 0);
@@ -528,6 +578,7 @@ function resolveObstacleContacts() {
   for (let pass = 0; pass < 2; pass++) {
     const penetration = getObbContact();
     if (penetration === null) break;
+    if (grinding && (contactObstacle?.userData.isRail || contactObstacle?.userData.isRailSupport)) break;
 
     const separation = penetration + 0.004;
     board.position.addScaledVector(collisionNormal, separation);
@@ -602,6 +653,9 @@ function resetBoard() {
   boardTouchHold = false;
   trickCaught = false;
   trickStance = false;
+  grinding = false;
+  grindRail = null;
+  grindReadout.style.display = 'none';
   board.position.y = 0;
   board.rotation.x = 0;
   board.rotation.z = 0;
@@ -611,7 +665,6 @@ function resetBoard() {
   shuvitVelocity = 0;
   shuvitRotation = 0;
   shuvitTarget = 0;
-  pitchVelocity = 0;
   airborne = false;
   bailTimer = 0.8;
   velocity.multiplyScalar(0.25);
@@ -731,14 +784,12 @@ function finishGesture(event) {
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
   const quick = elapsed < 420;
-  if (airborne && quick && Math.hypot(dx, dy) > 30 &&
-      (g.manualPopTriggered || Math.hypot(dx, dy) > 35)) {
-    // The full flick vector determines the trick: sideways adds shuvit torque,
-    // vertical adds kickflip/heelflip torque, and diagonal flicks combine them.
+  if ((airborne || grinding) && quick && Math.abs(dx) > 30) {
+    // Airborne and grind flicks now only create shuvit rotation.
     const flickDirection = Math.abs(dx) > 4 ? screenTurnDirection(dx) : (dy > 0 ? 1 : -1);
     flick(flickDirection, Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
-      dy, g.deckLocalX || 0);
-  } else if (!airborne && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
+      0, g.deckLocalX || 0);
+  } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
     const tailFlickSpeed = g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000);
@@ -748,7 +799,7 @@ function finishGesture(event) {
       flick(screenTurnDirection(dx), Math.abs(dx), g.lastMoveSpeed || (Math.hypot(dx, dy) / elapsed * 1000),
         dy, g.deckLocalX || 0);
     }
-  } else if (!airborne && g.deckLocalX === null && Math.abs(dy) > 38) {
+  } else if (!airborne && !grinding && g.deckLocalX === null && Math.abs(dy) > 38) {
     // Vertical swipes beginning beside the board are pushes, not tricks.
     // Drag down = forward; drag up = backward, regardless of swipe speed.
     const direction = dy > 0 ? 1 : -1;
@@ -780,7 +831,7 @@ addEventListener('keydown', event => {
   keys.add(key);
   if (key === ' ' && !event.repeat) pop('ollie');
   if (key === 'n' && !event.repeat) pop('nollie');
-  if ((key === 'j' || key === 'k') && airborne && !event.repeat) flick(key === 'j' ? -1 : 1);
+  if ((key === 'j' || key === 'k') && (airborne || grinding) && !event.repeat) flick(key === 'j' ? -1 : 1);
   if ((key === 'w' || key === 'arrowup') && !event.repeat) push(2.2);
 });
 addEventListener('keyup', event => keys.delete(event.key.toLowerCase()));
@@ -840,7 +891,19 @@ function animate() {
       if (alongBoard < -0.12) travelSign = -1;
       else if (alongBoard > 0.12) travelSign = 1;
     }
-    if (!airborne) {
+    if (grinding && grindRail) {
+      board.position.x = grindRail.position.x;
+      board.position.y = grindRail.position.y + 0.055 - 0.416;
+      board.position.z += velocity.z * dt;
+      velocity.z *= Math.exp(-0.075 * dt);
+      if (Math.abs(board.position.z - grindRail.position.z) > grindRail.userData.railLength / 2 - 0.12) {
+        grinding = false;
+        grindRail = null;
+        grindReadout.style.display = 'none';
+        board.position.y = Math.max(0, board.position.y - 0.055);
+      }
+    }
+    if (!airborne && !grinding) {
       // A manual kickturn pivots sharply around the rear wheels while the
       // tail stays lifted; normal carving keeps its usual, smoother response.
       const kickturnMultiplier = manualActive ? 2.0 : 1;
@@ -890,16 +953,10 @@ function animate() {
       // Air drag slows the board gradually; touching the deck adds strong,
       // smooth damping so the player can catch and hold unusual orientations.
       const angularDamping = boardTouchHold ? 7.5 : 1.15;
-      flipVelocity *= Math.exp(-angularDamping * dt);
       shuvitVelocity *= Math.exp(-angularDamping * dt);
-      pitchVelocity *= Math.exp((boardTouchHold ? -8.5 : -1.7) * dt);
-      board.rotation.x += flipVelocity * dt;
       shuvitRotation += shuvitVelocity * dt;
-      board.rotation.z += pitchVelocity * dt;
-      if (Math.abs(flipVelocity) < 0.025) flipVelocity = 0;
       if (Math.abs(shuvitVelocity) < 0.025) shuvitVelocity = 0;
-      if (Math.abs(pitchVelocity) < 0.025) pitchVelocity = 0;
-      if (boardTouchHold && Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity) < 1.35) {
+      if (boardTouchHold && Math.abs(shuvitVelocity) < 1.35) {
         trickCaught = true;
       }
     }
@@ -911,13 +968,14 @@ function animate() {
     if (airborne) {
       board.position.y += verticalVelocity * dt;
       verticalVelocity -= gravity * dt;
+      tryStartGrind();
       // Use the actual rotated board geometry for ground contact. The board
       // origin is not the bottom of the wheels/deck, especially during tricks.
       board.updateMatrixWorld(true);
       boardWorldBounds.setFromObject(board);
       if (boardWorldBounds.min.y <= 0 && verticalVelocity < 0) {
         board.position.y -= boardWorldBounds.min.y;
-        const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
+        const rotationSpeed = Math.abs(shuvitVelocity);
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
           (!shuvitTarget || Math.abs(Math.sin(shuvitRotation / 2)) < 0.34);
