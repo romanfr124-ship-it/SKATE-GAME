@@ -1513,6 +1513,93 @@ sectionCard.append(sectionTitle, sectionMessage, sectionContent, sectionBack);
 sectionPanel.appendChild(sectionCard);
 mount.appendChild(sectionPanel);
 
+// The editor reuses the live 3D skateboard, isolating it from the park while
+// the game is paused. The original scene and camera are restored on exit.
+const editorStage=document.createElement('div');
+editorStage.style.cssText='position:absolute;inset:0 0 0 250px;z-index:1;touch-action:none;cursor:grab;';
+const editorHint=document.createElement('div');
+editorHint.textContent='DRAG TO ROTATE  •  LIVE 3D PREVIEW';
+editorHint.style.cssText='position:absolute;right:18px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border:1px solid #ffffff30;border-radius:20px;background:#101719bb;color:#dce5e2;font:800 10px Arial,sans-serif;letter-spacing:1px;pointer-events:none;';
+editorStage.appendChild(editorHint);
+sectionPanel.appendChild(editorStage);
+sectionPanel.style.background='rgba(7,11,12,.24)';
+sectionPanel.style.alignItems='stretch';
+sectionPanel.style.justifyContent='flex-start';
+sectionCard.style.cssText='position:relative;z-index:3;width:250px;min-width:250px;height:100%;max-height:none;overflow:auto;margin:0 auto 0 0;padding:calc(env(safe-area-inset-top,0px) + 16px) 14px calc(env(safe-area-inset-bottom,0px) + 16px);border:0;border-right:1px solid #ffffff24;border-radius:0 16px 16px 0;background:rgba(20,28,30,.97);color:#fff;box-shadow:12px 0 35px #0005;box-sizing:border-box;';
+let editorPreviewActive=false, editorSavedScene=null, editorSavedCamera=null, editorSavedBoard=null;
+let editorCategory='Deck graphics', editorTargetRotation=null, editorDrag=null;
+function activateBoardEditorPreview(){
+  if(editorPreviewActive)return;
+  editorPreviewActive=true;
+  editorSavedScene={background:scene.background,children:scene.children.map(o=>({object:o,visible:o.visible}))};
+  editorSavedCamera={position:camera.position.clone(),quaternion:camera.quaternion.clone(),up:camera.up.clone(),aspect:camera.aspect};
+  editorSavedBoard={position:board.position.clone(),rotation:board.rotation.clone(),scale:board.scale.clone()};
+  for(const child of scene.children) child.visible=(child===board||child.isLight);
+  scene.background=new THREE.Color('#171e20');
+  board.position.set(0,0,0);
+  board.rotation.set(0,0,Math.PI/2);
+  board.scale.setScalar(1);
+  camera.up.set(0,1,0);
+  camera.position.set(-5.35,0.28,0);
+  camera.lookAt(0,0.28,0);
+  camera.updateProjectionMatrix();
+  editorTargetRotation=board.rotation.clone();
+  renderer.render(scene,camera);
+}
+function restoreBoardEditorPreview(){
+  if(!editorPreviewActive)return;
+  editorPreviewActive=false;
+  if(editorSavedScene){
+    scene.background=editorSavedScene.background;
+    for(const entry of editorSavedScene.children) entry.object.visible=entry.visible;
+  }
+  if(editorSavedBoard){
+    board.position.copy(editorSavedBoard.position);
+    board.rotation.copy(editorSavedBoard.rotation);
+    board.scale.copy(editorSavedBoard.scale);
+  }
+  if(editorSavedCamera){
+    camera.position.copy(editorSavedCamera.position);
+    camera.quaternion.copy(editorSavedCamera.quaternion);
+    camera.up.copy(editorSavedCamera.up);
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+  }
+  editorSavedScene=null;editorSavedCamera=null;editorSavedBoard=null;editorTargetRotation=null;
+  renderer.render(scene,camera);
+}
+function aimEditorBoard(category){
+  const underside=['Trucks','Wheels'].includes(category);
+  const target=new THREE.Euler(underside?Math.PI:0,category==='Deck shape'?0.42:0,Math.PI/2,'YXZ');
+  editorTargetRotation=target;
+}
+editorStage.addEventListener('pointerdown',event=>{
+  if(!editorPreviewActive)return;
+  editorDrag={x:event.clientX,y:event.clientY,rotation:board.rotation.clone()};
+  editorStage.setPointerCapture(event.pointerId);
+  editorStage.style.cursor='grabbing';
+});
+editorStage.addEventListener('pointermove',event=>{
+  if(!editorDrag||!editorPreviewActive)return;
+  const dx=event.clientX-editorDrag.x,dy=event.clientY-editorDrag.y;
+  board.rotation.y=editorDrag.rotation.y+dx*.012;
+  board.rotation.x=editorDrag.rotation.x+dy*.012;
+  editorTargetRotation=null;
+  renderer.render(scene,camera);
+});
+function endEditorDrag(){editorDrag=null;editorStage.style.cursor='grab';}
+editorStage.addEventListener('pointerup',endEditorDrag);
+editorStage.addEventListener('pointercancel',endEditorDrag);
+function updateEditorPreview(dt){
+  if(!editorPreviewActive||!editorTargetRotation)return;
+  board.rotation.x=THREE.MathUtils.damp(board.rotation.x,editorTargetRotation.x,7,dt);
+  board.rotation.y=THREE.MathUtils.damp(board.rotation.y,editorTargetRotation.y,7,dt);
+  board.rotation.z=THREE.MathUtils.damp(board.rotation.z,editorTargetRotation.z,7,dt);
+  if(Math.abs(board.rotation.x-editorTargetRotation.x)+Math.abs(board.rotation.y-editorTargetRotation.y)+Math.abs(board.rotation.z-editorTargetRotation.z)<.004){
+    board.rotation.copy(editorTargetRotation);editorTargetRotation=null;
+  }
+}
+
 function makeEditorLabel(text) {
   const label=document.createElement('label');
   label.textContent=text;
@@ -1540,47 +1627,66 @@ function editorField(label,control) {
 }
 function buildDeckCustomizationUI() {
   sectionContent.replaceChildren();
-  const intro=document.createElement('div');
-  intro.textContent='Choose a deck graphic and customise its colours. Changes appear on the 3D board immediately.';
-  intro.style.cssText='margin-bottom:12px;color:#c2cecb;font-size:12px;line-height:1.5;';
-  sectionContent.appendChild(intro);
-  const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti'];
-  const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
-    deckGraphicState.category=categoryOptions[i];deckGraphicState.design=0;buildDeckCustomizationUI();refreshDeckGraphic();
-  });
-  sectionContent.appendChild(editorField('Graphic category',category));
-  if(deckGraphicState.category==='Graffiti'){
-    const style=makeEditorSelect(graffitiStyleNames,deckGraphicState.graffitiStyle,i=>{deckGraphicState.graffitiStyle=i;refreshDeckGraphic();});
-    sectionContent.appendChild(editorField('Graffiti lettering style',style));
-    const message=makeEditorText(deckGraphicState.message,v=>{deckGraphicState.message=v;refreshDeckGraphic();});
-    sectionContent.appendChild(editorField('Your message (up to 24 characters)',message));
-    const fade=makeEditorSelect(fadeStyles,fadeStyles.indexOf(deckGraphicState.fade),i=>{deckGraphicState.fade=fadeStyles[i];refreshDeckGraphic();});
-    sectionContent.appendChild(editorField('Letter fill / fade effect',fade));
-    const outline=makeEditorSelect(['Black','White'],deckGraphicState.outline==='#ffffff'?1:0,i=>{deckGraphicState.outline=i?'#ffffff':'#111111';refreshDeckGraphic();});
-    sectionContent.appendChild(editorField('Letter outline',outline));
-    const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:10px;';
-    colors.append(editorField('First main colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})),editorField('Fade-to colour',makeEditorColor(deckGraphicState.colorB,v=>{deckGraphicState.colorB=v;refreshDeckGraphic();})));
-    sectionContent.appendChild(colors);
-  } else {
-    const designs=deckGraphicCatalog[deckGraphicState.category];
-    const design=makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();});
-    sectionContent.appendChild(editorField('Choose a design',design));
-    sectionContent.appendChild(editorField('Graphic accent colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
+  sectionTitle.textContent='BOARD CUSTOMIZATION';
+  sectionMessage.textContent='Choose a component. Drag the board to inspect it from any angle.';
+  const nav=document.createElement('div');
+  nav.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px;';
+  const categories=['Deck graphics','Deck shape','Wheels','Trucks','Grip tape','Grip tape graphics','Deck colour'];
+  for(const name of categories){
+    const button=document.createElement('button');
+    button.type='button';button.textContent=name;
+    button.style.cssText='min-height:38px;padding:7px 6px;border:1px solid '+(editorCategory===name?'#b8d4ca':'#ffffff22')+';border-radius:8px;background:'+(editorCategory===name?'#dce9e3':'#ffffff0b')+';color:'+(editorCategory===name?'#17211f':'#e6eeeb')+';font:800 10px Arial,sans-serif;letter-spacing:.25px;touch-action:manipulation;';
+    button.addEventListener('click',()=>{editorCategory=name;aimEditorBoard(name);buildDeckCustomizationUI();});
+    nav.appendChild(button);
   }
-  const deckColor=makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();});
-  sectionContent.appendChild(editorField('Deck base colour',deckColor));
-  const note=document.createElement('div');
-  note.textContent='Graffiti uses two selectable fill colours, a fixed natural shadow and a fixed-thickness black or white outline. The deck base colour remains independently adjustable.';
-  note.style.cssText='margin-top:12px;color:#94a5a0;font-size:11px;line-height:1.5;';
-  sectionContent.appendChild(note);
+  sectionContent.appendChild(nav);
+  if(editorCategory==='Deck graphics'){
+    const intro=document.createElement('div');intro.textContent='Choose a graphic and customise it. The 3D preview updates immediately.';
+    intro.style.cssText='margin-bottom:10px;color:#c2cecb;font-size:11px;line-height:1.45;';sectionContent.appendChild(intro);
+    const categoryOptions=['Vintage','Japanese','Psychedelic','Graffiti'];
+    const category=makeEditorSelect(categoryOptions,categoryOptions.indexOf(deckGraphicState.category),i=>{
+      deckGraphicState.category=categoryOptions[i];deckGraphicState.design=0;buildDeckCustomizationUI();refreshDeckGraphic();
+    });
+    sectionContent.appendChild(editorField('Graphic collection',category));
+    if(deckGraphicState.category==='Graffiti'){
+      sectionContent.appendChild(editorField('Lettering style',makeEditorSelect(graffitiStyleNames,deckGraphicState.graffitiStyle,i=>{deckGraphicState.graffitiStyle=i;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Your message',makeEditorText(deckGraphicState.message,v=>{deckGraphicState.message=v;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Fill effect',makeEditorSelect(fadeStyles,fadeStyles.indexOf(deckGraphicState.fade),i=>{deckGraphicState.fade=fadeStyles[i];refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Outline',makeEditorSelect(['Black','White'],deckGraphicState.outline==='#ffffff'?1:0,i=>{deckGraphicState.outline=i?'#ffffff':'#111111';refreshDeckGraphic();})));
+      const colors=document.createElement('div');colors.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:8px;';
+      colors.append(editorField('Main colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})),editorField('Fade to',makeEditorColor(deckGraphicState.colorB,v=>{deckGraphicState.colorB=v;refreshDeckGraphic();})));
+      sectionContent.appendChild(colors);
+      const note=document.createElement('div');note.textContent='Outline thickness and the natural shadow are fixed.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.4;';sectionContent.appendChild(note);
+    }else{
+      const designs=deckGraphicCatalog[deckGraphicState.category];
+      sectionContent.appendChild(editorField('Choose a design',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Graphic colour',makeEditorColor(deckGraphicState.colorA,v=>{deckGraphicState.colorA=v;refreshDeckGraphic();})));
+    }
+  }else if(editorCategory==='Deck colour'){
+    sectionContent.appendChild(editorField('Deck colour',makeEditorColor(deckGraphicState.deckColor,v=>{deckGraphicState.deckColor=v;refreshDeckGraphic();})));
+    const note=document.createElement('div');note.textContent='This changes the board colour independently of the deck artwork.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
+  }else{
+    const note=document.createElement('div');
+    note.textContent=editorCategory+' controls will be added after we decide the available options for this component. The board has moved to show it in the preview.';
+    note.style.cssText='padding:12px;border:1px solid #ffffff20;border-radius:9px;background:#ffffff08;color:#c2cecb;font-size:11px;line-height:1.5;';
+    sectionContent.appendChild(note);
+  }
 }
 function openSection(title) {
   menuPanel.style.display = 'none';
-  sectionTitle.textContent = title.toUpperCase();
-  sectionMessage.textContent = title==='Board customization' ? 'DECK GRAPHICS' : 'Parks and missions features will be designed separately.';
   sectionContent.replaceChildren();
-  if(title==='Board customization') buildDeckCustomizationUI();
   sectionPanel.style.display = 'flex';
+  if(title==='Board customization'){
+    activateBoardEditorPreview();
+    editorCategory='Deck graphics';
+    aimEditorBoard(editorCategory);
+    buildDeckCustomizationUI();
+  }else{
+    sectionTitle.textContent=title.toUpperCase();
+    sectionMessage.textContent='Parks and missions features will be designed separately.';
+    const note=document.createElement('div');note.textContent='This section is ready for its own design session.';sectionContent.appendChild(note);
+    sectionCard.style.cssText='position:relative;z-index:3;width:min(100%,680px);max-height:92%;overflow:auto;margin:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
+  }
 }
 function showGameMenu() {
   gamePaused = true;
@@ -1608,6 +1714,8 @@ customizeOption.addEventListener('click', () => openSection('Board customization
 parksOption.addEventListener('click', () => openSection('Parks and missions'));
 sectionBack.addEventListener('click', () => {
   sectionPanel.style.display = 'none';
+  restoreBoardEditorPreview();
+  sectionCard.style.cssText='width:min(100%,680px);max-height:92%;overflow:auto;padding:18px;border:1px solid #ffffff55;border-radius:18px;background:#20292b;color:#fff;box-shadow:0 16px 42px #0008;box-sizing:border-box;';
   showGameMenu();
 });
 
@@ -1747,6 +1855,7 @@ function animate() {
   // Keep rendering the park while paused, but do not advance any board,
   // trick, camera-follow, or physics state until the menu is dismissed.
   if (gamePaused) {
+    updateEditorPreview(dt);
     renderer.render(scene, camera);
     const errorPanel = document.getElementById('load-error');
     if (errorPanel) errorPanel.style.display = 'none';
