@@ -29,12 +29,16 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x7b927e, 2.15));
 const keyLight = new THREE.DirectionalLight(0xfff2d2, 3.0);
 keyLight.position.set(-12, 22, -10);
 keyLight.castShadow = true;
-keyLight.shadow.mapSize.set(1024, 1024);
-keyLight.shadow.camera.left = -42;
-keyLight.shadow.camera.right = 42;
-keyLight.shadow.camera.top = 42;
-keyLight.shadow.camera.bottom = -42;
-keyLight.shadow.bias = -0.00025;
+keyLight.shadow.mapSize.set(2048, 2048);
+keyLight.shadow.camera.left = -34;
+keyLight.shadow.camera.right = 34;
+keyLight.shadow.camera.top = 34;
+keyLight.shadow.camera.bottom = -34;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 75;
+keyLight.shadow.normalBias = 0.035;
+keyLight.shadow.bias = -0.00012;
+keyLight.shadow.radius = 4;
 scene.add(keyLight);
 
 // Light, repeatable painted-concrete texture made locally on a tiny canvas.
@@ -46,13 +50,13 @@ function makePaintTexture(base, flecks, size = 256) {
   let seed = 918273;
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   // Visible aggregate, sand grains and irregular mottling like poured skatepark concrete.
-  for (let i = 0; i < 5200; i++) {
+  for (let i = 0; i < 14500; i++) {
     const r = 0.45 + random() * 3.4;
     ctx.globalAlpha = 0.16 + random() * 0.34;
     ctx.fillStyle = flecks[Math.floor(random() * flecks.length)];
     ctx.beginPath(); ctx.arc(random() * size, random() * size, r, 0, Math.PI * 2); ctx.fill();
   }
-  for (let i = 0; i < 95; i++) {
+  for (let i = 0; i < 180; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.035 + random() * 0.07;
     ctx.strokeStyle = random() > 0.5 ? '#713d28' : '#ffd09a';
@@ -60,6 +64,17 @@ function makePaintTexture(base, flecks, size = 256) {
     ctx.beginPath(); ctx.moveTo(x, y);
     ctx.quadraticCurveTo(x + (random() - 0.5) * 28, y + (random() - 0.5) * 22, x + (random() - 0.5) * 54, y + (random() - 0.5) * 40);
     ctx.stroke();
+  }
+  // Branching hairline fractures add scale and distance cues to the concrete.
+  for (let i = 0; i < 46; i++) {
+    let px = random() * size, py = random() * size;
+    const angle = random() * Math.PI * 2, length = 12 + random() * 68;
+    ctx.globalAlpha = 0.20 + random() * 0.22; ctx.strokeStyle = '#713f2d'; ctx.lineWidth = 1 + random() * 1.2;
+    ctx.beginPath(); ctx.moveTo(px, py);
+    const steps = 4 + Math.floor(random() * 5);
+    for (let k = 0; k < steps; k++) { const a = angle + (random() - 0.5) * 0.8; px += Math.cos(a) * length / steps; py += Math.sin(a) * length / steps; ctx.lineTo(px, py); }
+    ctx.stroke();
+    if (i % 3 === 0) { ctx.globalAlpha *= 0.7; ctx.lineWidth = 0.7; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(px + (random() - 0.5) * 20, py + (random() - 0.5) * 20); ctx.stroke(); }
   }
   ctx.globalAlpha = 1;
   const texture = new THREE.CanvasTexture(canvas);
@@ -69,8 +84,8 @@ function makePaintTexture(base, flecks, size = 256) {
   texture.anisotropy = 8;
   return texture;
 }
-const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 512);
-const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 512);
+const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
+const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 1024);
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
@@ -197,6 +212,8 @@ function rail(x, z, length, height = 0.82) {
   rod.position.set(x, height, z);
   rod.userData.isRail = true;
   rod.userData.railLength = length;
+  rod.castShadow = true;
+  rod.receiveShadow = true;
   scene.add(rod);
   solidObstacles.push(rod);
   grindRails.push(rod);
@@ -230,6 +247,8 @@ parkFloor.rotation.x = -Math.PI / 2;
 parkFloor.position.y = -0.45;
 scene.add(parkFloor);
 function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4) {
+  // No visible construction grids: use the concrete grain instead.
+  return;
   const minor = [];
   const major = [];
   for (let x = -width / 2; x <= width / 2 + 0.001; x += spacing) {
@@ -269,6 +288,7 @@ function buildBowl() {
   const rings = 36;
   const segments = 112;
   const positions = [];
+  const uvs = [];
   const indices = [];
   for (let ring = 0; ring <= rings; ring++) {
     const radius = ring / rings;
@@ -282,6 +302,9 @@ function buildBowl() {
         y,
         bowl.z + Math.sin(angle) * bowl.radiusZ * radius
       );
+      const worldX = bowl.x + Math.cos(angle) * bowl.radiusX * radius;
+      const worldZ = bowl.z + Math.sin(angle) * bowl.radiusZ * radius;
+      uvs.push((worldX + 50) / 14, (worldZ + 50) / 14);
     }
   }
   for (let ring = 0; ring < rings; ring++) {
@@ -294,11 +317,13 @@ function buildBowl() {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   const surface = new THREE.Mesh(geometry, mats.concrete);
   surface.material.side = THREE.DoubleSide;
   surface.receiveShadow = true;
+  surface.castShadow = true;
   scene.add(surface);
 
   // Continuous round steel coping follows the full elliptical lip.
@@ -316,6 +341,8 @@ function buildBowl() {
     new THREE.TubeGeometry(rimCurve, 192, 0.075, 10, true),
     mats.metal
   );
+  coping.castShadow = true;
+  coping.receiveShadow = true;
   scene.add(coping);
   // Divide the continuous bowl coping into overlapping grindable arcs. Each
   // arc is long enough to ride naturally while allowing the grind to follow
@@ -348,6 +375,7 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   const segments = 32;
   const acrossSegments = 24;
   const positions = [];
+  const uvs = [];
   const indices = [];
   for (let i = 0; i <= segments; i++) {
     const t = depth * i / segments;
@@ -356,6 +384,7 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
       const across = (j / acrossSegments - 0.5) * width;
       if (axis === 'x') positions.push(startX + direction * t, y, startZ + across);
       else positions.push(startX + across, y, startZ + direction * t);
+      uvs.push(i / segments * 2, j / acrossSegments * 2);
     }
   }
   for (let i = 0; i < segments; i++) {
@@ -367,6 +396,7 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   }
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
   const face = new THREE.Mesh(geometry, mats.accentCoral);
@@ -383,6 +413,8 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
     coping.rotation.x = Math.PI / 2;
     coping.position.set(startX, height, startZ + direction * depth);
   }
+  coping.castShadow = true;
+  coping.receiveShadow = true;
   scene.add(coping);
   if (axis === 'x') addGrindEdge({ x: startX + direction * depth, z: startZ - width / 2 }, { x: startX + direction * depth, z: startZ + width / 2 }, height + 0.035, 'coping');
   else addGrindEdge({ x: startX - width / 2, z: startZ + direction * depth }, { x: startX + width / 2, z: startZ + direction * depth }, height + 0.035, 'coping');
