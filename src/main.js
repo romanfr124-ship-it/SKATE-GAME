@@ -2552,7 +2552,7 @@ function animate() {
     // Ground movement remains on the established controller. In flight the
     // rigid-body pose and translation come exclusively from Rapier.
     if (!airborne) board.rotation.y = heading - Math.PI / 2;
-    if (!airborne && !grinding) {
+    if (!airborne && !grinding && !physicsSteppedThisFrame) {
       board.position.x += velocity.x * dt;
       board.position.z += velocity.z * dt;
     }
