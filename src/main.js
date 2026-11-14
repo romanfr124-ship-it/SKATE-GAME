@@ -1214,6 +1214,24 @@ const boardPhysics = (() => {
       x: boardWorldRotation.x, y: boardWorldRotation.y,
       z: boardWorldRotation.z, w: boardWorldRotation.w
     }, true);
+    // A teleport/reset must not leave the independent assemblies behind.
+    const resetBody = (body, localPoint) => {
+      const worldPoint = board.localToWorld(localPoint.clone());
+      body.setTranslation(toRapierVector(worldPoint), true);
+      body.setRotation({
+        x: boardWorldRotation.x, y: boardWorldRotation.y,
+        z: boardWorldRotation.z, w: boardWorldRotation.w
+      }, true);
+      body.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      body.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    };
+    let wheelIndex = 0;
+    for (const x of [-0.69, 0.69]) {
+      resetBody(trucks[x < 0 ? 0 : 1], new THREE.Vector3(x, 0.18, 0));
+      for (const z of [-0.30, 0.30]) {
+        resetBody(wheels[wheelIndex++], new THREE.Vector3(x, 0.145, z));
+      }
+    }
     accumulator = 0;
   }
 
@@ -1653,10 +1671,6 @@ function deckTouchLocalPoint(clientX, clientY) {
   if (!hit) return null;
   return board.worldToLocal(hit.point.clone());
 }
-function deckTouchLocalX(clientX, clientY) {
-  const point = deckTouchLocalPoint(clientX, clientY);
-  return point ? point.x : null;
-}
 
 // One impulse per finger movement, applied at the current contact point.
 // The cross product gives the contact point real leverage across all axes.
@@ -1684,9 +1698,9 @@ function applyAirControlDelta(activeGesture, previousX, previousY, currentX, cur
   // component drives flips; tangential friction drives shuvit rotation.
   const localDrag = currentPoint.sub(previousPoint).applyQuaternion(board.quaternion.clone().invert());
   const localImpulse = new THREE.Vector3(
-    localDrag.x * 0.28,
-    -localDrag.x * 1.15 + localDrag.z * 1.15,
-    localDrag.z * 0.28
+    localDrag.x * 4.5,
+    -localDrag.x * 4.5 + localDrag.z * 4.5,
+    localDrag.z * 4.5
   );
   boardPhysics.applyFingerImpulse(
     localImpulse.applyQuaternion(board.quaternion),
@@ -2393,9 +2407,9 @@ function animate() {
           airborne = true;
           verticalVelocity = 0.75;
           velocity.addScaledVector(across, fallSide * 1.15);
-          boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
           board.rotation.x = fallSide * 0.24;
           board.rotation.z = manualAngle * 0.55;
+          boardPhysics.beginAirborne(velocity.clone().setY(verticalVelocity));
           grindBalance = 0;
         } else {
           const balanceOffset = grindBalance * 0.12;
