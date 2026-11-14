@@ -391,10 +391,10 @@ function addConcreteJoints() {
     const px = -dz / len, pz = dx / len;
     const base = positions.length / 3;
     for (const [x, z] of [[x1,z1],[x2,z2]]) {
-      positions.push(x + px*.055, .003, z + pz*.055);
-      positions.push(x + px*.020, -.004, z + pz*.020);
-      positions.push(x - px*.020, -.004, z - pz*.020);
-      positions.push(x - px*.055, .003, z - pz*.055);
+      positions.push(x + px*.055, .004, z + pz*.055);
+      positions.push(x + px*.020, .001, z + pz*.020);
+      positions.push(x - px*.020, .001, z - pz*.020);
+      positions.push(x - px*.055, .004, z - pz*.055);
       highlights.push(x + px*.061, .004, z + pz*.061, x - px*.061, .004, z - pz*.061);
     }
     for (let k=0;k<3;k++) {
