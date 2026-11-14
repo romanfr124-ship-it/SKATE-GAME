@@ -1620,22 +1620,7 @@ function resolveObstacleContacts() {
       continue;
     }
 
-    if (isTopContact && verticalVelocity < 0 && impactSpeed < 9) {
-      if (airborne) {
-        // Contact is a physical touchdown, not a trick-completion animation.
-        // Preserve the board's current orientation and angular momentum even
-        // when the shuv is still rotating or the deck is not perfectly level.
-        airborne = false;
-        verticalVelocity = 0;
-        // Once the wheels touch down, resume continuous terrain alignment.
-        // The board keeps its impact orientation initially and eases onto the
-        // ramp through the normal damped pitch/roll response.
-        trickStance = false;
-        manualActive = false;
-        manualAngle = 0;
-        lastLandTime = clock.elapsedTime;
-      }
-    } else if (impactSpeed > 0.02) {
+    if (impactSpeed > 0.02) {
       const restitution = impactSpeed > 5.5 ? 0.12 : 0.22;
       const impulse = (1 + restitution) * normalSpeed;
       velocity.x -= impulse * collisionNormal.x;
