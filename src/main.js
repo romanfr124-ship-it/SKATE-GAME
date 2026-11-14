@@ -1703,8 +1703,8 @@ function animate() {
       if (endScraping) {
         const scrapeSpeed = velocity.length();
         // Strong exponential drag applies to both tail and nose scrapes.
-        const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 5);
-        const scrapeDragRate = 4 * lowSpeedMultiplier;
+        const lowSpeedMultiplier = 1 + 4 * Math.exp(-scrapeSpeed * 10);
+        const scrapeDragRate = 8 * lowSpeedMultiplier;
         velocity.multiplyScalar(Math.exp(-scrapeDragRate * dt));
         if (velocity.length() < 0.12) velocity.set(0, 0, 0);
         speed = velocity.length();
