@@ -38,6 +38,17 @@ const mats = {
 
 const solidObstacles = [];
 const grindRails = [];
+const grindEdges = [];
+function addGrindEdge(start, end, y, kind = 'ledge') {
+  const a = new THREE.Vector3(start.x, y, start.z);
+  const b = new THREE.Vector3(end.x, y, end.z);
+  const delta = b.clone().sub(a);
+  const length = delta.length();
+  if (length < 0.35) return null;
+  const target = { start: a, end: b, tangent: delta.normalize(), length, kind, center: a.clone().add(b).multiplyScalar(0.5), y };
+  grindEdges.push(target);
+  return target;
+}
 
 function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const geometry = new THREE.BoxGeometry(w, h, d);
@@ -86,6 +97,7 @@ function rail(x, z, length, height = 0.82) {
   scene.add(rod);
   solidObstacles.push(rod);
   grindRails.push(rod);
+  addGrindEdge({ x, z: z - length / 2 }, { x, z: z + length / 2 }, height, 'rail');
   const edge = new THREE.LineSegments(new THREE.EdgesGeometry(geometry), mats.outline);
   edge.rotation.copy(rod.rotation);
   edge.position.copy(rod.position);
@@ -202,6 +214,18 @@ function buildBowl() {
     mats.metal
   );
   scene.add(coping);
+  // Divide the continuous bowl coping into overlapping grindable arcs. Each
+  // arc is long enough to ride naturally while allowing the grind to follow
+  // the elliptical lip rather than pretending it is one straight rail.
+  for (let i = 0; i < 64; i++) {
+    const a0 = i / 64 * Math.PI * 2;
+    const a1 = (i + 1) / 64 * Math.PI * 2;
+    addGrindEdge(
+      { x: bowl.x + Math.cos(a0) * bowl.radiusX, z: bowl.z + Math.sin(a0) * bowl.radiusZ },
+      { x: bowl.x + Math.cos(a1) * bowl.radiusX, z: bowl.z + Math.sin(a1) * bowl.radiusZ },
+      0.035, 'coping'
+    );
+  }
 
   // A clean, slightly raised concrete deck around the bowl gives riders
   // room to set up, drop in and approach the coping without crowding it.
@@ -252,6 +276,8 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
     coping.position.set(startX, height, startZ + direction * depth);
   }
   scene.add(coping);
+  if (axis === 'x') addGrindEdge({ x: startX + direction * depth, z: startZ - width / 2 }, { x: startX + direction * depth, z: startZ + width / 2 }, height + 0.035, 'coping');
+  else addGrindEdge({ x: startX - width / 2, z: startZ + direction * depth }, { x: startX + width / 2, z: startZ + direction * depth }, height + 0.035, 'coping');
   quarterPipes.push({ axis, startX, startZ, width, height, depth, direction });
 }
 function quarterPipeHeightAt(x, z) {
@@ -278,7 +304,13 @@ function groundHeightAt(x, z) {
 
 // Street plaza: low, usable obstacles with clear run-ups and room to roll away.
 function bench(x, z, length = 5.2) {
-  outlinedBox(scene, length, 0.18, 0.78, mats.metal, x, 0.53, z);
+  const top = outlinedBox(scene, length, 0.18, 0.78, mats.metal, x, 0.53, z);
+  top.userData.grindSurface = true;
+  const topY = 0.53 + 0.09 + 0.416;
+  addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x + length / 2, z: z - 0.39 }, topY);
+  addGrindEdge({ x: x - length / 2, z: z + 0.39 }, { x: x + length / 2, z: z + 0.39 }, topY);
+  addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x - length / 2, z: z + 0.39 }, topY);
+  addGrindEdge({ x: x + length / 2, z: z - 0.39 }, { x: x + length / 2, z: z + 0.39 }, topY);
   for (const offset of [-length * 0.34, length * 0.34]) {
     outlinedBox(scene, 0.16, 0.48, 0.58, mats.dark, x + offset, 0.24, z);
   }
@@ -292,10 +324,16 @@ rail(23, -7, 7.5, 0.82);
 rail(10, 8, 6.5, 0.58);
 
 // A mellow funbox: central manual/grind deck with shallow banks at both ends.
-outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
+const funboxDeck = outlinedBox(scene, 5.4, 0.52, 3.2, mats.concrete, 17, 0.26, 3);
+funboxDeck.userData.grindSurface = true;
+const funboxTop = 0.26 + 0.52 / 2 + 0.416;
+for (const zEdge of [3 - 1.6, 3 + 1.6]) addGrindEdge({ x: 17 - 2.7, z: zEdge }, { x: 17 + 2.7, z: zEdge }, funboxTop);
+for (const xEdge of [17 - 2.7, 17 + 2.7]) addGrindEdge({ x: xEdge, z: 3 - 1.6 }, { x: xEdge, z: 3 + 1.6 }, funboxTop);
 ramp(4.2, 0.72, 3.2, 12.2, 0, 0.17);
 ramp(4.2, 0.72, 3.2, 21.8, 3, -0.17);
-outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
+const funboxRail = outlinedBox(scene, 4.8, 0.18, 0.72, mats.metal, 17, 0.61, 3);
+funboxRail.userData.grindSurface = true;
+addGrindEdge({ x: 14.6, z: 3 }, { x: 19.4, z: 3 }, 0.61 + 0.09 + 0.416, 'rail');
 
 // Two smooth concrete quarter pipes with coping, one on each side of the plaza.
 addQuarterPipe('x', 27, -8, 8.5, 2.15, 1);
@@ -659,21 +697,25 @@ function getObbContact() {
 
 function tryStartGrind() {
   if (!airborne || verticalVelocity >= 0) return false;
-  for (const rail of grindRails) {
-    const halfLength = rail.userData.railLength / 2;
-    if (Math.abs(board.position.x - rail.position.x) > 0.82 ||
-        Math.abs(board.position.z - rail.position.z) > halfLength - 0.22) continue;
-    const railTop = rail.position.y + 0.055;
-    const targetY = railTop - 0.416;
-    if (board.position.y > targetY + 0.12 || board.position.y < targetY - 0.38) continue;
-    board.position.y = targetY;
+  const speedNow = velocity.length();
+  const boardForward = forwardVector();
+  for (const edge of grindEdges) {
+    const relative = new THREE.Vector3(board.position.x - edge.start.x, 0, board.position.z - edge.start.z);
+    const along = THREE.MathUtils.clamp(relative.dot(edge.tangent), 0.22, edge.length - 0.22);
+    const closest = edge.start.clone().addScaledVector(edge.tangent, along);
+    const lateral = Math.hypot(board.position.x - closest.x, board.position.z - closest.z);
+    if (lateral > 0.78) continue;
+    const targetY = edge.y - 0.416;
+    if (board.position.y > targetY + 0.16 || board.position.y < targetY - 0.42) continue;
+    const alignment = Math.abs(boardForward.dot(edge.tangent));
+    if (alignment < 0.18) continue;
+    board.position.set(closest.x, targetY, closest.z);
     board.updateMatrixWorld(true);
-    grindContactPoint.set(rail.position.x, railTop, rail.position.z);
+    grindContactPoint.set(closest.x, edge.y, closest.z);
     grindLocalPoint.copy(grindContactPoint);
     board.worldToLocal(grindLocalPoint);
-    const parallel = Math.abs(forwardVector().z) > 0.72;
-    const speedNow = velocity.length();
-    const nearEnd = Math.abs(board.position.z - rail.position.z) > halfLength - 0.8;
+    const parallel = alignment > 0.72;
+    const nearEnd = along < 0.75 || along > edge.length - 0.75;
     if (!parallel && nearEnd && speedNow < 1.5 && grindLocalPoint.x < -0.58) grindType = 'TAIL STALL';
     else if (!parallel && grindLocalPoint.x < -0.58) grindType = 'TAILSLIDE';
     else if (!parallel && grindLocalPoint.x > 0.58) grindType = 'NOSESLIDE';
@@ -683,12 +725,13 @@ function tryStartGrind() {
     else if (grindLocalPoint.z < -0.18) grindType = 'SALAD';
     else grindType = '50-50';
     grinding = true;
-    grindRail = rail;
+    grindRail = edge;
     airborne = false;
     verticalVelocity = 0;
-    velocity.x = 0;
-    if (Math.abs(velocity.z) < 0.45) velocity.z = travelSign * Math.max(1.2, speedNow);
-      shuvitVelocity = 0;
+    const direction = velocity.dot(edge.tangent) >= 0 ? 1 : -1;
+    const grindSpeed = Math.max(1.2, Math.abs(velocity.dot(edge.tangent)), speedNow * 0.45);
+    velocity.set(edge.tangent.x * direction * grindSpeed, 0, edge.tangent.z * direction * grindSpeed);
+    shuvitVelocity = 0;
     shuvitRotation = 0;
     shuvitTarget = 0;
     board.rotation.x = 0;
@@ -699,7 +742,6 @@ function tryStartGrind() {
   }
   return false;
 }
-
 function resolveObstacleContacts() {
   groundedRampAngle = 0;
   groundedRampNormal.set(0, 1, 0);
@@ -707,7 +749,7 @@ function resolveObstacleContacts() {
   for (let pass = 0; pass < 2; pass++) {
     const penetration = getObbContact();
     if (penetration === null) break;
-    if (grinding && (contactObstacle?.userData.isRail || contactObstacle?.userData.isRailSupport)) break;
+    if (grinding && (contactObstacle?.userData.isRail || contactObstacle?.userData.isRailSupport || contactObstacle?.userData.grindSurface)) break;
 
     const separation = penetration + 0.004;
     board.position.addScaledVector(collisionNormal, separation);
@@ -1020,15 +1062,20 @@ function animate() {
       else if (alongBoard > 0.12) travelSign = 1;
     }
     if (grinding && grindRail) {
-      board.position.y = grindRail.position.y + 0.055 - 0.416;
-      board.position.z += velocity.z * dt;
-      velocity.z *= Math.exp(-0.075 * dt);
-      if (Math.abs(board.position.z - grindRail.position.z) > grindRail.userData.railLength / 2 - 0.12) {
+      const edge = grindRail;
+      const alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
+      const next = new THREE.Vector3(board.position.x, 0, board.position.z).addScaledVector(edge.tangent, alongVelocity * dt);
+      const fromStart = next.clone().sub(new THREE.Vector3(edge.start.x, 0, edge.start.z)).dot(edge.tangent);
+      if (fromStart < 0.08 || fromStart > edge.length - 0.08) {
         grinding = false;
         grindRail = null;
         grindReadout.style.display = 'none';
         airborne = true;
         verticalVelocity = -0.5;
+      } else {
+        board.position.set(next.x, edge.y - 0.416, next.z);
+        velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
+        velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
       }
     }
     if (!airborne && !grinding) {
