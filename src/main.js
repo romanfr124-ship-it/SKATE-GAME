@@ -89,6 +89,25 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
     ctx.stroke();
   }
 
+  // A handful of fine branching hairline cracks, with moss tucked into
+  // selected sections of the fissures instead of outlining every crack.
+  for (let i = 0; i < 18; i++) {
+    let x = random() * size, y = random() * size;
+    const steps = 3 + Math.floor(random() * 5);
+    ctx.beginPath(); ctx.moveTo(x, y);
+    for (let p = 0; p < steps; p++) {
+      x += (random() - 0.5) * 92; y += 5 + random() * 22;
+      ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#343a3b'; ctx.globalAlpha = 0.28 + random() * 0.22;
+    ctx.lineWidth = 0.7 + random() * 1.1; ctx.stroke();
+    if (random() > 0.42) {
+      ctx.strokeStyle = '#637d45'; ctx.globalAlpha = 0.58;
+      ctx.lineWidth = 1.4 + random() * 2.2; ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
   // Random organic moss colonies and green mineral staining, scattered as
   // irregular patches across one broad texture field (never regular tile bands).
   for (let i = 0; i < 34; i++) {
@@ -161,6 +180,8 @@ const obstacleTexture = makeWeatheredConcreteTexture(
   '#c87943', ['#754a35', '#89563d', '#a66b4b'],
   ['#e0a477', '#d18d60', '#bd7950'], 1024
 );
+// Obstacle UVs are local 0–1, so use the full texture once per surface.
+obstacleTexture.repeat.set(1, 1);
 // On obstacle side faces, moss gathers at the foot of the concrete and creeps
 // upward in broken, uneven tongues. This is part of the texture, not geometry.
 function addBaseMossToObstacleTexture(texture) {
