@@ -181,6 +181,53 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
       }
     }
   }
+  // Green growth follows every slab joint. The bands are deliberately broken,
+  // with mossy clumps on the seam and wider faded mineral stains drifting away.
+  if (addMoss) {
+    const jointStep = size / 15; // 8 m slabs across the 120 m ground
+    const jointGreens = ['#526d3d', '#66804a', '#74834d', '#405b38'];
+    for (let axis = 0; axis < 2; axis++) {
+      for (let seam = 0; seam <= 15; seam++) {
+        const line = seam * jointStep;
+        for (let along = -size * 0.05; along < size * 1.05; along += 92) {
+          const cx = axis === 0 ? along : line + (random() - 0.5) * 18;
+          const cy = axis === 0 ? line + (random() - 0.5) * 18 : along;
+          const length = 34 + random() * 118;
+          const width = 7 + random() * 27;
+          const green = jointGreens[Math.floor(random() * jointGreens.length)];
+          const angle = (random() - 0.5) * 0.42 + (axis === 0 ? 0 : Math.PI / 2);
+
+          // Broad, translucent halo first, so staining fades naturally into concrete.
+          ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
+          const halo = ctx.createRadialGradient(0, 0, width * 0.15, 0, 0, length);
+          halo.addColorStop(0, green + '48');
+          halo.addColorStop(0.48, green + '28');
+          halo.addColorStop(1, green + '00');
+          ctx.fillStyle = halo;
+          ctx.beginPath(); ctx.ellipse(0, 0, length, width * (1.8 + random() * 2.8), 0, 0, Math.PI * 2); ctx.fill();
+
+          // Denser, uneven moss directly along the seam in irregular clusters.
+          if (random() > 0.12) {
+            const core = ctx.createRadialGradient(0, 0, 1, 0, 0, length * 0.78);
+            core.addColorStop(0, green + 'c0');
+            core.addColorStop(0.55, green + '86');
+            core.addColorStop(1, green + '00');
+            ctx.fillStyle = core;
+            ctx.beginPath(); ctx.ellipse(0, (random() - 0.5) * width, length * (0.38 + random() * 0.45), width * (0.45 + random() * 0.8), 0, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.restore();
+        }
+      }
+    }
+    // Grainy flecks make the green staining look embedded and organic.
+    for (let i = 0; i < 26000; i++) {
+      const x = random() * size, y = random() * size;
+      ctx.globalAlpha = 0.10 + random() * 0.22;
+      ctx.fillStyle = random() > 0.48 ? '#82915a' : '#354d32';
+      const r = 0.45 + random() * 1.5;
+      ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.45 + random()), random(), 0, Math.PI * 2); ctx.fill();
+    }
+  }
   ctx.globalAlpha = 1;
 
   // Heavier, irregular scratches and dragged wheel scuffs.
@@ -214,8 +261,9 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  // One broad world-space texture field prevents visible repeating intervals.
-  texture.repeat.set(0.01, 0.01);
+  // Map the complete 4096px texture across the 120m ground; the former
+  // 0.01 repeat sampled only a small central fraction and hid most moss.
+  texture.repeat.set(1 / 19.2, 1 / 19.2);
   texture.anisotropy = 8;
   texture.generateMipmaps = true;
   return texture;
@@ -486,15 +534,32 @@ terrainGeometry.computeVertexNormals();
 const terrain = new THREE.Mesh(terrainGeometry, mats.concrete);
 terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 function addConcreteJoints() {
-  const points = [];
-  for (let z = -56; z <= 56; z += 8) {
-    for (let x = -60; x < 60; x += 1) {
-      points.push(x, terrainHeightAt(x,z)+0.012,z,x+1,terrainHeightAt(x+1,z)+0.012,z);
+  const darkGroove = new THREE.MeshStandardMaterial({ color: 0x343a3b, roughness: 1 });
+  const bevelMaterial = new THREE.MeshStandardMaterial({ color: 0x858b8e, roughness: 0.94 });
+  const addRoundedJoint = (axis, fixed, sideOffset, material, radius) => {
+    const points = [];
+    for (let t = -60; t <= 60; t += 1) {
+      const x = axis === 'x' ? t : fixed + sideOffset;
+      const z = axis === 'x' ? fixed + sideOffset : t;
+      points.push(new THREE.Vector3(x, terrainHeightAt(x, z) + 0.018, z));
+    }
+    const curve = new THREE.CatmullRomCurve3(points);
+    const geometry = new THREE.TubeGeometry(curve, 120, radius, 8, false);
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+  };
+
+  // Rounded shoulders catch the light on both sides of a recessed dark seam.
+  // Joints run in both directions to form individual concrete slabs.
+  for (let p = -56; p <= 56; p += 8) {
+    for (const axis of ['x', 'z']) {
+      addRoundedJoint(axis, p, -0.105, bevelMaterial, 0.072);
+      addRoundedJoint(axis, p, 0.105, bevelMaterial, 0.072);
+      addRoundedJoint(axis, p, 0, darkGroove, 0.038);
     }
   }
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
-  scene.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({color:0x555b5c,transparent:true,opacity:0.32})));
 }
 addConcreteJoints();
 // No obstacle constructors are called in this foundation build.
