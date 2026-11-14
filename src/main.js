@@ -819,7 +819,6 @@ function drawDeckGraphic(canvas, topSide) {
       ctx.restore();
       ctx.fillStyle=palette[(idx+1)%2];ctx.font='900 96px Georgia';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(labels[idx],0,245,1050);
       ctx.font='bold 42px Arial';ctx.fillText('SKATE DEPT.  •  EST. 1994',0,315,1000);
-      for(let i=0;i<16;i++){const a=i*Math.PI/8;ctx.fillStyle=palette[i%2];ctx.beginPath();ctx.arc(Math.cos(a)*560,Math.sin(a)*340,12+rnd()*14,0,Math.PI*2);ctx.fill();}
     } else if(cat==='Japanese'){
       // Sun disc, layered wave crests and a central stylised dragon/oni motif.
       ctx.fillStyle=idx%2?'#d54b35':'#e9c77d';ctx.beginPath();ctx.arc(0,-30,300,0,Math.PI*2);ctx.fill();
