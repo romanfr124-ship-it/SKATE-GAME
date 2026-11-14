@@ -1174,7 +1174,7 @@ function drawSkateparkMap() {
   rect(17,3,5.4,3.2,'#777');
   rect(17,3,4.8,.72,'#b9b9b9');
   // Quarter-pipe footprints and curved-face direction markers.
-  rect(31,-8,2.15,8.5,'#777');
+  rect(28.075,-8,2.15,8.5,'#777');
   rect(15,21.0,8.5,2.0,'#777');
   for (const [x,z,dx,dz] of [[28.2,-8,1,0],[15,18.5,0,1]]) {
     const a=p(x,z), b=p(x+dx*2.2,z+dz*2.2);
@@ -1192,6 +1192,7 @@ function drawSkateparkMap() {
   mapCtx.strokeStyle='#fff'; mapCtx.lineWidth=2; mapCtx.stroke();
 }
 function closeParkMap() { mapPanel.style.display='none'; }
+window.addEventListener('resize', drawSkateparkMap);
 mapButton.addEventListener('click', () => {
   mapPanel.style.display='flex';
   drawSkateparkMap();
