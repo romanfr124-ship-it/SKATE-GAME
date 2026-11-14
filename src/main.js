@@ -993,32 +993,43 @@ for (const x of [-0.69, 0.69]) {
 board.position.set(0, 0, 1.5);
 board.rotation.order = 'YXZ';
 
-// Rigid-body foundation: one kinematic deck body, two independently moving
-// truck bodies, and four independently rotating wheel bodies. The existing
-// riding controller drives the deck for this first stage; the joints let the
-// component assemblies react physically instead of being welded to one mesh.
+// Unified rigid-body skateboard physics. The deck is kinematic while riding
+// under the established ground controller, then becomes a true dynamic body
+// for every airborne frame. Rapier owns its centre of mass, inertia tensor,
+// angular momentum, orientation and contact response.
 const boardPhysics = (() => {
   const world = new RAPIER.World({ x: 0, y: -9.81, z: 0 });
-  world.timestep = 1 / 60;
-  const boardPosition = board.position;
-  const boardRotation = new THREE.Quaternion();
-  board.getWorldQuaternion(boardRotation);
+  const fixedStep = 1 / 120;
+  world.timestep = fixedStep;
+  let accumulator = 0;
+  let deckIsDynamic = false;
+  const boardWorldPosition = new THREE.Vector3();
+  const boardWorldRotation = new THREE.Quaternion();
+  const inverseBoardRotation = new THREE.Quaternion();
+  const worldPosition = new THREE.Vector3();
+  const bodyRotation = new THREE.Quaternion();
+  const toRapierVector = v => ({ x: v.x, y: v.y, z: v.z });
 
+  board.updateMatrixWorld(true);
+  board.getWorldPosition(boardWorldPosition);
+  board.getWorldQuaternion(boardWorldRotation);
   const deckBody = world.createRigidBody(
     RAPIER.RigidBodyDesc.kinematicPositionBased()
-      .setTranslation(boardPosition.x, boardPosition.y, boardPosition.z)
-      .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
+      .setTranslation(boardWorldPosition.x, boardWorldPosition.y, boardWorldPosition.z)
+      .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
   );
+  deckBody.setEnabledRotations(true, true, true);
   world.createCollider(
     RAPIER.ColliderDesc.cuboid(1.13, 0.06, 0.34)
       .setTranslation(0, 0.395, 0)
+      .setDensity(6.5)
       .setFriction(0.85),
     deckBody
   );
+  deckBody.setLinearDamping(0.015);
+  deckBody.setAngularDamping(0.02);
 
-  // Build a lightweight collision mesh from the same height function as
-  // the visible skatepark. This lets the wheels roll over both terrain levels
-  // and the continuous berm instead of colliding with an invisible flat plane.
+  // Collision terrain uses the same height function as the visible park.
   const terrainCollisionSegments = 168;
   const terrainCollisionVertices = [];
   const terrainCollisionIndices = [];
@@ -1041,9 +1052,7 @@ const boardPhysics = (() => {
     RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainCollisionVertices),
       new Uint32Array(terrainCollisionIndices)
-    )
-      .setFriction(1.4)
-      .setRestitution(0.02),
+    ).setFriction(1.4).setRestitution(0.02),
     terrainBody
   );
 
@@ -1056,51 +1065,59 @@ const boardPhysics = (() => {
   for (const x of [-0.69, 0.69]) {
     const truckBody = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
-        .setTranslation(boardPosition.x + x, boardPosition.y + 0.18, boardPosition.z)
-        .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
-        .setLinearDamping(0.65)
-        .setAngularDamping(1.4)
+        .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.18, boardWorldPosition.z)
+        .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
+        .setLinearDamping(0.08)
+        .setAngularDamping(0.22)
         .enabledRotations(true, true, true)
     );
     world.createCollider(
       RAPIER.ColliderDesc.cuboid(0.14, 0.045, 0.32)
-        .setFriction(0.9)
-        .setDensity(2.2),
+        .setDensity(20)
+        .setFriction(0.9),
       truckBody
     );
     const truckJoint = world.createImpulseJoint(
-      RAPIER.JointData.revolute({ x, y: 0.24, z: 0 }, { x: 0, y: 0.06, z: 0 }, { x: 0, y: 1, z: 0 }),
+      RAPIER.JointData.revolute(
+        { x, y: 0.24, z: 0 },
+        { x: 0, y: 0.06, z: 0 },
+        { x: 0, y: 1, z: 0 }
+      ),
       deckBody,
       truckBody,
       true
     );
-    // The hanger pivots inside the fixed bushing stack. A firm, damped
-    // centering spring keeps the trucks loose enough to carve without flopping.
-    truckJoint.setLimits(-0.30, 0.30);
-    truckJoint.configureMotorPosition(0, 26, 8);
+    // Mild torsional spring represents the bushings; the old over-strong
+    // centering motor was suppressing the independent truck response.
+    truckJoint.setLimits(-0.32, 0.32);
+    truckJoint.configureMotorPosition(0, 4, 0.7);
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
     for (const z of [-0.30, 0.30]) {
       const wheelBody = world.createRigidBody(
         RAPIER.RigidBodyDesc.dynamic()
-          .setTranslation(boardPosition.x + x, boardPosition.y + 0.145, boardPosition.z + z)
-          .setRotation({ x: boardRotation.x, y: boardRotation.y, z: boardRotation.z, w: boardRotation.w })
-          .setLinearDamping(0.12)
-          .setAngularDamping(0.18)
+          .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.145, boardWorldPosition.z + z)
+          .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
+          .setLinearDamping(0.02)
+          .setAngularDamping(0.03)
           .enabledRotations(true, true, true)
       );
       const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
       world.createCollider(
         RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
+          .setDensity(20)
           .setFriction(2.0)
-          .setRestitution(0.06)
-          .setDensity(1.35),
+          .setRestitution(0.04),
         wheelBody
       );
       const wheelJoint = world.createImpulseJoint(
-        RAPIER.JointData.revolute({ x: 0, y: -0.035, z }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }),
+        RAPIER.JointData.revolute(
+          { x: 0, y: -0.035, z },
+          { x: 0, y: 0, z: 0 },
+          { x: 0, y: 0, z: 1 }
+        ),
         truckBody,
         wheelBody,
         true
@@ -1110,46 +1127,142 @@ const boardPhysics = (() => {
     }
   }
 
-  const localPosition = new THREE.Vector3();
-  const worldPosition = new THREE.Vector3();
-  const bodyRotation = new THREE.Quaternion();
-  const inverseBoardRotation = new THREE.Quaternion();
-  const boardWorldPosition = new THREE.Vector3();
-  const boardWorldRotation = new THREE.Quaternion();
-  const updateVisual = (body, visual) => {
-    const p = body.translation();
-    worldPosition.set(p.x, p.y, p.z);
-    visual.position.copy(board.worldToLocal(worldPosition.clone()));
-    const q = body.rotation();
-    bodyRotation.set(q.x, q.y, q.z, q.w);
-    visual.quaternion.copy(inverseBoardRotation).multiply(bodyRotation);
-  };
+  function setKinematicPoseFromBoard() {
+    board.updateMatrixWorld(true);
+    board.getWorldPosition(boardWorldPosition);
+    board.getWorldQuaternion(boardWorldRotation);
+    deckBody.setNextKinematicTranslation({
+      x: boardWorldPosition.x, y: boardWorldPosition.y, z: boardWorldPosition.z
+    });
+    deckBody.setNextKinematicRotation({
+      x: boardWorldRotation.x, y: boardWorldRotation.y,
+      z: boardWorldRotation.z, w: boardWorldRotation.w
+    });
+  }
+
+  function syncDynamicDeck() {
+    const p = deckBody.translation();
+    const q = deckBody.rotation();
+    board.position.set(p.x, p.y, p.z);
+    board.quaternion.set(q.x, q.y, q.z, q.w);
+    board.updateMatrixWorld(true);
+  }
+
+  function updateComponentVisuals() {
+    board.updateMatrixWorld(true);
+    board.getWorldQuaternion(boardWorldRotation);
+    inverseBoardRotation.copy(boardWorldRotation).invert();
+    const updateVisual = (body, visual) => {
+      const p = body.translation();
+      worldPosition.set(p.x, p.y, p.z);
+      visual.position.copy(board.worldToLocal(worldPosition.clone()));
+      const q = body.rotation();
+      bodyRotation.set(q.x, q.y, q.z, q.w);
+      visual.quaternion.copy(inverseBoardRotation).multiply(bodyRotation);
+    };
+    for (let i = 0; i < trucks.length; i++) updateVisual(trucks[i], truckVisuals[i]);
+    for (let i = 0; i < wheels.length; i++) updateVisual(wheels[i], wheelVisuals[i]);
+  }
+
+  function beginAirborne(linearVelocity) {
+    if (deckIsDynamic) return;
+    board.updateMatrixWorld(true);
+    board.getWorldPosition(boardWorldPosition);
+    board.getWorldQuaternion(boardWorldRotation);
+    deckBody.setTranslation(toRapierVector(boardWorldPosition), true);
+    deckBody.setRotation({
+      x: boardWorldRotation.x, y: boardWorldRotation.y,
+      z: boardWorldRotation.z, w: boardWorldRotation.w
+    }, true);
+    deckBody.setBodyType(RAPIER.RigidBodyType.Dynamic, true);
+    deckBody.setGravityScale(1, true);
+    deckBody.setLinvel(toRapierVector(linearVelocity), true);
+    deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    deckIsDynamic = true;
+    accumulator = 0;
+  }
+
+  function endAirborne() {
+    if (!deckIsDynamic) return;
+    board.updateMatrixWorld(true);
+    board.getWorldPosition(boardWorldPosition);
+    board.getWorldQuaternion(boardWorldRotation);
+    deckBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+    deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+    deckBody.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+    deckBody.setTranslation(toRapierVector(boardWorldPosition), true);
+    deckBody.setRotation({
+      x: boardWorldRotation.x, y: boardWorldRotation.y,
+      z: boardWorldRotation.z, w: boardWorldRotation.w
+    }, true);
+    deckIsDynamic = false;
+    accumulator = 0;
+  }
+
+  function forceKinematic() {
+    if (deckIsDynamic) {
+      deckBody.setLinvel({ x: 0, y: 0, z: 0 }, true);
+      deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+      deckBody.setBodyType(RAPIER.RigidBodyType.KinematicPositionBased, true);
+      deckIsDynamic = false;
+    }
+    board.updateMatrixWorld(true);
+    board.getWorldPosition(boardWorldPosition);
+    board.getWorldQuaternion(boardWorldRotation);
+    deckBody.setTranslation(toRapierVector(boardWorldPosition), true);
+    deckBody.setRotation({
+      x: boardWorldRotation.x, y: boardWorldRotation.y,
+      z: boardWorldRotation.z, w: boardWorldRotation.w
+    }, true);
+    accumulator = 0;
+  }
+
+  function applyPopTorque(kind, magnitude) {
+    if (!deckIsDynamic) return;
+    board.updateMatrixWorld(true);
+    const localTailX = kind === 'ollie' ? -0.92 : 0.92;
+    const tailPoint = board.localToWorld(new THREE.Vector3(localTailX, 0.395, 0));
+    const downwardImpulse = new THREE.Vector3(0, -magnitude, 0).applyQuaternion(board.quaternion);
+    deckBody.applyImpulseAtPoint(toRapierVector(downwardImpulse), toRapierVector(tailPoint), true);
+    // Equal and opposite impulse at the centre of mass creates a pure couple.
+    deckBody.applyImpulse(toRapierVector(downwardImpulse.clone().negate()), true);
+  }
+
+  function applyFingerImpulse(impulse, worldPoint) {
+    if (!deckIsDynamic) return;
+    deckBody.applyImpulseAtPoint(toRapierVector(impulse), toRapierVector(worldPoint), true);
+  }
+
+  function applyTorqueImpulse(localTorque) {
+    if (!deckIsDynamic) return;
+    const worldTorque = localTorque.clone().applyQuaternion(board.quaternion);
+    deckBody.applyTorqueImpulse(toRapierVector(worldTorque), true);
+  }
 
   return {
-    world,
-    deckBody,
-    trucks,
-    wheels,
     step(dt) {
-      board.updateMatrixWorld(true);
-      board.getWorldPosition(boardWorldPosition);
-      board.getWorldQuaternion(boardWorldRotation);
-      deckBody.setNextKinematicTranslation({
-        x: boardWorldPosition.x, y: boardWorldPosition.y, z: boardWorldPosition.z
-      });
-      deckBody.setNextKinematicRotation({
-        x: boardWorldRotation.x, y: boardWorldRotation.y,
-        z: boardWorldRotation.z, w: boardWorldRotation.w
-      });
-      world.timestep = Math.max(1 / 120, Math.min(dt, 1 / 30));
-      world.step();
-      inverseBoardRotation.copy(boardWorldRotation).invert();
-      for (let i = 0; i < trucks.length; i++) updateVisual(trucks[i], truckVisuals[i]);
-      for (let i = 0; i < wheels.length; i++) updateVisual(wheels[i], wheelVisuals[i]);
+      accumulator = Math.min(accumulator + dt, fixedStep * 4);
+      let steps = 0;
+      while (accumulator >= fixedStep && steps < 4) {
+        if (!deckIsDynamic) setKinematicPoseFromBoard();
+        world.step();
+        accumulator -= fixedStep;
+        steps++;
+      }
+      if (deckIsDynamic) syncDynamicDeck();
+      updateComponentVisuals();
+    },
+    beginAirborne,
+    endAirborne,
+    forceKinematic,
+    applyPopTorque,
+    applyFingerImpulse,
+    applyTorqueImpulse,
+    getMotion() {
+      return { linear: deckBody.linvel(), angular: deckBody.angvel() };
     }
   };
 })();
-
 // Skate physics: horizontal momentum, push impulses, carving, pop and
 // independent board rotation in the air. The board model's long axis is X.
 const keys = new Set();
