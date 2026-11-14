@@ -51,8 +51,8 @@ function makePaintTexture(base, flecks, size = 256) {
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   // Visible aggregate, sand grains and irregular mottling like poured skatepark concrete.
   for (let i = 0; i < 14500; i++) {
-    const r = 0.45 + random() * 3.4;
-    ctx.globalAlpha = 0.16 + random() * 0.34;
+    const r = 1.1 + random() * 4.2;
+    ctx.globalAlpha = 0.24 + random() * 0.42;
     ctx.fillStyle = flecks[Math.floor(random() * flecks.length)];
     ctx.beginPath(); ctx.arc(random() * size, random() * size, r, 0, Math.PI * 2); ctx.fill();
   }
@@ -60,7 +60,7 @@ function makePaintTexture(base, flecks, size = 256) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.035 + random() * 0.07;
     ctx.strokeStyle = random() > 0.5 ? '#713d28' : '#ffd09a';
-    ctx.lineWidth = 1 + random() * 3;
+    ctx.lineWidth = 1.5 + random() * 4;
     ctx.beginPath(); ctx.moveTo(x, y);
     ctx.quadraticCurveTo(x + (random() - 0.5) * 28, y + (random() - 0.5) * 22, x + (random() - 0.5) * 54, y + (random() - 0.5) * 40);
     ctx.stroke();
@@ -80,7 +80,7 @@ function makePaintTexture(base, flecks, size = 256) {
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(7, 7);
+  texture.repeat.set(0.25, 0.25);
   texture.anisotropy = 8;
   return texture;
 }
@@ -139,16 +139,16 @@ function makeDeckArtwork(top = false) {
 const boardGraphicTexture=makeDeckArtwork(false);
 const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, bumpMap: asphaltTexture, bumpScale: 0.16, roughness: 0.98 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, bumpMap: asphaltTexture, bumpScale: 0.34, roughness: 0.98 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
   metal: new THREE.MeshPhysicalMaterial({ color: 0xe0e5eb, metalness: 0.72, roughness: 0.19, clearcoat: 0.85, clearcoatRoughness: 0.12 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
-  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
-  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
-  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.13, roughness: 0.96 }),
+  accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
+  accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
+  accentLavender: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.28, roughness: 0.96 }),
   wheel: new THREE.MeshStandardMaterial({ color: 0xf7f4e9, roughness: 0.72 }),
   wheelBlack: new THREE.MeshStandardMaterial({ color: 0x17221f, roughness: 0.58 }),
   wheelGreen: new THREE.MeshStandardMaterial({ color: 0x36b77d, roughness: 0.58 })
@@ -379,36 +379,41 @@ function buildBowl() {
 }
 buildBowl();
 
-// Concrete expansion joints: slightly broken, irregular seams give the plaza
-// a readable metre-scale surface instead of one endless orange sheet.
+// Recessed-looking expansion joints. Each seam is a continuous bevelled
+// channel; the dark centre sits below two raised concrete lips, not a floating line.
 function addConcreteJoints() {
-  const dark = [], light = [];
-  const addSegment = (x1, z1, x2, z2) => {
-    const mx = (x1 + x2) / 2, mz = (z1 + z2) / 2;
+  const positions = [], indices = [], highlights = [];
+  const addGrooveSegment = (x1, z1, x2, z2) => {
+    const mx = (x1 + x2) * 0.5, mz = (z1 + z2) * 0.5;
     const nx = (mx - bowl.x) / bowl.radiusX, nz = (mz - bowl.z) / bowl.radiusZ;
-    if (nx * nx + nz * nz < 1.04) return;
-    dark.push(x1, 0.008, z1, x2, 0.008, z2);
-    light.push(x1, 0.012, z1, x2, 0.012, z2);
+    if (nx * nx + nz * nz < 1.012) return;
+    const dx = x2 - x1, dz = z2 - z1, len = Math.hypot(dx, dz) || 1;
+    const px = -dz / len, pz = dx / len;
+    const base = positions.length / 3;
+    for (const [x, z] of [[x1,z1],[x2,z2]]) {
+      positions.push(x + px*.055, .003, z + pz*.055);
+      positions.push(x + px*.020, -.004, z + pz*.020);
+      positions.push(x - px*.020, -.004, z - pz*.020);
+      positions.push(x - px*.055, .003, z - pz*.055);
+      highlights.push(x + px*.061, .004, z + pz*.061, x - px*.061, .004, z - pz*.061);
+    }
+    for (let k=0;k<3;k++) {
+      const a=base+k,b=base+k+1,c=base+4+k,d=base+5+k;
+      indices.push(a,b,c,b,d,c);
+    }
   };
-  for (let z = -46; z <= 46; z += 8) {
-    for (let x = -48; x < 48; x += 8) {
-      const offset = Math.sin(z * 1.73 + x * 0.37) * 0.32;
-      addSegment(x, z + offset, x + 7.6, z + offset + 0.12);
-    }
-  }
-  for (let x = -46; x <= 46; x += 8) {
-    for (let z = -48; z < 48; z += 8) {
-      const offset = Math.cos(x * 1.31 + z * 0.29) * 0.28;
-      addSegment(x + offset, z, x + offset + 0.08, z + 7.6);
-    }
-  }
-  for (const [points, color, opacity] of [[dark, 0x75452f, 0.42], [light, 0xf1b47c, 0.38]]) {
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(points, 3));
-    const lines = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
-    lines.renderOrder = 2;
-    scene.add(lines);
-  }
+  // Full-length straight joints meet cleanly at every intersection.
+  for (let z=-48;z<=48;z+=8) for(let x=-50;x<50;x+=0.5) addGrooveSegment(x,z,x+0.5,z);
+  for (let x=-48;x<=48;x+=8) for(let z=-50;z<50;z+=0.5) addGrooveSegment(x,z,x,z+0.5);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setIndex(indices); geometry.computeVertexNormals();
+  const grooves = new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0x593a2c,roughness:1,side:THREE.DoubleSide}));
+  grooves.receiveShadow=true; grooves.renderOrder=2; scene.add(grooves);
+  const edgeGeometry=new THREE.BufferGeometry();
+  edgeGeometry.setAttribute('position',new THREE.Float32BufferAttribute(highlights,3));
+  const edgeLines=new THREE.LineSegments(edgeGeometry,new THREE.LineBasicMaterial({color:0xe3a16d,transparent:true,opacity:.48,depthWrite:false}));
+  edgeLines.renderOrder=3; scene.add(edgeLines);
 }
 addConcreteJoints();
 
@@ -477,10 +482,12 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   const copingGeometry = new THREE.CylinderGeometry(0.075, 0.075, width, 12);
   const coping = new THREE.Mesh(copingGeometry, mats.metal);
   if (axis === 'x') {
-    coping.rotation.z = Math.PI / 2;
+    // The ramp runs along X, so its lip spans the width along Z.
+    coping.rotation.x = Math.PI / 2;
     coping.position.set(startX + direction * depth, height, startZ);
   } else {
-    coping.rotation.x = Math.PI / 2;
+    // The ramp runs along Z, so its lip spans the width along X.
+    coping.rotation.z = Math.PI / 2;
     coping.position.set(startX, height, startZ + direction * depth);
   }
   coping.castShadow = true;
