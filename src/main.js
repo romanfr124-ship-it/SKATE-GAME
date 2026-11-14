@@ -1684,6 +1684,26 @@ function animate() {
   if (!airborne && !grinding) {
     board.updateMatrixWorld(true);
     board.position.y += groundContactCorrection();
+
+    // During a tail manual, check the actual underside of the tail against
+    // the terrain. If it scrapes, add an equal amount of rolling drag again
+    // (100% more momentum loss than the normal grounded friction rate).
+    if (manualActive && manualSide === 1) {
+      board.updateMatrixWorld(true);
+      let tailScraping = false;
+      for (const localZ of [-0.13, 0, 0.13]) {
+        const tailPoint = board.localToWorld(new THREE.Vector3(-1.055, 0.445, localZ));
+        const clearance = tailPoint.y - terrainHeightAt(tailPoint.x, tailPoint.z);
+        if (clearance <= 0.025) {
+          tailScraping = true;
+          break;
+        }
+      }
+      if (tailScraping) {
+        velocity.multiplyScalar(Math.exp(-0.105 * dt));
+        speed = velocity.length();
+      }
+    }
   }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
