@@ -1,5 +1,5 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js';
-import RAPIER from '@dimforge/rapier3d-compat';
+import RAPIER from 'https://cdn.skypack.dev/@dimforge/rapier3d-compat@0.19.3';
 
 // Rapier supplies the articulated rigid-body simulation for the skateboard.
 await RAPIER.init();
