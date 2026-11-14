@@ -110,7 +110,7 @@ function rail(x, z, length, height = 0.82) {
 
 // The bowl is a true cut-out in the concrete slab, not a bowl mesh buried
 // beneath a flat floor. Its curved riding surface remains visible all the way down.
-const bowl = { x: -18, z: 0, radiusX: 9.5, radiusZ: 8.5, depth: 2.25, flatRatio: 0.28 };
+const bowl = { x: -18, z: 0, radiusX: 10.8, radiusZ: 9.2, depth: 2.8, flatRatio: 0.24 };
 const quarterPipes = [];
 const floorShape = new THREE.Shape();
 floorShape.moveTo(-50, -50);
@@ -217,19 +217,21 @@ function buildBowl() {
   // Divide the continuous bowl coping into overlapping grindable arcs. Each
   // arc is long enough to ride naturally while allowing the grind to follow
   // the elliptical lip rather than pretending it is one straight rail.
-  for (let i = 0; i < 64; i++) {
-    const a0 = i / 64 * Math.PI * 2;
-    const a1 = (i + 1) / 64 * Math.PI * 2;
-    addGrindEdge(
+  for (let i = 0; i < 24; i++) {
+    const a0 = i / 24 * Math.PI * 2;
+    const a1 = (i + 1) / 24 * Math.PI * 2;
+    const edge = addGrindEdge(
       { x: bowl.x + Math.cos(a0) * bowl.radiusX, z: bowl.z + Math.sin(a0) * bowl.radiusZ },
       { x: bowl.x + Math.cos(a1) * bowl.radiusX, z: bowl.z + Math.sin(a1) * bowl.radiusZ },
       0.035, 'coping'
     );
+    edge.next = i === 23 ? grindEdges[grindEdges.length - 24] : null;
+    edge.previous = i === 0 ? null : grindEdges[grindEdges.length - 2];
   }
 
   // A clean, slightly raised concrete deck around the bowl gives riders
   // room to set up, drop in and approach the coping without crowding it.
-  const deck = new THREE.Mesh(new THREE.RingGeometry(9.8, 10.5, 112), mats.concrete);
+  const deck = new THREE.Mesh(new THREE.RingGeometry(11.05, 11.65, 128), mats.concrete);
   deck.rotation.x = -Math.PI / 2;
   deck.position.set(bowl.x, 0.005, bowl.z);
   deck.scale.set(1, bowl.radiusZ / bowl.radiusX, 1);
@@ -557,7 +559,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   const yawLeverage = 0.72 + alongDeck * 0.58;
   if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     const impulse = fingerSpeed * (2.7 + distance * 0.055) * yawLeverage;
-    const spinSpeed = THREE.MathUtils.clamp(impulse * 3, 8.4, 40.5);
+    const spinSpeed = THREE.MathUtils.clamp(impulse * 3, 8.4, 40.5) * 0.75;
     shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
     shuvitVelocity += direction * spinSpeed;
   }
@@ -698,23 +700,31 @@ function getObbContact() {
 function tryStartGrind() {
   if (!airborne || verticalVelocity >= 0) return false;
   const speedNow = velocity.length();
+  if (speedNow < 1.0) return false;
   const boardForward = forwardVector();
   for (const edge of grindEdges) {
     const relative = new THREE.Vector3(board.position.x - edge.start.x, 0, board.position.z - edge.start.z);
-    const along = THREE.MathUtils.clamp(relative.dot(edge.tangent), 0.22, edge.length - 0.22);
+    const rawAlong = relative.dot(edge.tangent);
+    const along = THREE.MathUtils.clamp(rawAlong, 0, edge.length);
     const closest = edge.start.clone().addScaledVector(edge.tangent, along);
     const lateral = Math.hypot(board.position.x - closest.x, board.position.z - closest.z);
-    if (lateral > 0.78) continue;
+    // The deck can bridge a rail/ledge even when its centre is not directly
+    // over it. Allow the board's footprint plus a small landing tolerance.
+    if (lateral > 1.02) continue;
     const targetY = edge.y - 0.416;
-    if (board.position.y > targetY + 0.16 || board.position.y < targetY - 0.42) continue;
-    const alignment = Math.abs(boardForward.dot(edge.tangent));
-    if (alignment < 0.18) continue;
+    if (board.position.y > targetY + 0.24 || board.position.y < targetY - 0.52) continue;
+    const boardAlignment = Math.abs(boardForward.dot(edge.tangent));
+    const velocityAlong = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
+    const velocityAcross = Math.abs(velocity.x * edge.tangent.z - velocity.z * edge.tangent.x);
+    // Accept both a lengthwise grind and a perpendicular boardslide. Do not
+    // require the board itself to point down the rail.
+    if (Math.abs(velocityAlong) < 0.45 && velocityAcross > speedNow * 0.92 && boardAlignment < 0.2) continue;
     board.position.set(closest.x, targetY, closest.z);
     board.updateMatrixWorld(true);
     grindContactPoint.set(closest.x, edge.y, closest.z);
     grindLocalPoint.copy(grindContactPoint);
     board.worldToLocal(grindLocalPoint);
-    const parallel = alignment > 0.72;
+    const parallel = boardAlignment > 0.72;
     const nearEnd = along < 0.75 || along > edge.length - 0.75;
     if (!parallel && nearEnd && speedNow < 1.5 && grindLocalPoint.x < -0.58) grindType = 'TAIL STALL';
     else if (!parallel && grindLocalPoint.x < -0.58) grindType = 'TAILSLIDE';
@@ -728,8 +738,12 @@ function tryStartGrind() {
     grindRail = edge;
     airborne = false;
     verticalVelocity = 0;
-    const direction = velocity.dot(edge.tangent) >= 0 ? 1 : -1;
-    const grindSpeed = Math.max(1.2, Math.abs(velocity.dot(edge.tangent)), speedNow * 0.45);
+    let direction = Math.sign(velocityAlong);
+    if (!direction) {
+      const facingAlong = boardForward.dot(edge.tangent);
+      direction = Math.sign(facingAlong || 1);
+    }
+    const grindSpeed = Math.max(1.2, Math.abs(velocityAlong), speedNow * 0.42);
     velocity.set(edge.tangent.x * direction * grindSpeed, 0, edge.tangent.z * direction * grindSpeed);
     shuvitVelocity = 0;
     shuvitRotation = 0;
@@ -1062,17 +1076,28 @@ function animate() {
       else if (alongBoard > 0.12) travelSign = 1;
     }
     if (grinding && grindRail) {
-      const edge = grindRail;
-      const alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
-      const next = new THREE.Vector3(board.position.x, 0, board.position.z).addScaledVector(edge.tangent, alongVelocity * dt);
-      const fromStart = next.clone().sub(new THREE.Vector3(edge.start.x, 0, edge.start.z)).dot(edge.tangent);
-      if (fromStart < 0.08 || fromStart > edge.length - 0.08) {
-        grinding = false;
-        grindRail = null;
-        grindReadout.style.display = 'none';
-        airborne = true;
-        verticalVelocity = -0.5;
-      } else {
+      let edge = grindRail;
+      let alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
+      let next = new THREE.Vector3(board.position.x, 0, board.position.z).addScaledVector(edge.tangent, alongVelocity * dt);
+      let fromStart = next.clone().sub(new THREE.Vector3(edge.start.x, 0, edge.start.z)).dot(edge.tangent);
+      if (fromStart < 0 || fromStart > edge.length) {
+        const nextEdge = fromStart > edge.length ? edge.next : edge.previous;
+        if (nextEdge && nextEdge.kind === edge.kind) {
+          grindRail = edge = nextEdge;
+          alongVelocity = velocity.x * edge.tangent.x + velocity.z * edge.tangent.z;
+          if (Math.abs(alongVelocity) < 0.4) alongVelocity = Math.sign(alongVelocity || 1) * 1.2;
+          const overshoot = fromStart > edge.length ? fromStart - grindRail.length : -fromStart;
+          next = (fromStart > 0 ? edge.start.clone() : edge.end.clone()).addScaledVector(edge.tangent, fromStart > 0 ? overshoot : -overshoot);
+          fromStart = next.clone().sub(edge.start).dot(edge.tangent);
+        } else {
+          grinding = false;
+          grindRail = null;
+          grindReadout.style.display = 'none';
+          airborne = true;
+          verticalVelocity = -0.5;
+        }
+      }
+      if (grinding && grindRail) {
         board.position.set(next.x, edge.y - 0.416, next.z);
         velocity.x = edge.tangent.x * alongVelocity * Math.exp(-0.075 * dt);
         velocity.z = edge.tangent.z * alongVelocity * Math.exp(-0.075 * dt);
@@ -1149,6 +1174,10 @@ function animate() {
       board.position.y += verticalVelocity * dt;
       verticalVelocity -= gravity * dt;
       tryStartGrind();
+      if (grinding) {
+        // A successful grind landing consumes this airborne update; do not
+        // immediately run the ordinary ground-contact/bail test as well.
+      } else {
       // Use the actual rotated board geometry for ground contact. The board
       // origin is not the bottom of the wheels/deck, especially during tricks.
       board.updateMatrixWorld(true);
@@ -1177,6 +1206,7 @@ function animate() {
         } else {
           resetBoard();
         }
+      }
       }
     }
   }
