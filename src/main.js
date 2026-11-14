@@ -74,18 +74,18 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   }
 
   // Broad worn patches and faded abrasion where wheels and weather polish the slab.
-  for (let i = 0; i < 74; i++) {
+  for (let i = 0; i < 30; i++) {
     const x = random() * size, y = random() * size;
-    ctx.globalAlpha = 0.035 + random() * 0.075;
+    ctx.globalAlpha = 0.14 + random() * 0.12;
     ctx.strokeStyle = lightTones[Math.floor(random() * lightTones.length)];
-    ctx.lineWidth = 5 + random() * 22;
+    ctx.lineWidth = 1.2 + random() * 2.4;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.bezierCurveTo(
       x + (random() - 0.5) * 90, y + (random() - 0.5) * 55,
-      x + (random() - 0.5) * 150, y + (random() - 0.5) * 80,
-      x + (random() - 0.5) * 190, y + (random() - 0.5) * 100
+      x + (random() - 0.5) * 55, y + (random() - 0.5) * 32,
+      x + (random() - 0.5) * 100, y + (random() - 0.5) * 55
     );
     ctx.stroke();
   }
@@ -121,23 +121,24 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   // Scattered, broken-up moss and green mineral staining. Soft edges keep it
   // embedded in the slab; small grain flecks make the green areas feel rough.
   if (addMoss) {
-    for (let i = 0; i < 34; i++) {
+    for (let i = 0; i < 52; i++) {
       const x = random() * size, y = random() * size;
-      const rx = 24 + random() * 105, ry = 12 + random() * 58;
+      const rx = 58 + random() * 170, ry = 32 + random() * 105;
       const green = ['#526b3b', '#607747', '#71804b', '#485f3c'][Math.floor(random() * 4)];
       const stain = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry));
-      stain.addColorStop(0, green + '58');
-      stain.addColorStop(0.48, green + '32');
+      stain.addColorStop(0, green + '70');
+      stain.addColorStop(0.38, green + '48');
+      stain.addColorStop(0.72, green + '20');
       stain.addColorStop(1, green + '00');
       ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
       ctx.fillStyle = stain; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
-      for (let j = 0; j < 95; j++) {
+      for (let j = 0; j < 210; j++) {
         const px = x + (random() - 0.5) * rx * 1.7;
         const py = y + (random() - 0.5) * ry * 1.7;
         ctx.globalAlpha = 0.08 + random() * 0.16;
         ctx.fillStyle = random() > 0.5 ? '#82915a' : '#354d32';
-        const r = 0.45 + random() * 1.1;
+        const r = 0.5 + random() * 1.25;
         ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
       }
     }
@@ -183,7 +184,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
 }
 const concreteTexture = makeWeatheredConcreteTexture(
   '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
-  ['#929799', '#858b8e', '#777e81'], 2048, true
+  ['#929799', '#858b8e', '#777e81'], 4096, true
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
