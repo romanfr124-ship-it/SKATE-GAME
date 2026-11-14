@@ -1249,7 +1249,7 @@ function flick(direction, distance = 45, flickSpeed = 500, verticalDistance = 0,
   const yawLeverage = 0.72 + alongDeck * 0.58;
   if (distance > 20 && Math.abs(shuvitVelocity) < 0.1 && Math.abs(shuvitRotation) < 0.1) {
     const impulse = fingerSpeed * (2.7 + distance * 0.055) * yawLeverage;
-    const spinSpeed = THREE.MathUtils.clamp(impulse * 3, 8.4, 40.5) * 0.75;
+    const spinSpeed = THREE.MathUtils.clamp(impulse * 4.2, 6, 55);
     shuvitTarget = direction; // non-zero marker: a shuvit impulse is active
     shuvitVelocity += direction * spinSpeed;
   }
@@ -1683,7 +1683,7 @@ function finishGesture(event) {
   const elapsed = Math.max(1, performance.now() - g.startTime);
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
-  const quick = elapsed < 420;
+  const quick = elapsed < 650;
   if (grinding && quick && Math.abs(dx) > 30) {
     // A horizontal swipe is an intentional lateral grind exit, not a shuvit.
     releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
@@ -1693,10 +1693,10 @@ function finishGesture(event) {
   } else if (airborne && quick && Math.abs(dx) > 30) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),g.lastMoveSpeed || (Math.hypot(dx,dy)/elapsed*1000),0,g.deckLocalX || 0);
-  } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
+  } else if (!airborne && !grinding && !g.manualGesture && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
     // vertical direction selects ollie/nollie, horizontal direction selects spin.
-    const tailFlickSpeed = g.lastMoveSpeed || (Math.abs(dy) / elapsed * 1000);
+    const tailFlickSpeed = Math.hypot(dx, dy) / elapsed * 1000;
     if (dy * travelSign > 0) pop('ollie', tailFlickSpeed);
     else pop('nollie', tailFlickSpeed);
     if (airborne && Math.abs(dx) > 30 && Math.abs(dx) > Math.abs(dy) * 0.35) {
