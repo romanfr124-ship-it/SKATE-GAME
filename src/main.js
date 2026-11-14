@@ -357,8 +357,8 @@ function makeDeckArtwork(top = false) {
 const boardGraphicTexture=makeDeckArtwork(false);
 const deckTopGraphicTexture=makeDeckArtwork(true);
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.98 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.075, roughness: 0.97 }),
+  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.105, roughness: 0.76 }),
+  concrete: new THREE.MeshPhysicalMaterial({ color: 0xffffff, map: concreteTexture, bumpMap: concreteTexture, bumpScale: 0.105, roughness: 0.76, metalness: 0.015, clearcoat: 0.16, clearcoatRoughness: 0.42 }),
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0x514078, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
@@ -687,7 +687,7 @@ function groundContactCorrection() {
 }
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
-const terrainSegments = 336, terrainMin = -60, terrainMax = 60;
+const terrainSegments = 448, terrainMin = -60, terrainMax = 60;
 for (let iz = 0; iz <= terrainSegments; iz++) {
   const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
   for (let ix = 0; ix <= terrainSegments; ix++) {
@@ -763,6 +763,72 @@ function addConcreteJoints() {
 
 }
 addConcreteJoints();
+
+// Raised moss growth: thousands of small, irregular cushions grouped into
+// natural colonies. Instancing keeps the extra surface detail inexpensive.
+function addRaisedGroundMoss() {
+  let seed = 684219;
+  const rnd = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const mossGeometry = new THREE.IcosahedronGeometry(0.105, 1);
+  const attr = mossGeometry.attributes.position;
+  for (let i = 0; i < attr.count; i++) {
+    const n = 0.82 + rnd() * 0.36;
+    attr.setXYZ(i, attr.getX(i) * n, attr.getY(i) * (0.62 + rnd() * 0.48), attr.getZ(i) * n);
+  }
+  mossGeometry.computeVertexNormals();
+  const mossMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x71834b, roughness: 0.68, metalness: 0,
+    clearcoat: 0.24, clearcoatRoughness: 0.38
+  });
+  const count = 2600;
+  const moss = new THREE.InstancedMesh(mossGeometry, mossMaterial, count);
+  moss.name = 'Raised natural moss colonies';
+  moss.receiveShadow = true;
+  moss.castShadow = true;
+  const dummy = new THREE.Object3D();
+  const colors = [new THREE.Color('#52683b'), new THREE.Color('#657b43'), new THREE.Color('#78884c'), new THREE.Color('#465d36'), new THREE.Color('#879052')];
+  for (let i = 0; i < count; i++) {
+    // Clustering produces colonies with gaps, rather than evenly spaced dots.
+    const patchX = (rnd() - 0.5) * 116;
+    const patchZ = (rnd() - 0.5) * 116;
+    const x = THREE.MathUtils.clamp(patchX + (rnd() - 0.5) * 2.2, -59.5, 59.5);
+    const z = THREE.MathUtils.clamp(patchZ + (rnd() - 0.5) * 2.2, -59.5, 59.5);
+    const radius = 0.025 + Math.pow(rnd(), 1.7) * 0.105;
+    const height = radius * (0.28 + rnd() * 0.48);
+    dummy.position.set(x, terrainHeightAt(x, z) + height * 0.22, z);
+    dummy.rotation.set((rnd() - 0.5) * 0.55, rnd() * Math.PI * 2, (rnd() - 0.5) * 0.55);
+    dummy.scale.set(radius / 0.105, height / 0.105, radius / 0.105);
+    dummy.updateMatrix();
+    moss.setMatrixAt(i, dummy.matrix);
+    moss.setColorAt(i, colors[Math.floor(rnd() * colors.length)]);
+  }
+  moss.instanceMatrix.needsUpdate = true;
+  if (moss.instanceColor) moss.instanceColor.needsUpdate = true;
+  scene.add(moss);
+
+  // Thin, broken wet films catch highlights between moss colonies.
+  const wetMaterial = new THREE.MeshPhysicalMaterial({
+    color: 0x71807b, roughness: 0.2, metalness: 0.04,
+    clearcoat: 0.9, clearcoatRoughness: 0.16,
+    transparent: true, opacity: 0.19, depthWrite: false
+  });
+  const wetGeometry = new THREE.CircleGeometry(1, 12);
+  const wetPatches = new THREE.InstancedMesh(wetGeometry, wetMaterial, 190);
+  wetPatches.name = 'Subtle damp ground sheen';
+  wetPatches.receiveShadow = true;
+  for (let i = 0; i < 190; i++) {
+    const x = (rnd() - 0.5) * 116, z = (rnd() - 0.5) * 116;
+    const rx = 0.22 + rnd() * 0.9, rz = 0.12 + rnd() * 0.52;
+    dummy.position.set(x, terrainHeightAt(x, z) + 0.003, z);
+    dummy.rotation.set(-Math.PI / 2, 0, rnd() * Math.PI);
+    dummy.scale.set(rx, rz, 1);
+    dummy.updateMatrix();
+    wetPatches.setMatrixAt(i, dummy.matrix);
+  }
+  wetPatches.instanceMatrix.needsUpdate = true;
+  scene.add(wetPatches);
+}
+addRaisedGroundMoss();
 // No obstacle constructors are called in this foundation build.
 // Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
@@ -1291,7 +1357,7 @@ const boardPhysics = (() => {
   deckBody.setAngularDamping(0.02);
 
   // Collision terrain uses the same height function as the visible park.
-  const terrainCollisionSegments = 336;
+  const terrainCollisionSegments = 448;
   const terrainCollisionVertices = [];
   const terrainCollisionIndices = [];
   for (let iz = 0; iz <= terrainCollisionSegments; iz++) {
