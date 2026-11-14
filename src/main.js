@@ -45,21 +45,32 @@ function makePaintTexture(base, flecks, size = 256) {
   ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
   let seed = 918273;
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  for (let i = 0; i < 1500; i++) {
-    const r = 0.35 + random() * 1.8;
-    ctx.globalAlpha = 0.12 + random() * 0.2;
+  // Visible aggregate, sand grains and irregular mottling like poured skatepark concrete.
+  for (let i = 0; i < 5200; i++) {
+    const r = 0.45 + random() * 3.4;
+    ctx.globalAlpha = 0.16 + random() * 0.34;
     ctx.fillStyle = flecks[Math.floor(random() * flecks.length)];
     ctx.beginPath(); ctx.arc(random() * size, random() * size, r, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let i = 0; i < 95; i++) {
+    const x = random() * size, y = random() * size;
+    ctx.globalAlpha = 0.035 + random() * 0.07;
+    ctx.strokeStyle = random() > 0.5 ? '#713d28' : '#ffd09a';
+    ctx.lineWidth = 1 + random() * 3;
+    ctx.beginPath(); ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(x + (random() - 0.5) * 28, y + (random() - 0.5) * 22, x + (random() - 0.5) * 54, y + (random() - 0.5) * 40);
+    ctx.stroke();
   }
   ctx.globalAlpha = 1;
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-  texture.repeat.set(3, 3);
+  texture.repeat.set(7, 7);
+  texture.anisotropy = 8;
   return texture;
 }
-const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a'], 512);
-const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a'], 512);
+const concreteTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 512);
+const asphaltTexture = makePaintTexture('#c87943', ['#e5a06a','#a95832','#d98b54','#f0b47a','#8f4e30','#f5c08a'], 512);
 function makeDeckArtwork(top = false) {
   const canvas=document.createElement('canvas');canvas.width=2048;canvas.height=1024;
   const ctx=canvas.getContext('2d');
@@ -117,7 +128,7 @@ const mats = {
   dark: new THREE.MeshStandardMaterial({ color: 0x45413d, roughness: 0.92 }),
   board: new THREE.MeshStandardMaterial({ color: 0xffffff, map: boardGraphicTexture, metalness: 0.2, roughness: 0.42 }),
   rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
-  metal: new THREE.MeshStandardMaterial({ color: 0xbfc5cc, metalness: 0.78, roughness: 0.28 }),
+  metal: new THREE.MeshPhysicalMaterial({ color: 0xe0e5eb, metalness: 0.72, roughness: 0.19, clearcoat: 0.85, clearcoatRoughness: 0.12 }),
   outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
   accentMint: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
   accentCoral: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.96 }),
@@ -251,7 +262,7 @@ function bowlHeightAt(x, z) {
   const radius = Math.sqrt(nx * nx + nz * nz);
   if (radius >= 1) return 0;
   const t = THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1);
-  return -bowl.depth * (1 - Math.cos(t * Math.PI / 2));
+  return -bowl.depth * Math.cos(t * Math.PI / 2);
 }
 
 function buildBowl() {
@@ -261,9 +272,9 @@ function buildBowl() {
   const indices = [];
   for (let ring = 0; ring <= rings; ring++) {
     const radius = ring / rings;
-    const y = -bowl.depth * (1 - Math.cos(
+    const y = -bowl.depth * Math.cos(
       THREE.MathUtils.clamp((radius - bowl.flatRatio) / (1 - bowl.flatRatio), 0, 1) * Math.PI / 2
-    ));
+    );
     for (let segment = 0; segment <= segments; segment++) {
       const angle = segment / segments * Math.PI * 2;
       positions.push(
