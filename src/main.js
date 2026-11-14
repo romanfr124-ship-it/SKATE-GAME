@@ -536,8 +536,8 @@ for (let i = 0; i < qpPath.length - 1; i++) {
 }
 function baseGroundHeight(x, z) {
   // The raised platform occupies only the north-west corner. Its edge blends
-  // into the full-length berm, which runs from X=-20 to X=-10.
-  const xT = THREE.MathUtils.clamp((x + 20) / 10, 0, 1);
+  // into the widened berm, which runs from X=-20 to X=0.
+  const xT = THREE.MathUtils.clamp((x + 20) / 20, 0, 1);
   const xFade = xT * xT * (3 - 2 * xT);
   const zStartT = THREE.MathUtils.clamp((z - 22) / 3, 0, 1);
   const zStart = zStartT * zStartT * (3 - 2 * zStartT);
@@ -570,7 +570,8 @@ function quarterPipeSample(x, z) {
   const d = best.inward;
   const baseY = baseGroundHeight(best.px, best.pz);
   const rise = Math.max(0, best.lipY - baseY);
-  const y = rise - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
+  const u = (qpWidth - d) / qpWidth;
+  const y = rise * (1 - Math.sqrt(Math.max(0, 1 - u * u)));
   return { ...best, y: baseY + y };
 }
 function makeQuarterPipe() {
@@ -590,7 +591,8 @@ function makeQuarterPipe() {
       const lipY = qpLipHeightAt(i);
       const baseY = baseGroundHeight(x, z);
       const rise = Math.max(0, lipY - baseY);
-      const y = baseY + rise - Math.sqrt(Math.max(0, qpWidth * qpWidth - (qpWidth - d) * (qpWidth - d)));
+      const u = (qpWidth - d) / qpWidth;
+       const y = baseY + rise * (1 - Math.sqrt(Math.max(0, 1 - u * u)));
       positions.push(x, y, z);
       if (i < qpPath.length - 1 && j < across) {
         const a = i * (across + 1) + j, b = a + across + 1;
@@ -2765,15 +2767,15 @@ function drawSkateparkMap() {
   const bg=mapCtx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#b8c0bd');bg.addColorStop(1,'#777f7e');
   mapCtx.fillStyle=bg;mapCtx.fillRect(0,0,w,h);
   const polygon=(pts,fill)=>{mapCtx.beginPath();pts.forEach((q,i)=>i?mapCtx.lineTo(q[0],q[1]):mapCtx.moveTo(q[0],q[1]));mapCtx.closePath();mapCtx.fillStyle=fill;mapCtx.fill();};
-  polygon([p(-60,-60),p(-15,-60),p(-15,60),p(-60,60)],'#aeb6b3');
-  polygon([p(-15,-60),p(-5,-60),p(-5,60),p(-15,60)],'#929b98');
-  polygon([p(-5,-60),p(60,-60),p(60,60),p(-5,60)],'#737c7b');
+  polygon([p(-60,-60),p(-20,-60),p(-20,60),p(-60,60)],'#aeb6b3');
+  polygon([p(-20,-60),p(0,-60),p(0,60),p(-20,60)],'#929b98');
+  polygon([p(0,-60),p(60,-60),p(60,60),p(0,60)],'#737c7b');
   mapCtx.lineWidth=1;mapCtx.strokeStyle='rgba(255,255,255,.25)';
   for(let v=-60;v<=60;v+=5){let a=p(v,-60),b=p(v,60);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();a=p(-60,v);b=p(60,v);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();}
-  mapCtx.lineWidth=2;mapCtx.strokeStyle='rgba(255,255,255,.85)';let a=p(-10,-60),b=p(-10,60);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
-  label('EXPANDED UPPER LEVEL  Y=3.2m',-37,-4,'#263332',9);
+  mapCtx.lineWidth=2;mapCtx.strokeStyle='rgba(255,255,255,.85)';let a=p(0,-60),b=p(0,60);mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
+  label('EXPANDED UPPER LEVEL  Y=3.2m',-40,-4,'#263332',9);
   label('LOWER LEVEL  Y=0m',-1,3,'#f1f2ed',9);
-  label('SLOPED CONNECTION',-10,30,'#263332',8);
+  label('WIDE SLOPED CONNECTION',-10,30,'#263332',8);
   // Raised platform footprint.
   polygon([p(-60,25),p(-20,25),p(-20,60),p(-60,60)],'rgba(218,226,218,.72)');
   label('RAISED PLATFORM X -60 TO -20',-40,42,'#263332',8);
