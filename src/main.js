@@ -1232,8 +1232,10 @@ function pop(kind = 'ollie', flickSpeed = 650, flickDistance = 0) {
   board.rotation.z = 0;
   // The tail/nose pop transfers a small angular impulse into the deck.
   // Airborne finger drags can add to this momentum directly.
-  const popRotation = 0.12 + flickDistance * 0.0015 + flickSpeed * 0.00045;
-  airPitchVelocity = kind === 'ollie' ? -popRotation : popRotation;
+  // Positive pitch about the board's Z axis lifts the +X nose. An ollie
+  // therefore kicks the nose upward; a nollie uses the opposite impulse.
+  const popRotation = 0.45 + flickDistance * 0.004 + flickSpeed * 0.0015;
+  airPitchVelocity = kind === 'ollie' ? popRotation : -popRotation;
   airRollVelocity = 0;
   grinding = false;
   grindRail = null;
@@ -1642,8 +1644,10 @@ canvas.addEventListener('pointermove', event => {
     // A finger drag applies torque to the free deck while it is in the air.
     // The accumulated angular velocity persists after the finger is lifted.
     // Gentle per-pixel torque keeps the board controllable while dragging.
-    airPitchVelocity += -moveDy * 0.0035;
-    airRollVelocity += moveDx * 0.004;
+    // Direct finger displacement adds proportional torque. The larger roll
+    // gain makes a deliberate kickflip flick complete a rotation in the air.
+    airPitchVelocity += -moveDy * 0.006;
+    airRollVelocity += moveDx * 0.012;
   }
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0 &&
       gesture.lastMoveSpeed < 600) {
@@ -1698,7 +1702,10 @@ function finishGesture(event) {
     const direction = Math.sign(dy * travelSign) || 1;
     // A single linear impulse: faster flicks rotate faster, without a
     // distance multiplier or an artificial minimum spin.
-    const rollImpulse = Math.abs(dy) * 0.006 + flickSpeed * 0.0015;
+    // Kickflip/heelflip torque scales linearly with swipe distance and speed.
+    // This is deliberately stronger so a normal deliberate flick can rotate
+    // the deck fully, while slower/shorter flicks still produce smaller flips.
+    const rollImpulse = Math.abs(dy) * 0.085 + flickSpeed * 0.012;
     airRollVelocity += direction * rollImpulse;
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
