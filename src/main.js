@@ -534,41 +534,60 @@ terrainGeometry.computeVertexNormals();
 const terrain = new THREE.Mesh(terrainGeometry, mats.concrete);
 terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 function addConcreteJoints() {
-  const darkGroove = new THREE.MeshStandardMaterial({ color: 0x292f30, roughness: 1 });
-  const roundedEdge = new THREE.MeshStandardMaterial({ color: 0x777e80, roughness: 0.98 });
+  const jointMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true, roughness: 1, metalness: 0
+  });
   const mossMaterials = [
     new THREE.MeshStandardMaterial({ color: 0x405b31, roughness: 1 }),
     new THREE.MeshStandardMaterial({ color: 0x526b39, roughness: 1 }),
     new THREE.MeshStandardMaterial({ color: 0x687b43, roughness: 1 })
   ];
-  const addJointLine = (axis, fixed, offset, material, radius, depth) => {
-    const points = [];
-    for (let t = -60; t <= 60; t += 1) {
-      const x = axis === 'x' ? t : fixed + offset;
-      const z = axis === 'x' ? fixed + offset : t;
-      points.push(new THREE.Vector3(x, terrainHeightAt(x, z) - depth, z));
+
+  // A shallow concave profile is drawn directly over the slab surface.
+  // Its dark centre and graduated rounded shoulders make the cut readable
+  // without adding a raised strip above the concrete.
+  const addJoint = (axis, fixed) => {
+    const cross = [-0.145, -0.112, -0.078, -0.044, 0, 0.044, 0.078, 0.112, 0.145];
+    const shades = [
+      [0.39, 0.41, 0.42], [0.30, 0.32, 0.33], [0.20, 0.22, 0.23],
+      [0.105, 0.12, 0.12], [0.055, 0.065, 0.065],
+      [0.105, 0.12, 0.12], [0.20, 0.22, 0.23], [0.30, 0.32, 0.33],
+      [0.39, 0.41, 0.42]
+    ];
+    const positions = [], colors = [], indices = [];
+    const segments = 240;
+    for (let i = 0; i <= segments; i++) {
+      const t = -60 + (120 * i / segments);
+      for (let j = 0; j < cross.length; j++) {
+        const x = axis === 'x' ? t : fixed + cross[j];
+        const z = axis === 'x' ? fixed + cross[j] : t;
+        positions.push(x, terrainHeightAt(x, z) + 0.006, z);
+        colors.push(...shades[j]);
+        if (i < segments && j < cross.length - 1) {
+          const a = i * cross.length + j, b = a + cross.length;
+          indices.push(a, b, a + 1, b, b + 1, a + 1);
+        }
+      }
     }
-    const curve = new THREE.CatmullRomCurve3(points);
-    const geometry = new THREE.TubeGeometry(curve, 120, radius, 8, false);
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.castShadow = true;
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+    const mesh = new THREE.Mesh(geometry, jointMaterial);
     mesh.receiveShadow = true;
+    mesh.renderOrder = 2;
     scene.add(mesh);
   };
 
-  // The joint profile is cut down into the slab: rounded shoulders never rise
-  // above the surrounding concrete, while the dark centre sits lower still.
+  // Recessed rounded joints, visible as dark concave seams rather than ridges.
   for (let p = -56; p <= 56; p += 8) {
-    for (const axis of ['x', 'z']) {
-      addJointLine(axis, p, -0.047, roundedEdge, 0.047, 0.047);
-      addJointLine(axis, p, 0.047, roundedEdge, 0.047, 0.047);
-      addJointLine(axis, p, 0, darkGroove, 0.021, 0.039);
-    }
+    addJoint('x', p);
+    addJoint('z', p);
   }
 
-  // Small irregular moss cushions sit down inside the recessed crack, not on
-  // top of the slab. Their varied scale gives the seam a rough, raised texture.
-  const mossGeometry = new THREE.SphereGeometry(1, 6, 5);
+  // Fine, irregular moss clumps sit within the dark centre of each seam.
+  const mossGeometry = new THREE.SphereGeometry(1, 7, 5);
   const mossInstances = mossMaterials.map(material =>
     new THREE.InstancedMesh(mossGeometry, material, 5000)
   );
@@ -576,28 +595,27 @@ function addConcreteJoints() {
   const dummy = new THREE.Object3D();
   for (let p = -56; p <= 56; p += 8) {
     for (const axis of ['x', 'z']) {
-      for (let t = -59.5; t <= 59.5; t += 0.34) {
-        if (Math.random() > 0.57) continue;
-        const x = axis === 'x' ? t : p + (Math.random() - 0.5) * 0.035;
-        const z = axis === 'x' ? p + (Math.random() - 0.5) * 0.035 : t;
-        const r = 0.012 + Math.random() * 0.018;
-        dummy.position.set(x, terrainHeightAt(x, z) - 0.045, z);
+      for (let t = -59.5; t <= 59.5; t += 0.27) {
+        if (Math.random() > 0.66) continue;
+        const x = axis === 'x' ? t : p + (Math.random() - 0.5) * 0.025;
+        const z = axis === 'x' ? p + (Math.random() - 0.5) * 0.025 : t;
+        const r = 0.009 + Math.random() * 0.014;
+        dummy.position.set(x, terrainHeightAt(x, z) + 0.008, z);
         dummy.rotation.set(Math.random() * 0.7, Math.random() * Math.PI, Math.random() * 0.7);
-        dummy.scale.set(r * (0.8 + Math.random()), r * (0.45 + Math.random() * 0.7), r * (0.8 + Math.random()));
+        dummy.scale.set(r * (0.8 + Math.random()), r * (0.35 + Math.random() * 0.45), r * (0.8 + Math.random()));
         dummy.updateMatrix();
         const materialIndex = Math.floor(Math.random() * mossInstances.length);
-        const mesh = mossInstances[materialIndex];
         const index = mossCounts[materialIndex]++;
-        if (index < 5000) mesh.setMatrixAt(index, dummy.matrix);
+        if (index < 5000) mossInstances[materialIndex].setMatrixAt(index, dummy.matrix);
       }
     }
   }
-  // Keep only the populated instances in each material batch.
   mossInstances.forEach((mesh, i) => {
     mesh.count = mossCounts[i];
     mesh.instanceMatrix.needsUpdate = true;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
+    mesh.renderOrder = 3;
     scene.add(mesh);
   });
 }
