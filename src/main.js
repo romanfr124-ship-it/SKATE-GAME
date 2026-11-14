@@ -615,7 +615,7 @@ function makeQuarterPipe() {
   stairRail.rotation.z = Math.atan2(stepCount * rise, railLength);
   stairRail.castShadow = true; stairRail.receiveShadow = true; scene.add(stairRail);
   grindRails.push(stairRail);
-  addGrindEdge({ x: stairStartX, z: stairZ }, { x: stairStartX + railLength, z: stairZ }, qpHeight + 0.82, 'rail');
+  addGrindEdge({ x: stairStartX, z: stairZ }, { x: stairStartX + railLength, z: stairZ }, stairRail.position.y + 0.055, 'rail');
 }
 
 function bowlOutlineScale() { return 1; }
