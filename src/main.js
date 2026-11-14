@@ -1097,6 +1097,130 @@ function updateFollowCamera(dt) {
 camera.position.set(0, 4.4, -4.8);
 camera.lookAt(0, -0.75, 6.0);
 
+// Full skatepark map. Tap any point on the plan to teleport the skater there.
+const mapButton = document.createElement('button');
+mapButton.type = 'button';
+mapButton.textContent = 'MAP';
+mapButton.setAttribute('aria-label', 'Open skatepark map');
+mapButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:20;padding:11px 16px;border:1px solid #888;border-radius:7px;background:rgba(20,20,20,.92);color:#fff;font:700 12px Arial,sans-serif;letter-spacing:1.5px;touch-action:manipulation;';
+mount.appendChild(mapButton);
+
+const mapPanel = document.createElement('div');
+mapPanel.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 14px 18px;background:rgba(0,0,0,.78);box-sizing:border-box;';
+const mapCard = document.createElement('div');
+mapCard.style.cssText = 'width:min(100%,760px);height:min(78vh,680px);display:flex;flex-direction:column;gap:10px;padding:14px;box-sizing:border-box;border:1px solid #777;border-radius:10px;background:#202020;color:#fff;font-family:Arial,sans-serif;';
+const mapHeader = document.createElement('div');
+mapHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;';
+const mapTitle = document.createElement('div');
+mapTitle.textContent = 'SKATEPARK MAP';
+mapTitle.style.cssText = 'font-size:13px;font-weight:700;letter-spacing:2px;';
+const mapClose = document.createElement('button');
+mapClose.type = 'button';
+mapClose.textContent = 'CLOSE';
+mapClose.style.cssText = 'padding:9px 12px;border:1px solid #777;border-radius:6px;background:#333;color:#fff;font-size:11px;font-weight:700;touch-action:manipulation;';
+mapHeader.append(mapTitle,mapClose);
+const mapHint = document.createElement('div');
+mapHint.textContent = 'TAP ANYWHERE ON THE MAP TO TELEPORT';
+mapHint.style.cssText = 'flex:none;color:#bbb;font-size:10px;letter-spacing:1.2px;';
+const mapCanvas = document.createElement('canvas');
+mapCanvas.style.cssText = 'display:block;width:100%;height:100%;min-height:0;flex:1;border-radius:5px;background:#292929;touch-action:pan-x pan-y;';
+mapCard.append(mapHeader,mapHint,mapCanvas);
+mapPanel.appendChild(mapCard);
+mount.appendChild(mapPanel);
+
+const mapCtx = mapCanvas.getContext('2d');
+const mapBounds = { minX: -32, maxX: 34, minZ: -24, maxZ: 24 };
+function mapTransform() {
+  const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
+  const scale = Math.min(w / (mapBounds.maxX - mapBounds.minX), h / (mapBounds.maxZ - mapBounds.minZ));
+  return { w, h, scale, ox: (w - (mapBounds.maxX - mapBounds.minX) * scale) / 2 - mapBounds.minX * scale,
+    oy: (h - (mapBounds.maxZ - mapBounds.minZ) * scale) / 2 - mapBounds.minZ * scale };
+}
+function drawSkateparkMap() {
+  if (!mapCtx || mapPanel.style.display === 'none') return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
+  if (!w || !h) return;
+  mapCanvas.width = Math.round(w * dpr);
+  mapCanvas.height = Math.round(h * dpr);
+  mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  mapCtx.clearRect(0, 0, w, h);
+  const t = mapTransform();
+  const p = (x,z) => [t.ox + x*t.scale, t.oy + z*t.scale];
+  const rect = (x,z,width,depth,fill,stroke='#777') => {
+    const [px,py]=p(x-width/2,z-depth/2);
+    mapCtx.fillStyle=fill; mapCtx.fillRect(px,py,width*t.scale,depth*t.scale);
+    mapCtx.strokeStyle=stroke; mapCtx.lineWidth=1; mapCtx.strokeRect(px,py,width*t.scale,depth*t.scale);
+  };
+  mapCtx.fillStyle='#343434'; mapCtx.fillRect(0,0,w,h);
+  rect(0,0,64,46,'#484848','#777');
+  // Bowl and coping.
+  const [bx,by]=p(bowl.x,bowl.z);
+  mapCtx.beginPath();
+  mapCtx.ellipse(bx,by,bowl.radiusX*t.scale,bowl.radiusZ*t.scale,0,0,Math.PI*2);
+  mapCtx.fillStyle='#292929'; mapCtx.fill();
+  mapCtx.lineWidth=3; mapCtx.strokeStyle='#b7b7b7'; mapCtx.stroke();
+  mapCtx.beginPath();
+  mapCtx.ellipse(bx,by,bowl.radiusX*bowl.flatRatio*t.scale,bowl.radiusZ*bowl.flatRatio*t.scale,0,0,Math.PI*2);
+  mapCtx.strokeStyle='#555'; mapCtx.lineWidth=1; mapCtx.stroke();
+  // Benches, rails, funbox and bank ramps.
+  rect(10,-12,5.4,.78,'#a0a0a0');
+  rect(22,12,4.8,.78,'#a0a0a0');
+  for (const [x,z,len] of [[14,-7,7.5],[23,-7,7.5],[10,8,6.5]]) {
+    const a=p(x,z-len/2), b=p(x,z+len/2);
+    mapCtx.beginPath(); mapCtx.moveTo(...a); mapCtx.lineTo(...b);
+    mapCtx.strokeStyle='#dedede'; mapCtx.lineWidth=3; mapCtx.stroke();
+  }
+  rect(17,3,5.4,3.2,'#777');
+  rect(17,3,4.8,.72,'#b9b9b9');
+  // Quarter-pipe footprints and curved-face direction markers.
+  rect(31,-8,2.15,8.5,'#777');
+  rect(15,21.0,8.5,2.0,'#777');
+  for (const [x,z,dx,dz] of [[28.2,-8,1,0],[15,18.5,0,1]]) {
+    const a=p(x,z), b=p(x+dx*2.2,z+dz*2.2);
+    mapCtx.beginPath(); mapCtx.moveTo(...a); mapCtx.lineTo(...b);
+    mapCtx.strokeStyle='#bbb'; mapCtx.lineWidth=2; mapCtx.stroke();
+  }
+  // Current skater marker and heading.
+  const [sx,sy]=p(board.position.x,board.position.z);
+  mapCtx.beginPath(); mapCtx.arc(sx,sy,6,0,Math.PI*2);
+  mapCtx.fillStyle='#fff'; mapCtx.fill();
+  mapCtx.strokeStyle='#111'; mapCtx.lineWidth=2; mapCtx.stroke();
+  const headingX=Math.sin(heading), headingZ=Math.cos(heading);
+  const [hx,hy]=p(board.position.x+headingX*1.8,board.position.z+headingZ*1.8);
+  mapCtx.beginPath(); mapCtx.moveTo(sx,sy); mapCtx.lineTo(hx,hy);
+  mapCtx.strokeStyle='#fff'; mapCtx.lineWidth=2; mapCtx.stroke();
+}
+function closeParkMap() { mapPanel.style.display='none'; }
+mapButton.addEventListener('click', () => {
+  mapPanel.style.display='flex';
+  drawSkateparkMap();
+});
+mapClose.addEventListener('click', closeParkMap);
+mapPanel.addEventListener('click', event => {
+  if (event.target === mapPanel) closeParkMap();
+});
+mapCanvas.addEventListener('pointerdown', event => {
+  const rect = mapCanvas.getBoundingClientRect();
+  const t = mapTransform();
+  const px = event.clientX - rect.left;
+  const py = event.clientY - rect.top;
+  const x = (px - t.ox) / t.scale;
+  const z = (py - t.oy) / t.scale;
+  if (x < mapBounds.minX || x > mapBounds.maxX || z < mapBounds.minZ || z > mapBounds.maxZ) return;
+  // Clear all motion/trick states so teleporting never carries momentum or
+  // leaves the board attached to a previous grind.
+  grinding = false; grindRail = null; grindReadout.style.display='none';
+  airborne = false; verticalVelocity = 0; velocity.set(0,0,0);
+  shuvitVelocity = 0; shuvitRotation = 0; shuvitTarget = 0;
+  manualActive = false; manualAngle = 0; boardTouchHold = false; trickCaught = false;
+  bailTimer = 0;
+  board.rotation.x = 0; board.rotation.z = 0;
+  board.position.set(x, groundHeightAt(x,z) - 0.025, z);
+  travelSign = 1;
+  closeParkMap();
+});
+
 const clock = new THREE.Clock();
 function animate() {
   requestAnimationFrame(animate);
