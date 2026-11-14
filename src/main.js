@@ -3,8 +3,8 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.m
 // Minimal monochrome blockout: only the 3D skatepark and skateboard are shown.
 const mount = document.getElementById('game');
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x202020);
-scene.fog = new THREE.Fog(0x202020, 38, 115);
+scene.background = new THREE.Color(0x91d9f2);
+scene.fog = new THREE.Fog(0x91d9f2, 58, 150);
 const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
@@ -17,23 +17,61 @@ try {
 }
 renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
 renderer.setSize(innerWidth, innerHeight);
-renderer.shadowMap.enabled = false;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.18;
 mount.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xffffff, 0x454545, 2.0));
-const keyLight = new THREE.DirectionalLight(0xffffff, 2.1);
-keyLight.position.set(-10, 18, -8);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x7b927e, 2.15));
+const keyLight = new THREE.DirectionalLight(0xfff2d2, 3.0);
+keyLight.position.set(-12, 22, -10);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.set(1024, 1024);
+keyLight.shadow.camera.left = -42;
+keyLight.shadow.camera.right = 42;
+keyLight.shadow.camera.top = 42;
+keyLight.shadow.camera.bottom = -42;
+keyLight.shadow.bias = -0.00025;
 scene.add(keyLight);
 
+// Light, repeatable painted-concrete texture made locally on a tiny canvas.
+function makePaintTexture(base, flecks, size = 256) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = base; ctx.fillRect(0, 0, size, size);
+  let seed = 918273;
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  for (let i = 0; i < 1500; i++) {
+    const r = 0.35 + random() * 1.8;
+    ctx.globalAlpha = 0.12 + random() * 0.2;
+    ctx.fillStyle = flecks[Math.floor(random() * flecks.length)];
+    ctx.beginPath(); ctx.arc(random() * size, random() * size, r, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(3, 3);
+  return texture;
+}
+const concreteTexture = makePaintTexture('#e9dfc8', ['#ffffff','#b6d9ca','#e8a77f','#9dc7d0']);
+const asphaltTexture = makePaintTexture('#83c9b7', ['#d6f0d8','#4b9c91','#f4d69a']);
+const boardGraphicTexture = makePaintTexture('#ff855f', ['#ffd36e','#f9f0d1','#56c9c1','#d96eaa']);
 const mats = {
-  floor: new THREE.MeshStandardMaterial({ color: 0x303030, roughness: 1 }),
-  concrete: new THREE.MeshStandardMaterial({ color: 0x484848, roughness: 0.95 }),
-  dark: new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 1 }),
-  board: new THREE.MeshStandardMaterial({ color: 0x858585, roughness: 0.82 }),
-  rubber: new THREE.MeshStandardMaterial({ color: 0x171717, roughness: 1 }),
-  metal: new THREE.MeshStandardMaterial({ color: 0x9b9b9b, metalness: 0.35, roughness: 0.55 }),
-  outline: new THREE.LineBasicMaterial({ color: 0xd8d8d8 })
+  floor: new THREE.MeshStandardMaterial({ color: 0xffffff, map: asphaltTexture, roughness: 1 }),
+  concrete: new THREE.MeshStandardMaterial({ color: 0xffffff, map: concreteTexture, roughness: 0.94 }),
+  dark: new THREE.MeshStandardMaterial({ color: 0x33465a, roughness: 1 }),
+  board: new THREE.MeshStandardMaterial({ color: 0xff9b68, map: boardGraphicTexture, roughness: 0.76 }),
+  rubber: new THREE.MeshStandardMaterial({ color: 0x263447, roughness: 1 }),
+  metal: new THREE.MeshStandardMaterial({ color: 0xf4c85d, metalness: 0.28, roughness: 0.42 }),
+  outline: new THREE.LineBasicMaterial({ color: 0x40556a }),
+  accentMint: new THREE.MeshStandardMaterial({ color: 0x50c8b0, roughness: 0.86 }),
+  accentCoral: new THREE.MeshStandardMaterial({ color: 0xf27e68, roughness: 0.82 }),
+  accentLavender: new THREE.MeshStandardMaterial({ color: 0x9c8be8, roughness: 0.86 }),
+  wheel: new THREE.MeshStandardMaterial({ color: 0xf8d36d, roughness: 0.75 })
 };
 
 const solidObstacles = [];
@@ -53,6 +91,8 @@ function addGrindEdge(start, end, y, kind = 'ledge') {
 function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const geometry = new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geometry, mat);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   mesh.position.set(x, y, z);
   parent.add(mesh);
   if (w < 90) solidObstacles.push(mesh);
@@ -69,7 +109,9 @@ function outlinedBox(parent, w, h, d, mat, x, y, z) {
 }
 function ramp(w, h, d, x, z, angle = 0) {
   const geometry = new THREE.BoxGeometry(w, h, d);
-  const mesh = new THREE.Mesh(geometry, mats.concrete);
+  const mesh = new THREE.Mesh(geometry, mats.accentMint);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
   mesh.position.set(x, h / 2 - 0.02, z);
   mesh.rotation.z = angle;
   mesh.userData.isRamp = true;
@@ -130,6 +172,7 @@ const parkFloor = new THREE.Mesh(
   new THREE.ExtrudeGeometry(floorShape, { depth: 0.45, bevelEnabled: false, curveSegments: 64 }),
   mats.floor
 );
+parkFloor.receiveShadow = true;
 parkFloor.rotation.x = -Math.PI / 2;
 parkFloor.position.y = -0.45;
 scene.add(parkFloor);
@@ -202,6 +245,7 @@ function buildBowl() {
   geometry.computeVertexNormals();
   const surface = new THREE.Mesh(geometry, mats.concrete);
   surface.material.side = THREE.DoubleSide;
+  surface.receiveShadow = true;
   scene.add(surface);
 
   // Continuous round steel coping follows the full elliptical lip.
@@ -272,8 +316,10 @@ function addQuarterPipe(axis, startX, startZ, width, height, direction = 1) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setIndex(indices);
   geometry.computeVertexNormals();
-  const face = new THREE.Mesh(geometry, mats.concrete);
+  const face = new THREE.Mesh(geometry, mats.accentCoral);
   face.material.side = THREE.DoubleSide;
+  face.castShadow = true;
+  face.receiveShadow = true;
   scene.add(face);
   const copingGeometry = new THREE.CylinderGeometry(0.075, 0.075, width, 12);
   const coping = new THREE.Mesh(copingGeometry, mats.metal);
@@ -356,7 +402,7 @@ function groundContactCorrection() {
 
 // Street plaza: low, usable obstacles with clear run-ups and room to roll away.
 function bench(x, z, length = 5.2) {
-  const top = outlinedBox(scene, length, 0.18, 0.78, mats.metal, x, 0.53, z);
+  const top = outlinedBox(scene, length, 0.18, 0.78, mats.accentCoral, x, 0.53, z);
   top.userData.grindSurface = true;
   const topY = 0.53 + 0.09;
   addGrindEdge({ x: x - length / 2, z: z - 0.39 }, { x: x + length / 2, z: z - 0.39 }, topY);
@@ -444,7 +490,7 @@ board.add(deck);
 
 const deckOutline = new THREE.LineSegments(
   new THREE.EdgesGeometry(deckGeometry, 30),
-  mats.outline
+  new THREE.LineBasicMaterial({ color: 0x35495e })
 );
 deckOutline.position.copy(deck.position);
 board.add(deckOutline);
@@ -490,6 +536,20 @@ const deckTopBlack = new THREE.MeshBasicMaterial({
 makeDeckTop(0.992, 0.985, deckTopWhite, 0.006, 2);
 makeDeckTop(0.972, 0.955, deckTopBlack, 0.009, 3);
 
+// Small hand-painted stripes give the grip a recognizable graphic identity.
+function deckSticker(width, length, color, x, z, rotation = 0) {
+  const sticker = new THREE.Mesh(new THREE.PlaneGeometry(width, length),
+    new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide }));
+  sticker.rotation.x = -Math.PI / 2;
+  sticker.rotation.z = rotation;
+  sticker.position.set(x, deck.position.y + 0.018, z);
+  board.add(sticker);
+}
+deckSticker(0.12, 0.52, 0xffd36e, -0.58, 0);
+deckSticker(0.12, 0.52, 0x55d2c1, -0.38, 0);
+deckSticker(0.12, 0.52, 0xf27e68, -0.18, 0);
+deckSticker(0.42, 0.12, 0x9c8be8, 0.42, 0, Math.PI / 2);
+
 // Trucks: base plates, hangers, axles and kingpins.
 const wheelMeshes = [];
 for (const x of [-0.69, 0.69]) {
@@ -519,7 +579,7 @@ for (const x of [-0.69, 0.69]) {
   for (const z of [-0.34, 0.34]) {
     const wheel = new THREE.Mesh(
       new THREE.CylinderGeometry(0.145, 0.145, 0.12, 24, 1),
-      new THREE.MeshStandardMaterial({ color: 0x202020, roughness: 0.88 })
+      mats.wheel
     );
     wheel.rotation.x = Math.PI / 2;
     wheel.position.set(x, 0.17, z);
@@ -1102,28 +1162,28 @@ const mapButton = document.createElement('button');
 mapButton.type = 'button';
 mapButton.textContent = 'MAP';
 mapButton.setAttribute('aria-label', 'Open skatepark map');
-mapButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:20;padding:11px 16px;border:1px solid #888;border-radius:7px;background:rgba(20,20,20,.92);color:#fff;font:700 12px Arial,sans-serif;letter-spacing:1.5px;touch-action:manipulation;';
+mapButton.style.cssText = 'position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:14px;z-index:20;padding:12px 18px;border:3px solid #fff;border-radius:15px;background:linear-gradient(145deg,#ff956e,#f36d83);color:#fff;font:900 12px Arial,sans-serif;letter-spacing:1.8px;text-shadow:0 2px 0 #bd5367;box-shadow:0 5px 0 #a94d62,0 8px 18px #27475a66;touch-action:manipulation;';
 mount.appendChild(mapButton);
 
 const mapPanel = document.createElement('div');
-mapPanel.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 14px 18px;background:rgba(0,0,0,.78);box-sizing:border-box;';
+mapPanel.style.cssText = 'position:absolute;inset:0;z-index:30;display:none;align-items:center;justify-content:center;padding:calc(env(safe-area-inset-top,0px) + 18px) 14px 18px;background:rgba(35,63,77,.72);backdrop-filter:blur(7px);box-sizing:border-box;';
 const mapCard = document.createElement('div');
-mapCard.style.cssText = 'width:min(100%,760px);height:min(78vh,680px);display:flex;flex-direction:column;gap:10px;padding:14px;box-sizing:border-box;border:1px solid #777;border-radius:10px;background:#202020;color:#fff;font-family:Arial,sans-serif;';
+mapCard.style.cssText = 'width:min(100%,760px);height:min(82vh,720px);display:flex;flex-direction:column;gap:12px;padding:16px;box-sizing:border-box;border:4px solid #fff;border-radius:24px;background:linear-gradient(155deg,#fff3d6,#d9f4e9);color:#31516a;font-family:Arial,sans-serif;box-shadow:0 12px 0 #426779,0 22px 48px #17394c88;';
 const mapHeader = document.createElement('div');
 mapHeader.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;';
 const mapTitle = document.createElement('div');
 mapTitle.textContent = 'SKATEPARK MAP';
-mapTitle.style.cssText = 'font-size:13px;font-weight:700;letter-spacing:2px;';
+mapTitle.style.cssText = 'font-size:15px;font-weight:900;letter-spacing:2px;color:#31516a;text-shadow:0 2px 0 #fff;';
 const mapClose = document.createElement('button');
 mapClose.type = 'button';
 mapClose.textContent = 'CLOSE';
-mapClose.style.cssText = 'padding:9px 12px;border:1px solid #777;border-radius:6px;background:#333;color:#fff;font-size:11px;font-weight:700;touch-action:manipulation;';
+mapClose.style.cssText = 'padding:10px 14px;border:3px solid #fff;border-radius:12px;background:#65cbb8;color:#174b55;font-size:11px;font-weight:900;box-shadow:0 3px 0 #328d84;touch-action:manipulation;';
 mapHeader.append(mapTitle,mapClose);
 const mapHint = document.createElement('div');
 mapHint.textContent = 'TAP ANYWHERE ON THE MAP TO TELEPORT';
-mapHint.style.cssText = 'flex:none;color:#bbb;font-size:10px;letter-spacing:1.2px;';
+mapHint.style.cssText = 'flex:none;color:#66818a;font-size:10px;font-weight:900;letter-spacing:1.2px;';
 const mapCanvas = document.createElement('canvas');
-mapCanvas.style.cssText = 'display:block;width:100%;height:100%;min-height:0;flex:1;border-radius:5px;background:#292929;touch-action:pan-x pan-y;';
+mapCanvas.style.cssText = 'display:block;width:100%;height:100%;min-height:0;flex:1;border:3px solid #fff;border-radius:16px;background:#a9dfce;box-shadow:inset 0 4px 12px #527f7166;touch-action:pan-x pan-y;';
 mapCard.append(mapHeader,mapHint,mapCanvas);
 mapPanel.appendChild(mapCard);
 mount.appendChild(mapPanel);
@@ -1141,55 +1201,67 @@ function drawSkateparkMap() {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = mapCanvas.clientWidth, h = mapCanvas.clientHeight;
   if (!w || !h) return;
-  mapCanvas.width = Math.round(w * dpr);
-  mapCanvas.height = Math.round(h * dpr);
-  mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  mapCtx.clearRect(0, 0, w, h);
-  const t = mapTransform();
-  const p = (x,z) => [t.ox + x*t.scale, t.oy + z*t.scale];
-  const rect = (x,z,width,depth,fill,stroke='#777') => {
-    const [px,py]=p(x-width/2,z-depth/2);
-    mapCtx.fillStyle=fill; mapCtx.fillRect(px,py,width*t.scale,depth*t.scale);
-    mapCtx.strokeStyle=stroke; mapCtx.lineWidth=1; mapCtx.strokeRect(px,py,width*t.scale,depth*t.scale);
+  mapCanvas.width = Math.round(w * dpr); mapCanvas.height = Math.round(h * dpr);
+  mapCtx.setTransform(dpr, 0, 0, dpr, 0, 0); mapCtx.clearRect(0, 0, w, h);
+  const t = mapTransform(), p = (x,z) => [t.ox+x*t.scale,t.oy+z*t.scale];
+  const rounded=(x,y,bw,bh,r)=>{mapCtx.beginPath();mapCtx.roundRect(x,y,bw,bh,r);};
+  const block=(x,z,width,depth,fill)=>{
+    const [px,py]=p(x-width/2,z-depth/2), bw=width*t.scale,bh=depth*t.scale;
+    rounded(px+2,py+Math.max(2,t.scale*.22),bw,bh,Math.min(9,bw/4,bh/3));
+    mapCtx.fillStyle='#527f79';mapCtx.fill();
+    rounded(px,py,bw,bh,Math.min(9,bw/4,bh/3));mapCtx.fillStyle=fill;mapCtx.fill();
+    mapCtx.lineWidth=2;mapCtx.strokeStyle='#fff';mapCtx.stroke();
+    rounded(px+2,py+2,bw-4,Math.max(2,bh*.18),4);mapCtx.fillStyle='#ffffff55';mapCtx.fill();
   };
-  mapCtx.fillStyle='#343434'; mapCtx.fillRect(0,0,w,h);
-  rect(0,0,64,46,'#484848','#777');
-  // Bowl and coping.
+  const label=(txt,x,z,color='#31516a',size=9)=>{
+    const [px,py]=p(x,z);mapCtx.font='900 '+size+'px Arial,sans-serif';
+    mapCtx.textAlign='center';mapCtx.textBaseline='middle';mapCtx.lineWidth=3;
+    mapCtx.strokeStyle='#fff';mapCtx.strokeText(txt,px,py);mapCtx.fillStyle=color;mapCtx.fillText(txt,px,py);
+  };
+  const bg=mapCtx.createLinearGradient(0,0,w,h);bg.addColorStop(0,'#b9ead8');bg.addColorStop(1,'#8fcbbb');
+  mapCtx.fillStyle=bg;mapCtx.fillRect(0,0,w,h);
+  mapCtx.save();mapCtx.globalAlpha=.18;mapCtx.fillStyle='#fff';
+  for(let x=8;x<w;x+=18)for(let y=8;y<h;y+=18){mapCtx.beginPath();mapCtx.arc(x,y,1.2,0,Math.PI*2);mapCtx.fill();}
+  mapCtx.restore();
+  block(0,0,64,46,'#e9d9b9');
   const [bx,by]=p(bowl.x,bowl.z);
-  mapCtx.beginPath();
-  mapCtx.ellipse(bx,by,bowl.radiusX*t.scale,bowl.radiusZ*t.scale,0,0,Math.PI*2);
-  mapCtx.fillStyle='#292929'; mapCtx.fill();
-  mapCtx.lineWidth=3; mapCtx.strokeStyle='#b7b7b7'; mapCtx.stroke();
-  mapCtx.beginPath();
-  mapCtx.ellipse(bx,by,bowl.radiusX*bowl.flatRatio*t.scale,bowl.radiusZ*bowl.flatRatio*t.scale,0,0,Math.PI*2);
-  mapCtx.strokeStyle='#555'; mapCtx.lineWidth=1; mapCtx.stroke();
-  // Benches, rails, funbox and bank ramps.
-  rect(10,-12,5.4,.78,'#a0a0a0');
-  rect(22,12,4.8,.78,'#a0a0a0');
-  for (const [x,z,len] of [[14,-7,7.5],[23,-7,7.5],[10,8,6.5]]) {
-    const a=p(x,z-len/2), b=p(x,z+len/2);
-    mapCtx.beginPath(); mapCtx.moveTo(...a); mapCtx.lineTo(...b);
-    mapCtx.strokeStyle='#dedede'; mapCtx.lineWidth=3; mapCtx.stroke();
+  mapCtx.beginPath();mapCtx.ellipse(bx+2,by+4,bowl.radiusX*t.scale+4,bowl.radiusZ*t.scale+4,0,0,Math.PI*2);
+  mapCtx.fillStyle='#557e78';mapCtx.fill();
+  mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*t.scale,bowl.radiusZ*t.scale,0,0,Math.PI*2);
+  const bowlGrad=mapCtx.createRadialGradient(bx-5,by-5,2,bx,by,bowl.radiusX*t.scale);
+  bowlGrad.addColorStop(0,'#8bd5d1');bowlGrad.addColorStop(.55,'#55b9b7');bowlGrad.addColorStop(1,'#347e91');
+  mapCtx.fillStyle=bowlGrad;mapCtx.fill();
+  for(let i=0;i<5;i++){mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*t.scale*(.28+i*.14),bowl.radiusZ*t.scale*(.28+i*.14),0,0,Math.PI*2);mapCtx.strokeStyle='rgba(255,255,255,'+(.28-i*.035)+')';mapCtx.lineWidth=1.4;mapCtx.stroke();}
+  mapCtx.lineWidth=5;mapCtx.strokeStyle='#fff1c9';mapCtx.stroke();mapCtx.lineWidth=2;mapCtx.strokeStyle='#ef9b70';mapCtx.stroke();
+  mapCtx.beginPath();mapCtx.ellipse(bx,by,bowl.radiusX*bowl.flatRatio*t.scale,bowl.radiusZ*bowl.flatRatio*t.scale,0,0,Math.PI*2);
+  mapCtx.fillStyle='#a7e1d4';mapCtx.fill();mapCtx.strokeStyle='#e7fff1';mapCtx.lineWidth=1.5;mapCtx.stroke();
+  label('THE BOWL',bowl.x,bowl.z,'#286e78',10);
+  block(10,-12,5.4,.78,'#f18b6b');block(22,12,4.8,.78,'#f18b6b');
+  label('BENCH',10,-13.1);label('BENCH',22,10.8);
+  for(const [x,z,len,col] of [[14,-7,7.5,'#f5c85c'],[23,-7,7.5,'#e989b0'],[10,8,6.5,'#8f87df']]){
+    const a=p(x,z-len/2),b=p(x,z+len/2);mapCtx.lineCap='round';mapCtx.lineWidth=5;mapCtx.strokeStyle='#527f79';
+    mapCtx.beginPath();mapCtx.moveTo(a[0]+1,a[1]+3);mapCtx.lineTo(b[0]+1,b[1]+3);mapCtx.stroke();
+    mapCtx.lineWidth=3;mapCtx.strokeStyle=col;mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
+    mapCtx.fillStyle='#fff';for(const q of [a,b]){mapCtx.beginPath();mapCtx.arc(q[0],q[1],2,0,Math.PI*2);mapCtx.fill();}
   }
-  rect(17,3,5.4,3.2,'#777');
-  rect(17,3,4.8,.72,'#b9b9b9');
-  // Quarter-pipe footprints and curved-face direction markers.
-  rect(28.075,-8,2.15,8.5,'#777');
-  rect(15,21.0,8.5,2.0,'#777');
-  for (const [x,z,dx,dz] of [[28.2,-8,1,0],[15,18.5,0,1]]) {
-    const a=p(x,z), b=p(x+dx*2.2,z+dz*2.2);
-    mapCtx.beginPath(); mapCtx.moveTo(...a); mapCtx.lineTo(...b);
-    mapCtx.strokeStyle='#bbb'; mapCtx.lineWidth=2; mapCtx.stroke();
+  block(17,3,5.4,3.2,'#8d87df');block(17,3,4.8,.72,'#f5c85d');label('FUNBOX',17,5.2);
+  block(28.075,-8,2.15,8.5,'#f18b6b');block(15,21,8.5,2,'#f18b6b');
+  for(const [x,z,dx,dz] of [[28.2,-8,1,0],[15,18.5,0,1]]){
+    const a=p(x,z),b=p(x+dx*2.2,z+dz*2.2);mapCtx.lineCap='round';mapCtx.lineWidth=4;mapCtx.strokeStyle='#fff1c9';
+    mapCtx.beginPath();mapCtx.moveTo(...a);mapCtx.lineTo(...b);mapCtx.stroke();
   }
-  // Current skater marker and heading.
+  label('QUARTER',28,-13.2);label('QUARTER',20.5,21);
+  for(const [x,z,c] of [[-27,-18,'#f28d70'],[29,16,'#f3c65f'],[-27,18,'#8e8ae0']]){
+    const [px,py]=p(x,z);mapCtx.fillStyle=c;
+    for(let k=0;k<5;k++){const a=k*Math.PI*2/5;mapCtx.beginPath();mapCtx.arc(px+Math.cos(a)*4,py+Math.sin(a)*4,2.4,0,Math.PI*2);mapCtx.fill();}
+    mapCtx.beginPath();mapCtx.arc(px,py,2.2,0,Math.PI*2);mapCtx.fillStyle='#fff4d5';mapCtx.fill();
+  }
   const [sx,sy]=p(board.position.x,board.position.z);
-  mapCtx.beginPath(); mapCtx.arc(sx,sy,6,0,Math.PI*2);
-  mapCtx.fillStyle='#fff'; mapCtx.fill();
-  mapCtx.strokeStyle='#111'; mapCtx.lineWidth=2; mapCtx.stroke();
-  const headingX=Math.sin(heading), headingZ=Math.cos(heading);
-  const [hx,hy]=p(board.position.x+headingX*1.8,board.position.z+headingZ*1.8);
-  mapCtx.beginPath(); mapCtx.moveTo(sx,sy); mapCtx.lineTo(hx,hy);
-  mapCtx.strokeStyle='#fff'; mapCtx.lineWidth=2; mapCtx.stroke();
+  mapCtx.beginPath();mapCtx.arc(sx,sy,11,0,Math.PI*2);mapCtx.fillStyle='#fff8d9aa';mapCtx.fill();
+  mapCtx.beginPath();mapCtx.arc(sx,sy,6.5,0,Math.PI*2);mapCtx.fillStyle='#ff6e73';mapCtx.fill();mapCtx.strokeStyle='#fff';mapCtx.lineWidth=2.5;mapCtx.stroke();
+  const [hx,hy]=p(board.position.x+Math.sin(heading)*2.4,board.position.z+Math.cos(heading)*2.4);
+  mapCtx.beginPath();mapCtx.moveTo(sx,sy);mapCtx.lineTo(hx,hy);mapCtx.strokeStyle='#31516a';mapCtx.lineWidth=3;mapCtx.lineCap='round';mapCtx.stroke();
+  label('YOU',board.position.x,board.position.z-1.7,'#e95e6c',8);
 }
 function closeParkMap() { mapPanel.style.display='none'; }
 window.addEventListener('resize', drawSkateparkMap);
