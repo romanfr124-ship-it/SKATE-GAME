@@ -2153,7 +2153,7 @@ const freeFlyStickKnob = document.createElement('div');
 freeFlyStickKnob.style.cssText = 'position:absolute;left:35px;top:35px;width:44px;height:44px;border:2px solid #fff;border-radius:50%;background:#8ad9c7bb;box-sizing:border-box;';
 freeFlyStick.appendChild(freeFlyStickKnob);
 const freeFlyHint = document.createElement('div');
-freeFlyHint.textContent = 'DRAG RIGHT SIDE TO LOOK';
+freeFlyHint.textContent = 'LEFT STICK: MOVE  ·  DRAG RIGHT: LOOK  ·  UP / DOWN: HEIGHT  ·  SHIFT: FAST';
 freeFlyHint.style.cssText = 'position:absolute;right:16px;bottom:calc(env(safe-area-inset-bottom,0px) + 18px);padding:9px 12px;border-radius:8px;background:#10191dbb;font-size:10px;font-weight:900;letter-spacing:1px;pointer-events:none;';
 const freeFlyControls = document.createElement('div');
 freeFlyControls.style.cssText = 'position:absolute;right:16px;top:calc(env(safe-area-inset-top,0px) + 74px);display:flex;flex-direction:column;gap:8px;pointer-events:auto;';
