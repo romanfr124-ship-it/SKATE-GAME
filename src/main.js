@@ -1685,17 +1685,17 @@ function finishGesture(event) {
   const elapsed = Math.max(1, performance.now() - g.startTime);
   const dx = event.clientX - g.x;
   const dy = event.clientY - g.y;
-  const quick = elapsed < 650;
+  const quick = elapsed < 800;
   if (grinding && quick && Math.abs(dx) > 30) {
     // A horizontal swipe is an intentional lateral grind exit, not a shuvit.
     releaseGrind(screenTurnDirection(dx),g.lastMoveSpeed || (Math.abs(dx)/elapsed*1000));
   } else if (grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 38) {
     // A vertical deck flick pops cleanly off the obstacle.
     pop('ollie',g.lastMoveSpeed || (Math.abs(dy)/elapsed*1000),Math.abs(dy));
-  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.25) {
+  } else if (airborne && quick && Math.abs(dx) > 30 && Math.abs(dx) >= Math.abs(dy) * 1.6) {
     const flickDirection=screenTurnDirection(dx);
     flick(flickDirection,Math.abs(dx),Math.hypot(dx,dy)/elapsed*1000,0,g.deckLocalX || 0);
-  } else if (airborne && quick && Math.abs(dy) > 18) {
+  } else if (airborne && quick && Math.abs(dy) > 12) {
     // A vertical airborne swipe flicks the deck around its long axis,
     // producing kickflips/heelflips with strength tied to finger speed and travel.
     const flickSpeed = Math.hypot(dx,dy) / elapsed * 1000;
@@ -1705,7 +1705,7 @@ function finishGesture(event) {
     // Kickflip/heelflip torque scales linearly with swipe distance and speed.
     // This is deliberately stronger so a normal deliberate flick can rotate
     // the deck fully, while slower/shorter flicks still produce smaller flips.
-    const rollImpulse = Math.abs(dy) * 0.085 + flickSpeed * 0.012;
+    const rollImpulse = Math.abs(dy) * 0.11 + flickSpeed * 0.016;
     airRollVelocity += direction * rollImpulse;
   } else if (!airborne && !grinding && g.deckLocalX !== null && quick && Math.abs(dy) > 24) {
     // A diagonal deck flick combines the pop and shuvit into one motion:
