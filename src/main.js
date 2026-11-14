@@ -41,10 +41,10 @@ keyLight.shadow.bias = -0.00012;
 keyLight.shadow.radius = 3;
 scene.add(keyLight);
 
-// Light, repeatable painted-concrete texture made locally on a tiny canvas.
-// Weathered poured-concrete finish: broad age stains, abrasion and scratches,
-// deliberately avoiding the obvious sand/fleck grain used by the earlier texture.
-function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) {
+// High-resolution weathered concrete and obstacle textures, generated locally.
+// Broad irregular stains remain dominant; fine aggregate grain and abrasion
+// add close-up detail without introducing a regular repeating visual pattern.
+function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048) {
   const canvas = document.createElement('canvas');
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext('2d');
@@ -108,13 +108,13 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
   }
   ctx.globalAlpha = 1;
 
-  // Random organic moss colonies and green mineral staining, scattered as
-  // irregular patches across one broad texture field (never regular tile bands).
-  for (let i = 0; i < 34; i++) {
+  // Dense moss islands are spread across the full surface, with faint green
+  // mineral traces between them for even overall coverage.
+  for (let i = 0; i < 58; i++) {
     const x = random() * size, y = random() * size;
-    const rx = 20 + random() * 78, ry = 9 + random() * 34;
+    const rx = 18 + random() * 76, ry = 10 + random() * 42;
     const halo = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry) * 1.55);
-    halo.addColorStop(0, '#536d4380'); halo.addColorStop(0.55, '#637b4a45'); halo.addColorStop(1, '#637b4a00');
+    halo.addColorStop(0, '#536d4378'); halo.addColorStop(0.42, '#637b4a38'); halo.addColorStop(1, '#637b4a00');
     ctx.fillStyle = halo; ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
     ctx.beginPath(); ctx.arc(0, 0, rx * 1.55, 0, Math.PI * 2); ctx.fill(); ctx.restore();
     ctx.save(); ctx.translate(x, y); ctx.rotate((random() - 0.5) * 0.8);
@@ -125,8 +125,8 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
       const px = Math.cos(a) * rx * r, py = Math.sin(a) * ry * r;
       if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
-    ctx.closePath(); ctx.globalAlpha = 0.48 + random() * 0.28; ctx.fill();
-    for (let k = 0; k < 24; k++) {
+    ctx.closePath(); ctx.globalAlpha = 0.58 + random() * 0.30; ctx.fill();
+    for (let k = 0; k < 46; k++) {
       const mx = (random() - 0.5) * rx * 1.6, my = (random() - 0.5) * ry * 1.5;
       ctx.globalAlpha = 0.35 + random() * 0.45; ctx.fillStyle = random() > 0.5 ? '#82945a' : '#344d30';
       ctx.beginPath(); ctx.ellipse(mx, my, 1 + random() * 3.8, 1 + random() * 2.4, random(), 0, Math.PI * 2); ctx.fill();
@@ -134,8 +134,17 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
     ctx.restore();
   }
 
+  // Fine, restrained aggregate grain: tiny mineral flecks, not coarse noise.
+  for (let i = 0; i < 6200; i++) {
+    const x = random() * size, y = random() * size;
+    ctx.globalAlpha = 0.025 + random() * 0.075;
+    ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
+    const r = 0.35 + random() * 1.05;
+    ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.45 + random() * 0.7), random(), 0, Math.PI * 2); ctx.fill();
+  }
+
   // Fine, irregular scratches and dragged wheel scuffs.
-  for (let i = 0; i < 980; i++) {
+  for (let i = 0; i < 1900; i++) {
     const x = random() * size, y = random() * size;
     const length = 3 + random() * 48;
     ctx.globalAlpha = 0.10 + random() * 0.22;
@@ -150,7 +159,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
   }
 
   // Occasional longer hairline abrasions, softened into the concrete surface.
-  for (let i = 0; i < 115; i++) {
+  for (let i = 0; i < 220; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.12 + random() * 0.16;
     ctx.strokeStyle = darkTones[Math.floor(random() * darkTones.length)];
@@ -173,12 +182,12 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 1024) 
 }
 const concreteTexture = makeWeatheredConcreteTexture(
   '#777b7e', ['#414649', '#505559', '#5b6063', '#666b6e'],
-  ['#a0a3a4', '#929799', '#858a8d'], 1024
+  ['#a0a3a4', '#929799', '#858a8d'], 2048
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
   '#c87943', ['#754a35', '#89563d', '#a66b4b'],
-  ['#e0a477', '#d18d60', '#bd7950'], 1024
+  ['#e0a477', '#d18d60', '#bd7950'], 2048
 );
 // Obstacle UVs are local 0–1, so use the full texture once per surface.
 obstacleTexture.repeat.set(1, 1);
@@ -189,9 +198,9 @@ function addBaseMossToObstacleTexture(texture) {
   let seed = 381927;
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
   const size = texture.image.width;
-  for (let i = 0; i < 23; i++) {
-    const x = random() * size, y = size * (0.78 + random() * 0.19);
-    const width = 24 + random() * 105, height = 24 + random() * 74;
+  for (let i = 0; i < 38; i++) {
+    const x = random() * size, y = size * (0.76 + random() * 0.22);
+    const width = 34 + random() * 150, height = 30 + random() * 96;
     const stain = ctx.createRadialGradient(x, y, 1, x, y, width);
     stain.addColorStop(0, '#526f4388'); stain.addColorStop(0.55, '#66814c55'); stain.addColorStop(1, '#66814c00');
     ctx.fillStyle = stain; ctx.beginPath(); ctx.ellipse(x, y, width, height, 0, 0, Math.PI * 2); ctx.fill();
@@ -500,14 +509,29 @@ buildBowl();
 // Recessed-looking expansion joints. Each seam is a continuous bevelled
 // channel; the dark centre sits below two raised concrete lips, not a floating line.
 function addConcreteJoints() {
-  const positions=[],indices=[];
-  const profile=[[-.15,.006],[-.115,-.004],[-.075,-.026],[-.035,-.043],[0,-.048],[.035,-.043],[.075,-.026],[.115,-.004],[.15,.006]];
+  const positions=[],indices=[],colors=[];
+  // Smooth, rounded U-shaped channel: the concrete rolls gently into the
+  // recess and back out, rather than forming a sharp V or square-edged slot.
+  const profile=[];
+  for(let i=0;i<=24;i++){
+    const t=-1+i/12;
+    const depression=-0.052*Math.pow(Math.max(0,1-t*t),1.7);
+    const roundedLip=0.006*Math.exp(-Math.pow((Math.abs(t)-0.88)/0.15,2));
+    profile.push([t*0.22,0.003+depression+roundedLip]);
+  }
   const emitRun=(vertical,fixed,coords)=>{
     if(coords.length<2)return;
     const base=positions.length/3;
     for(const along of coords){
       const x=vertical?fixed:along,z=vertical?along:fixed;
-      for(const [offset,height] of profile) positions.push(vertical?x+offset:x,height,vertical?z:z+offset);
+      for(let p=0;p<profile.length;p++){
+        const [offset,height]=profile[p];
+        positions.push(vertical?x+offset:x,height,vertical?z:z+offset);
+        // Darker grey in the bottom, worn lighter grey along both rounded lips.
+        const edge=Math.pow(Math.abs(-1+p/12),2.2);
+        const wear=0.72+edge*0.38;
+        colors.push(0.39*wear,0.42*wear,0.43*wear);
+      }
     }
     for(let i=0;i<coords.length-1;i++)for(let p=0;p<profile.length-1;p++){
       const a=base+i*profile.length+p,b=a+1,c=a+profile.length,d=c+1;
@@ -527,8 +551,11 @@ function addConcreteJoints() {
   };
   for(let z=-48;z<=48;z+=8) addGrooveRun(false,z,-50,50);
   for(let x=-48;x<=48;x+=8) addGrooveRun(true,x,-50,50);
-  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();
-  const grooves=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0x805239,roughness:1,side:THREE.DoubleSide}));
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+  geometry.setIndex(indices);geometry.computeVertexNormals();
+  const grooves=new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({color:0xffffff,vertexColors:true,roughness:0.99,side:THREE.DoubleSide}));
   grooves.castShadow=true;grooves.receiveShadow=true;grooves.renderOrder=2;scene.add(grooves);
 }
 addConcreteJoints();
