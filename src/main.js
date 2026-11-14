@@ -776,7 +776,6 @@ function drawDeckGraphic(canvas, topSide) {
       // Each catalogue entry has its own central illustration, not just a changed title.
       const labels=['SKULL & ROSES','FLAMING PANTHER','RETRO RACING','BROKEN HEART','LUCKY DICE','DESERT SUNSET','CLASSIC EAGLE','WILD TIGER','VINTAGE COMIC','SNAKE BITE','OLD SCHOOL STAR','DISTRESSED BADGE'];
       ctx.fillStyle=idx%2?'#171717':'#f1dfbd';ctx.globalAlpha=.24;ctx.fillRect(-W/2,-H/2,W,H);ctx.globalAlpha=1;
-      ctx.strokeStyle=palette[idx%2];ctx.lineWidth=22;ctx.beginPath();ctx.ellipse(0,0,520,330,0,0,Math.PI*2);ctx.stroke();
       ctx.save();ctx.translate(0,-55);ctx.strokeStyle=palette[(idx+1)%2];ctx.fillStyle=palette[(idx+1)%2];ctx.lineWidth=24;
       if(idx===0){
         ctx.beginPath();ctx.arc(0,-20,125,0,Math.PI*2);ctx.fill();
