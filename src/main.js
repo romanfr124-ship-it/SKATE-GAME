@@ -1073,8 +1073,9 @@ canvas.addEventListener('pointermove', event => {
   // of the deck. The board angle then builds progressively with finger travel.
   const verticalIntent = Math.abs(gesture.dy) > 8 &&
     Math.abs(gesture.dy) > Math.abs(gesture.dx) * 1.35;
-  const pullingTail = tailSide && gesture.dy > 8 && verticalIntent;
-  const pullingNose = noseSide && gesture.dy < -8 && verticalIntent;
+  // Screen-space pull direction reverses with the board's travel direction.
+  const pullingTail = tailSide && gesture.dy * travelSign > 8 && verticalIntent;
+  const pullingNose = noseSide && gesture.dy * travelSign < -8 && verticalIntent;
   if (!airborne && (pullingTail || pullingNose) && moveDuration > 0) {
     gesture.manualGesture = true;
     manualActive = true;
@@ -1084,7 +1085,9 @@ canvas.addEventListener('pointermove', event => {
   // A quick flick pops directly out of a manual: tail manual = ollie,
   // nose manual = nollie. The pop flick is separate from the slower manual pull.
   // Either pop can also be triggered while kickturning.
-  const manualPopDirection = manualSide === 1 ? moveDy > 28 : moveDy < -28;
+  const manualPopDirection = manualSide === 1
+    ? moveDy * travelSign > 28
+    : moveDy * travelSign < -28;
   if (!airborne && manualActive && gesture.manualGesture && !gesture.manualPopTriggered &&
       manualPopDirection && moveDuration <= 180 && moveTime - gesture.startTime > 500) {
     gesture.manualPopTriggered = true;
