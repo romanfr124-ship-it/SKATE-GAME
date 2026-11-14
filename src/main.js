@@ -1686,8 +1686,9 @@ function animate() {
     board.position.y += groundContactCorrection();
 
     // During a tail manual, check the actual underside of the tail against
-    // the terrain. If it scrapes, add an equal amount of rolling drag again
-    // (100% more momentum loss than the normal grounded friction rate).
+    // the terrain. A scrape adds 200% extra drag over normal ground friction.
+    // The extra drag rises exponentially as speed falls, making a scraping
+    // tail progressively harder to keep rolling at low speed.
     if (manualActive && manualSide === 1) {
       board.updateMatrixWorld(true);
       let tailScraping = false;
@@ -1700,7 +1701,10 @@ function animate() {
         }
       }
       if (tailScraping) {
-        velocity.multiplyScalar(Math.exp(-0.105 * dt));
+        const scrapeSpeed = velocity.length();
+        const lowSpeedMultiplier = 1 + 2 * Math.exp(-scrapeSpeed * 0.45);
+        const scrapeDragRate = 0.21 * lowSpeedMultiplier;
+        velocity.multiplyScalar(Math.exp(-scrapeDragRate * dt));
         speed = velocity.length();
       }
     }
