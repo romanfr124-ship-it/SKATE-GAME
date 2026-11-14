@@ -279,7 +279,8 @@ function addSurfaceGrid(parent, width, depth, spacing, y = 0.012, majorEvery = 4
 function bowlDepthAtAngle(angle, radius = 1) {
   // The left half is the deep end; the right half is a mellow shallow end.
   const endBlend = THREE.MathUtils.smoothstep(radius, 0.08, 0.72);
-  return bowl.depth + Math.cos(angle) * bowl.shallowCut * endBlend + (-Math.cos(angle)) * bowl.deepExtra * endBlend;
+  const side = Math.cos(angle);
+  return bowl.depth - Math.max(0, side) * bowl.shallowCut * endBlend + Math.max(0, -side) * bowl.deepExtra * endBlend;
 }
 function bowlHeightAt(x, z) {
   const nx = (x - bowl.x) / bowl.radiusX;
