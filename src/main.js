@@ -570,10 +570,10 @@ function addConcreteJoints() {
   // top of the slab. Their varied scale gives the seam a rough, raised texture.
   const mossGeometry = new THREE.SphereGeometry(1, 6, 5);
   const mossInstances = mossMaterials.map(material =>
-    new THREE.InstancedMesh(mossGeometry, material, 1800)
+    new THREE.InstancedMesh(mossGeometry, material, 5000)
   );
+  const mossCounts = [0, 0, 0];
   const dummy = new THREE.Object3D();
-  let count = 0;
   for (let p = -56; p <= 56; p += 8) {
     for (const axis of ['x', 'z']) {
       for (let t = -59.5; t <= 59.5; t += 0.34) {
@@ -581,24 +581,25 @@ function addConcreteJoints() {
         const x = axis === 'x' ? t : p + (Math.random() - 0.5) * 0.035;
         const z = axis === 'x' ? p + (Math.random() - 0.5) * 0.035 : t;
         const r = 0.012 + Math.random() * 0.018;
-        dummy.position.set(x, terrainHeightAt(x, z) - 0.025, z);
+        dummy.position.set(x, terrainHeightAt(x, z) - 0.045, z);
         dummy.rotation.set(Math.random() * 0.7, Math.random() * Math.PI, Math.random() * 0.7);
         dummy.scale.set(r * (0.8 + Math.random()), r * (0.45 + Math.random() * 0.7), r * (0.8 + Math.random()));
         dummy.updateMatrix();
         const materialIndex = Math.floor(Math.random() * mossInstances.length);
         const mesh = mossInstances[materialIndex];
-        if (count < 1800) mesh.setMatrixAt(count, dummy.matrix);
-        count++;
+        const index = mossCounts[materialIndex]++;
+        if (index < 5000) mesh.setMatrixAt(index, dummy.matrix);
       }
     }
   }
-  // Distribute each moss instance set independently along the cracks.
-  for (const mesh of mossInstances) {
-    mesh.count = 0;
+  // Keep only the populated instances in each material batch.
+  mossInstances.forEach((mesh, i) => {
+    mesh.count = mossCounts[i];
+    mesh.instanceMatrix.needsUpdate = true;
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     scene.add(mesh);
-  }
+  });
 }
 addConcreteJoints();
 // No obstacle constructors are called in this foundation build.
