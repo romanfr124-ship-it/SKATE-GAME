@@ -73,19 +73,19 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
     ctx.restore();
   }
 
-  // Broad worn patches and faded abrasion where wheels and weather polish the slab.
-  for (let i = 0; i < 30; i++) {
+  // Short, narrow wheel-polished marks: fewer, sharper and more visible.
+  for (let i = 0; i < 14; i++) {
     const x = random() * size, y = random() * size;
-    ctx.globalAlpha = 0.14 + random() * 0.12;
+    ctx.globalAlpha = 0.26 + random() * 0.18;
     ctx.strokeStyle = lightTones[Math.floor(random() * lightTones.length)];
-    ctx.lineWidth = 1.2 + random() * 2.4;
+    ctx.lineWidth = 0.45 + random() * 0.65;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.bezierCurveTo(
-      x + (random() - 0.5) * 90, y + (random() - 0.5) * 55,
-      x + (random() - 0.5) * 55, y + (random() - 0.5) * 32,
-      x + (random() - 0.5) * 100, y + (random() - 0.5) * 55
+      x + (random() - 0.5) * 34, y + (random() - 0.5) * 20,
+      x + (random() - 0.5) * 24, y + (random() - 0.5) * 14,
+      x + (random() - 0.5) * 42, y + (random() - 0.5) * 22
     );
     ctx.stroke();
   }
@@ -118,28 +118,66 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
     ctx.beginPath(); ctx.ellipse(x, y, r, r * (0.45 + random() * 0.7), random(), 0, Math.PI * 2); ctx.fill();
   }
 
-  // Scattered, broken-up moss and green mineral staining. Soft edges keep it
-  // embedded in the slab; small grain flecks make the green areas feel rough.
+  // Organic moss colonies with separate, irregular green mineral halos.
+  // Each colony has a denser rough centre and soft, broken edges; surrounding
+  // stains drift different distances away instead of forming neat outlines.
   if (addMoss) {
-    for (let i = 0; i < 52; i++) {
+    const greens = ['#526b3b', '#607747', '#71804b', '#485f3c', '#687b49'];
+    for (let i = 0; i < 92; i++) {
       const x = random() * size, y = random() * size;
-      const rx = 58 + random() * 170, ry = 32 + random() * 105;
-      const green = ['#526b3b', '#607747', '#71804b', '#485f3c'][Math.floor(random() * 4)];
-      const stain = ctx.createRadialGradient(x, y, 1, x, y, Math.max(rx, ry));
-      stain.addColorStop(0, green + '70');
-      stain.addColorStop(0.38, green + '48');
-      stain.addColorStop(0.72, green + '20');
-      stain.addColorStop(1, green + '00');
+      const rx = 82 + random() * 175, ry = rx * (0.48 + random() * 0.58);
+      const green = greens[Math.floor(random() * greens.length)];
+
+      // Uneven multi-lobed silhouette rather than a perfect circular spot.
       ctx.save(); ctx.translate(x, y); ctx.scale(1, ry / rx);
-      ctx.fillStyle = stain; ctx.beginPath(); ctx.arc(0, 0, rx, 0, Math.PI * 2); ctx.fill();
+      const moss = ctx.createRadialGradient(-rx * 0.12, -rx * 0.08, rx * 0.12, 0, 0, rx * 1.08);
+      moss.addColorStop(0, green + 'b8');
+      moss.addColorStop(0.48, green + '92');
+      moss.addColorStop(0.78, green + '55');
+      moss.addColorStop(1, green + '00');
+      ctx.fillStyle = moss;
+      ctx.beginPath();
+      const points = 18;
+      for (let p = 0; p < points; p++) {
+        const a = p / points * Math.PI * 2;
+        const wobble = 0.72 + random() * 0.48;
+        const px = Math.cos(a) * rx * wobble;
+        const py = Math.sin(a) * rx * wobble;
+        if (p === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+      }
+      ctx.closePath(); ctx.fill();
       ctx.restore();
-      for (let j = 0; j < 210; j++) {
-        const px = x + (random() - 0.5) * rx * 1.7;
-        const py = y + (random() - 0.5) * ry * 1.7;
-        ctx.globalAlpha = 0.08 + random() * 0.16;
+
+      // Independent faded stains scattered around each moss colony.
+      const stainCount = 2 + Math.floor(random() * 5);
+      for (let k = 0; k < stainCount; k++) {
+        const angle = random() * Math.PI * 2;
+        const distance = rx * (0.55 + random() * 1.65);
+        const sx = x + Math.cos(angle) * distance;
+        const sy = y + Math.sin(angle) * distance * (ry / rx);
+        const sr = 28 + random() * 105;
+        const sry = sr * (0.35 + random() * 0.9);
+        const stainGreen = greens[Math.floor(random() * greens.length)];
+        const halo = ctx.createRadialGradient(sx, sy, 1, sx, sy, sr);
+        halo.addColorStop(0, stainGreen + '65');
+        halo.addColorStop(0.42, stainGreen + '3d');
+        halo.addColorStop(0.78, stainGreen + '18');
+        halo.addColorStop(1, stainGreen + '00');
+        ctx.save(); ctx.translate(sx, sy); ctx.rotate(random() * Math.PI);
+        ctx.scale(1, sry / sr);
+        ctx.fillStyle = halo; ctx.beginPath();
+        ctx.ellipse(0, 0, sr, sr * (0.55 + random() * 0.55), 0, 0, Math.PI * 2);
+        ctx.fill(); ctx.restore();
+      }
+
+      // Fine, irregular mineral and moss grain concentrated within the colony.
+      for (let j = 0; j < 340; j++) {
+        const px = x + (random() - 0.5) * rx * 1.65;
+        const py = y + (random() - 0.5) * ry * 1.65;
+        ctx.globalAlpha = 0.10 + random() * 0.20;
         ctx.fillStyle = random() > 0.5 ? '#82915a' : '#354d32';
-        const r = 0.5 + random() * 1.25;
-        ctx.beginPath(); ctx.arc(px, py, r, 0, Math.PI * 2); ctx.fill();
+        const r = 0.45 + random() * 1.45;
+        ctx.beginPath(); ctx.ellipse(px, py, r, r * (0.5 + random()), random(), 0, Math.PI * 2); ctx.fill();
       }
     }
   }
