@@ -1018,7 +1018,7 @@ const boardPhysics = (() => {
       truckBody
     );
     const truckJoint = world.createImpulseJoint(
-      RAPIER.JointData.revolute([x, 0.24, 0], [0, 0.06, 0], [0, 1, 0]),
+      RAPIER.JointData.revolute({ x, y: 0.24, z: 0 }, { x: 0, y: 0.06, z: 0 }, { x: 0, y: 1, z: 0 }),
       deckBody,
       truckBody,
       true
@@ -1045,7 +1045,7 @@ const boardPhysics = (() => {
         wheelBody
       );
       const wheelJoint = world.createImpulseJoint(
-        RAPIER.JointData.revolute([0, -0.035, z], [0, 0, 0], [0, 0, 1]),
+        RAPIER.JointData.revolute({ x: 0, y: -0.035, z }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 }),
         truckBody,
         wheelBody,
         true
