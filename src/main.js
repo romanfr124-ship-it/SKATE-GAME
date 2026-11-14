@@ -412,6 +412,7 @@ const obstacleAxes = [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector
 const satAxes = [];
 for (let i = 0; i < 15; i++) satAxes.push(new THREE.Vector3());
 const collisionNormal = new THREE.Vector3();
+const boardWorldBounds = new THREE.Box3();
 
 function buildBoardLocalBounds() {
   boardLocalBounds.makeEmpty();
@@ -535,7 +536,7 @@ function resolveObstacleContacts() {
       if (airborne && rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
         airborne = false;
         verticalVelocity = 0;
-        trickStance = heldTrickLanding;
+        trickStance = heldTrickLanding && !uprightLanding;
         // Keep residual angular velocity; the board should not freeze on impact.
         flipTarget = 0;
         heading += shuvitRotation;
@@ -866,8 +867,12 @@ function animate() {
     if (airborne) {
       board.position.y += verticalVelocity * dt;
       verticalVelocity -= gravity * dt;
-      if (board.position.y <= 0 && verticalVelocity < 0) {
-        board.position.y = 0;
+      // Use the actual rotated board geometry for ground contact. The board
+      // origin is not the bottom of the wheels/deck, especially during tricks.
+      board.updateMatrixWorld(true);
+      boardWorldBounds.setFromObject(board);
+      if (boardWorldBounds.min.y <= 0 && verticalVelocity < 0) {
+        board.position.y -= boardWorldBounds.min.y;
         const rotationSpeed = Math.hypot(flipVelocity, shuvitVelocity, pitchVelocity);
         const uprightLanding = Math.abs(board.rotation.x) < 0.48 &&
           Math.abs(board.rotation.z) < 0.48 &&
@@ -876,7 +881,7 @@ function animate() {
         if (rotationSpeed < 1.35 && (uprightLanding || heldTrickLanding)) {
           // Keep the exact caught orientation: no auto-level, auto-rotate or snap.
           airborne = false;
-          trickStance = heldTrickLanding;
+          trickStance = heldTrickLanding && !uprightLanding;
           verticalVelocity = 0;
           // Keep residual angular velocity; the board should not freeze on impact.
           flipTarget = 0;
@@ -896,6 +901,13 @@ function animate() {
 
   resolveObstacleContacts();
   board.rotation.y = heading - Math.PI / 2 + (airborne ? shuvitRotation : 0);
+  // Keep the complete board above the ground in every grounded stance,
+  // including manuals and caught primo/Casper orientations.
+  if (!airborne) {
+    board.updateMatrixWorld(true);
+    boardWorldBounds.setFromObject(board);
+    if (boardWorldBounds.min.y < 0) board.position.y -= boardWorldBounds.min.y;
+  }
   // Keep wheel roll animation off for now; only give the wheels a subtle
   // steering angle when the board is carving, so they don't spin constantly.
   for (const wheel of wheelMeshes) {
