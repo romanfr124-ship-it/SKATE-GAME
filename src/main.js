@@ -914,22 +914,32 @@ const wheelMeshes = [];
 const truckVisuals = [];
 const wheelVisuals = [];
 for (const x of [-0.69, 0.69]) {
+  // The baseplate is bolted rigidly to the deck; only the hanger pivots.
+  const baseplate = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.25), mats.metal);
+  baseplate.position.set(x, 0.24, 0);
+  board.add(baseplate);
+
+  // Kingpin and rubber bushings stay fixed to the baseplate, surrounding
+  // the hanger's pivot like a real truck's bushing stack.
+  const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.16, 8), mats.dark);
+  kingpin.position.set(x, 0.195, 0);
+  board.add(kingpin);
+  const bushingMaterial = new THREE.MeshStandardMaterial({ color: 0x242424, roughness: 0.82, metalness: 0.02 });
+  const upperBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.047, 0.038, 0.035, 12), bushingMaterial);
+  upperBushing.position.set(x, 0.225, 0);
+  board.add(upperBushing);
+  const lowerBushing = new THREE.Mesh(new THREE.CylinderGeometry(0.038, 0.047, 0.035, 12), bushingMaterial);
+  lowerBushing.position.set(x, 0.175, 0);
+  board.add(lowerBushing);
+
   const truckVisual = new THREE.Group();
   truckVisual.position.set(x, 0.18, 0);
   board.add(truckVisual);
   truckVisuals.push(truckVisual);
 
-  const base = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.05, 0.25), mats.metal);
-  base.position.set(0, 0.06, 0);
-  truckVisual.add(base);
-
   const hanger = new THREE.Mesh(new THREE.CylinderGeometry(0.048, 0.048, 0.66, 12), mats.metal);
   hanger.rotation.x = Math.PI / 2;
   truckVisual.add(hanger);
-
-  const kingpin = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.16, 8), mats.dark);
-  kingpin.position.set(0, 0.015, 0);
-  truckVisual.add(kingpin);
 
   // Each wheel is a separate visual body with its own spin axis.
   for (const z of [-0.30, 0.30]) {
@@ -1023,10 +1033,10 @@ const boardPhysics = (() => {
       truckBody,
       true
     );
-    // Keep truck steering within a realistic range and softly self-centering.
-    // This prevents unrestricted kingpin rotation while preserving carve movement.
-    truckJoint.setLimits(-0.38, 0.38);
-    truckJoint.configureMotorPosition(0, 12, 3);
+    // The hanger pivots inside the fixed bushing stack. A firm, damped
+    // centering spring keeps the trucks loose enough to carve without flopping.
+    truckJoint.setLimits(-0.30, 0.30);
+    truckJoint.configureMotorPosition(0, 26, 8);
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
