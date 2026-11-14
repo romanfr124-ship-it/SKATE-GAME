@@ -1532,9 +1532,12 @@ function animate() {
       if (!trickStance) {
         // Align the deck to the actual local ground tangent, not just the
         // quarter-pipe angle. This includes both axes of the bowl transition.
-        const travel = travelForwardVector();
-        const pitchAlongTravel = slopeX * travel.x + slopeZ * travel.z;
-        const terrainPitch = Math.atan(pitchAlongTravel);
+        // The deck's nose keeps its own heading when rolling fakie.
+        // Measure the terrain gradient along the board's nose axis, not the
+        // direction of motion; otherwise reversing flips the pitch twice.
+        const noseDirection = forwardVector();
+        const pitchAlongNose = slopeX * noseDirection.x + slopeZ * noseDirection.z;
+        const terrainPitch = Math.atan(pitchAlongNose);
         const targetDeckPitch = (manualActive ? manualAngle : terrainPitch) - steer * 0.075;
         board.rotation.z = THREE.MathUtils.damp(board.rotation.z, targetDeckPitch, manualActive ? 12 : 10, dt);
         const targetKickturnLean = manualActive ? steer * 0.17 : steer * 0.035;
