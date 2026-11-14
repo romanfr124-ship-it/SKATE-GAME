@@ -707,6 +707,7 @@ const deckGraphicState = {
   graphicOffsetX: 0,
   graphicOffsetY: 0,
   graphicScale: 1,
+  imageOrientation: 'Portrait',
   outlineThickness: 34
 };
 const miscellaneousDeckGraphics = [
@@ -747,9 +748,17 @@ function drawDeckGraphic(canvas, topSide) {
   if(st.category==='Miscellaneous'){
     const image=miscellaneousDeckImages[st.design];
     if(image && image.complete && image.naturalWidth){
-      const scale=Math.min(W*.96/image.naturalWidth,H*.96/image.naturalHeight);
-      const width=image.naturalWidth*scale,height=image.naturalHeight*scale;
-      ctx.drawImage(image,(W-width)/2,(H-height)/2,width,height);
+      ctx.save();
+      ctx.translate(W/2+st.graphicOffsetX,H/2+st.graphicOffsetY);
+      ctx.scale(st.graphicScale,st.graphicScale);
+      const portrait=st.imageOrientation==='Portrait';
+      if(portrait)ctx.rotate(-Math.PI/2);
+      const sourceW=portrait?image.naturalHeight:image.naturalWidth;
+      const sourceH=portrait?image.naturalWidth:image.naturalHeight;
+      const fit=Math.min(W*.96/sourceW,H*.96/sourceH);
+      const drawW=image.naturalWidth*fit,drawH=image.naturalHeight*fit;
+      ctx.drawImage(image,-drawW/2,-drawH/2,drawW,drawH);
+      ctx.restore();
     }else{
       ctx.fillStyle='#ffffff';ctx.font='bold 54px Arial';ctx.textAlign='center';ctx.textBaseline='middle';
       ctx.fillText('LOADING GRAPHIC '+(st.design+1),W/2,H/2);
@@ -1689,7 +1698,10 @@ function editorLocalPlanePoint(x,y){
 }
 function editorGraphicHit(x,y){
   touchNdc.set((x/innerWidth)*2-1,-(y/innerHeight)*2+1);board.updateMatrixWorld(true);touchRaycaster.setFromCamera(touchNdc,camera);
-  return touchRaycaster.intersectObject(deck,false).length>0;
+  // Any visible part of the board counts as a graphic drag target.
+  // The deck's underside uses a separate face mesh, so testing only the
+  // original deck mesh misses taps on the actual artwork surface.
+  return touchRaycaster.intersectObjects(board.children,true).length>0;
 }
 function editorPointerDistance(){const p=[...editorPointers.values()];return p.length<2?0:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y);}
 editorStage.addEventListener('pointerdown',event=>{
@@ -1790,7 +1802,11 @@ function buildDeckCustomizationUI() {
     }else if(deckGraphicState.category==='Miscellaneous'){
       const designs=miscellaneousDeckGraphics.map((file,i)=>'Graphic '+String(i+1).padStart(2,'0')+' ('+file+')');
       sectionContent.appendChild(editorField('Choose a graphic · 43',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
-      const note=document.createElement('div');note.textContent='All 43 uploaded images are here. Select any one to preview it on the underside of the deck.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
+      sectionContent.appendChild(editorField('Artwork orientation',makeEditorSelect(['Portrait','Landscape'],deckGraphicState.imageOrientation==='Portrait'?0:1,i=>{deckGraphicState.imageOrientation=i===0?'Portrait':'Landscape';refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Move left / right',makeEditorRange(deckGraphicState.graphicOffsetX,-850,850,5,v=>{deckGraphicState.graphicOffsetX=v;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Move up / down',makeEditorRange(deckGraphicState.graphicOffsetY,-420,420,5,v=>{deckGraphicState.graphicOffsetY=v;refreshDeckGraphic();})));
+      sectionContent.appendChild(editorField('Graphic size',makeEditorRange(deckGraphicState.graphicScale,.3,2.5,.01,v=>{deckGraphicState.graphicScale=v;refreshDeckGraphic();})));
+      const note=document.createElement('div');note.textContent='Portrait is the default. Use the sliders to position and resize the graphic, or drag it directly on the board.';note.style.cssText='margin-top:10px;color:#94a5a0;font-size:10px;line-height:1.45;';sectionContent.appendChild(note);
     }else{
       const designs=deckGraphicCatalog[deckGraphicState.category];
       sectionContent.appendChild(editorField('Choose a design',makeEditorSelect(designs,deckGraphicState.design,i=>{deckGraphicState.design=i;refreshDeckGraphic();})));
