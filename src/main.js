@@ -1536,14 +1536,16 @@ function activateBoardEditorPreview(){
   editorSavedScene={background:scene.background,children:scene.children.map(o=>({object:o,visible:o.visible}))};
   editorSavedCamera={position:camera.position.clone(),quaternion:camera.quaternion.clone(),up:camera.up.clone(),aspect:camera.aspect};
   editorSavedBoard={position:board.position.clone(),rotation:board.rotation.clone(),scale:board.scale.clone()};
+  // The customization preview is a clean floating-board display: hide every
+  // park surface, obstacle, grid and ground mesh, keeping only the board/lights.
   for(const child of scene.children) child.visible=(child===board||child.isLight);
   scene.background=new THREE.Color('#171e20');
-  board.position.set(0,0,0.82);
+  board.position.set(0,1.45,0.82);
   board.rotation.set(0,0,Math.PI/2);
-  board.scale.setScalar(1);
+  board.scale.setScalar(0.72);
   camera.up.set(0,1,0);
-  camera.position.set(-4.4,0.30,0.48);
-  camera.lookAt(0,0.30,0.48);
+  camera.position.set(-4.4,1.45,0.48);
+  camera.lookAt(0,1.45,0.48);
   camera.updateProjectionMatrix();
   editorTargetRotation=board.rotation.clone();
   renderer.render(scene,camera);
