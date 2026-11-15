@@ -921,21 +921,21 @@ const deckShape = new THREE.Shape();
 // Reference outline: a broad-ended popsicle deck with softly rounded caps,
 // full shoulders and a restrained waist. Keep the original deck length and
 // maximum width; only widen the nose/tail tips to match the reference board.
-deckShape.moveTo(-1.13, -0.205);
-deckShape.bezierCurveTo(-1.13, -0.265, -1.065, -0.296, -0.965, -0.300);
-deckShape.bezierCurveTo(-0.825, -0.312, -0.700, -0.296, -0.550, -0.284);
-deckShape.bezierCurveTo(-0.285, -0.263, -0.145, -0.258, 0, -0.258);
-deckShape.bezierCurveTo(0.145, -0.258, 0.285, -0.263, 0.550, -0.284);
-deckShape.bezierCurveTo(0.700, -0.296, 0.825, -0.312, 0.965, -0.300);
-deckShape.bezierCurveTo(1.065, -0.296, 1.13, -0.265, 1.13, -0.205);
-deckShape.bezierCurveTo(1.13, -0.065, 1.13, 0.065, 1.13, 0.205);
-deckShape.bezierCurveTo(1.13, 0.265, 1.065, 0.296, 0.965, 0.300);
-deckShape.bezierCurveTo(0.825, 0.312, 0.700, 0.296, 0.550, 0.284);
-deckShape.bezierCurveTo(0.285, 0.263, 0.145, 0.258, 0, 0.258);
-deckShape.bezierCurveTo(-0.145, 0.258, -0.285, 0.263, -0.550, 0.284);
-deckShape.bezierCurveTo(-0.700, 0.296, -0.825, 0.312, -0.965, 0.300);
-deckShape.bezierCurveTo(-1.065, 0.296, -1.13, 0.265, -1.13, 0.205);
-deckShape.bezierCurveTo(-1.13, 0.065, -1.13, -0.065, -1.13, -0.205);
+// Rounded popsicle outline: softly domed nose and tail, full shoulders,
+ // and a subtle waist. Long axis remains 2.26m; maximum width is 0.63m.
+deckShape.moveTo(-1.13, 0);
+deckShape.bezierCurveTo(-1.13, -0.105, -1.075, -0.235, -0.965, -0.285);
+deckShape.bezierCurveTo(-0.865, -0.326, -0.735, -0.318, -0.610, -0.302);
+deckShape.bezierCurveTo(-0.385, -0.277, -0.190, -0.278, 0, -0.282);
+deckShape.bezierCurveTo(0.190, -0.278, 0.385, -0.277, 0.610, -0.302);
+deckShape.bezierCurveTo(0.735, -0.318, 0.865, -0.326, 0.965, -0.285);
+deckShape.bezierCurveTo(1.075, -0.235, 1.13, -0.105, 1.13, 0);
+deckShape.bezierCurveTo(1.13, 0.105, 1.075, 0.235, 0.965, 0.285);
+deckShape.bezierCurveTo(0.865, 0.326, 0.735, 0.318, 0.610, 0.302);
+deckShape.bezierCurveTo(0.385, 0.277, 0.190, 0.278, 0, 0.282);
+deckShape.bezierCurveTo(-0.190, 0.278, -0.385, 0.277, -0.610, 0.302);
+deckShape.bezierCurveTo(-0.735, 0.318, -0.865, 0.326, -0.965, 0.285);
+deckShape.bezierCurveTo(-1.075, 0.235, -1.13, 0.105, -1.13, 0);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
@@ -2366,9 +2366,10 @@ function updateFollowCamera(dt) {
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
   const currentSpeed = velocity.length();
-  const followDistance = 14.2 + Math.min(currentSpeed, 12) * 0.07;
-  const cameraHeight = 8.2 + Math.min(currentSpeed, 12) * 0.025;
-  const lookAhead = 8.5 + Math.min(currentSpeed, 12) * 0.10;
+  // Fixed framing: do not zoom or alter perspective as speed changes.
+  const followDistance = 16.5;
+  const cameraHeight = 9.5;
+  const lookAhead = 9.0;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
@@ -2385,8 +2386,8 @@ function updateFollowCamera(dt) {
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 8.2, -14.2);
-camera.lookAt(0, -1.0, 8.5);
+camera.position.set(0, 9.5, -16.5);
+camera.lookAt(0, -1.0, 9.0);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
