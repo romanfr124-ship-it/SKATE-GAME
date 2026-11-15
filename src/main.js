@@ -493,6 +493,10 @@ function ramp(w, h, d, x, z, angle = 0) {
   // and a solid box caused opposing corrections that launched/teleported
   // the board at the ramp surface.
   rampSurfaces.push({ w, h, d, x, z, angle });
+  // Ramps were omitted from the collision list, making the visible ramps
+  // behave like scenery. The SAT contact solver already handles their top
+  // faces and ramp normals, so register them as solid rideable obstacles.
+  solidObstacles.push(mesh);
   // A matching 1m grid on the ramp surface makes the obstacle's size and
   // orientation clear as the camera follows the skater.
   const surface = new THREE.Group();
@@ -656,14 +660,20 @@ terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 
 // Pale beach sand frames the concrete footprint. The park itself is a
 // separate clipped mesh, so its irregular edge reads clearly from the air.
-const beach = new THREE.Mesh(
-  new THREE.PlaneGeometry(180, 180),
-  new THREE.MeshStandardMaterial({ color: 0xc8b58f, roughness: 1 })
-);
-beach.rotation.x = -Math.PI / 2;
-beach.position.set(0, -0.61, 0);
-beach.receiveShadow = true;
-scene.add(beach);
+const sandMaterial = new THREE.MeshStandardMaterial({ color: 0xc8b58f, roughness: 1 });
+function addSandPatch(width, depth, x, z) {
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), sandMaterial);
+  sand.rotation.x = -Math.PI / 2;
+  sand.position.set(x, -0.61, z);
+  sand.receiveShadow = true;
+  scene.add(sand);
+}
+// Sand sits only outside the park footprint. A single giant plane crossed
+// the bowl floors and made the pools look filled with sand.
+addSandPatch(28, 180, -48, 0);
+addSandPatch(36, 180, 50, 0);
+addSandPatch(66, 28, -1, -59);
+addSandPatch(66, 36, -1, 65);
 
 // Circular south entrance plaza with a planted centre island.
 const entryPad = new THREE.Mesh(new THREE.CircleGeometry(7.5, 64), mats.concrete);
@@ -692,7 +702,7 @@ function addBowlCoping(cx, cz, rx, rz, rotation = 0) {
     mats.metal
   );
   coping.rotation.x = Math.PI / 2;
-  coping.rotation.z = rotation;
+  coping.rotation.y = rotation;
   coping.scale.set(rx, rz, 1);
   coping.position.set(cx, 0.035, cz);
   coping.castShadow = true; coping.receiveShadow = true;
@@ -2320,9 +2330,9 @@ function updateFollowCamera(dt) {
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
   const currentSpeed = velocity.length();
-  const followDistance = 2.38 + Math.min(currentSpeed, 12) * 0.038;
-  const cameraHeight = 2.18 + Math.min(currentSpeed, 12) * 0.022;
-  const lookAhead = 2.35 + Math.min(currentSpeed, 12) * 0.105;
+  const followDistance = 2.48 + Math.min(currentSpeed, 12) * 0.035;
+  const cameraHeight = 1.42 + Math.min(currentSpeed, 12) * 0.018;
+  const lookAhead = 3.45 + Math.min(currentSpeed, 12) * 0.10;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
@@ -2339,8 +2349,8 @@ function updateFollowCamera(dt) {
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 2.18, -2.5);
-camera.lookAt(0, 0.015, 2.35);
+camera.position.set(0, 1.42, -2.5);
+camera.lookAt(0, 0.015, 3.45);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
