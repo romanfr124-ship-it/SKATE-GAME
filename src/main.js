@@ -710,24 +710,24 @@ const deckVisualGroup = new THREE.Group();
 board.add(deckVisualGroup);
 
 const deckShape = new THREE.Shape();
-// Reference deck: a symmetrical, rounded popsicle outline with fuller,
-// softly squared nose/tail caps and a subtle waist. The ends stay broad
-// rather than tapering to the pointed tips of the previous model.
-deckShape.moveTo(-1.13, -0.135);
-deckShape.bezierCurveTo(-1.13, -0.235, -1.065, -0.292, -0.965, -0.300);
+// Reference outline: a broad-ended popsicle deck with softly rounded caps,
+// full shoulders and a restrained waist. Keep the original deck length and
+// maximum width; only widen the nose/tail tips to match the reference board.
+deckShape.moveTo(-1.13, -0.205);
+deckShape.bezierCurveTo(-1.13, -0.265, -1.065, -0.296, -0.965, -0.300);
 deckShape.bezierCurveTo(-0.825, -0.312, -0.700, -0.296, -0.550, -0.284);
 deckShape.bezierCurveTo(-0.285, -0.263, -0.145, -0.258, 0, -0.258);
 deckShape.bezierCurveTo(0.145, -0.258, 0.285, -0.263, 0.550, -0.284);
 deckShape.bezierCurveTo(0.700, -0.296, 0.825, -0.312, 0.965, -0.300);
-deckShape.bezierCurveTo(1.065, -0.292, 1.13, -0.235, 1.13, -0.135);
-deckShape.bezierCurveTo(1.13, -0.035, 1.13, 0.035, 1.13, 0.135);
-deckShape.bezierCurveTo(1.13, 0.235, 1.065, 0.292, 0.965, 0.300);
+deckShape.bezierCurveTo(1.065, -0.296, 1.13, -0.265, 1.13, -0.205);
+deckShape.bezierCurveTo(1.13, -0.065, 1.13, 0.065, 1.13, 0.205);
+deckShape.bezierCurveTo(1.13, 0.265, 1.065, 0.296, 0.965, 0.300);
 deckShape.bezierCurveTo(0.825, 0.312, 0.700, 0.296, 0.550, 0.284);
 deckShape.bezierCurveTo(0.285, 0.263, 0.145, 0.258, 0, 0.258);
 deckShape.bezierCurveTo(-0.145, 0.258, -0.285, 0.263, -0.550, 0.284);
 deckShape.bezierCurveTo(-0.700, 0.296, -0.825, 0.312, -0.965, 0.300);
-deckShape.bezierCurveTo(-1.065, 0.292, -1.13, 0.235, -1.13, 0.135);
-deckShape.bezierCurveTo(-1.13, 0.035, -1.13, -0.035, -1.13, -0.135);
+deckShape.bezierCurveTo(-1.065, 0.296, -1.13, 0.265, -1.13, 0.205);
+deckShape.bezierCurveTo(-1.13, 0.065, -1.13, -0.065, -1.13, -0.205);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
