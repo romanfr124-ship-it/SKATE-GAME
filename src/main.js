@@ -3366,7 +3366,16 @@ function animate() {
   // including manuals and caught primo/Casper orientations.
   if (!airborne && !grinding) {
     board.updateMatrixWorld(true);
-    board.position.y += groundContactCorrection();
+    // The previous full per-frame correction snapped the whole board directly
+    // to the lowest sampled mesh corner. Smooth the support correction so
+    // small terrain/mesh variations do not kick the deck vertically.
+    const supportCorrection = groundContactCorrection();
+    const supportBlend = 1 - Math.exp(-24 * dt);
+    board.position.y += THREE.MathUtils.clamp(
+      supportCorrection * supportBlend,
+      -0.12,
+      0.12
+    );
 
     // Let either end of the deck scrape during its matching manual.
     // Ground contact correction keeps the wheels/deck from penetrating while
