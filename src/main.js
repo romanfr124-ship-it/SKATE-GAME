@@ -721,6 +721,19 @@ function addBowlCoping(cx, cz, rx, rz, rotation = 0, kidney = 0.085) {
   coping.castShadow = true; coping.receiveShadow = true;
   coping.userData.isBowlCoping = true;
   scene.add(coping);
+
+  // Register the complete perimeter as short, contiguous grind segments.
+  // The grind solver expects a straight edge with a real tangent, so each
+  // curved section follows the coping without turning the whole bowl into
+  // one misleading straight line.
+  for (let i = 0; i < points.length - 1; i++) {
+    addGrindEdge(
+      { x: points[i].x, z: points[i].z },
+      { x: points[i + 1].x, z: points[i + 1].z },
+      0.045,
+      'bowl-coping'
+    );
+  }
 }
 addBowlCoping(17.5, -24, 13.5, 10.8, -0.18, 0.105);
 addBowlCoping(7.5, -3, 10.0, 8.0, 0.18, 0.07);
