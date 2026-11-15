@@ -503,23 +503,66 @@ const rampSurfaces = [];
 
 const bowl = { x: 0, z: 0, radiusX: 0, radiusZ: 0, depth: 0, deepExtra: 0, shallowCut: 0, flatRatio: 0 };
 
+// Venice Beach Skatepark reconstruction. World scale is metres; the built
+// skate surface occupies roughly 16,000 sq ft (about 1,486 m²). The aerial
+// reference is oriented with the street plaza on the left and bowls to the right.
+const parkBounds = { minX: -34, maxX: 32, minZ: -45, maxZ: 47 };
+function smooth01(v) { v = THREE.MathUtils.clamp(v, 0, 1); return v * v * (3 - 2 * v); }
+function insidePark(x, z) {
+  // Rounded main footprint plus the circular entry plaza at the south end.
+  const rx = (x + 1) / 33, rz = (z + 1) / 46;
+  const roundedMain = Math.pow(Math.abs(rx), 4) + Math.pow(Math.abs(rz), 4) <= 1.02;
+  const entry = Math.hypot(x + 5, z - 51) <= 7.7;
+  return roundedMain || entry;
+}
+function ellipseBowl(x, z, cx, cz, rx, rz, depth, rotation = 0, floorRatio = 0.28) {
+  const dx = x - cx, dz = z - cz, c = Math.cos(rotation), sn = Math.sin(rotation);
+  const lx = (dx * c - dz * sn) / rx, lz = (dx * sn + dz * c) / rz;
+  const radius = Math.sqrt(lx * lx + lz * lz);
+  const t = smooth01((1 - radius) / (1 - floorRatio));
+  return depth * t;
+}
+const snakeRunPath = [
+  { x: 4, z: -1, width: 5.5, depth: 1.45 },
+  { x: 10, z: 5, width: 5.4, depth: 1.65 },
+  { x: 8, z: 12, width: 5.2, depth: 1.65 },
+  { x: 15, z: 18, width: 5.3, depth: 1.8 },
+  { x: 20, z: 24, width: 5.5, depth: 1.8 },
+  { x: 17, z: 31, width: 5.6, depth: 1.8 },
+  { x: 23, z: 37, width: 5.8, depth: 1.75 },
+  { x: 20, z: 43, width: 6.2, depth: 1.5 }
+];
+function snakeRunDepth(x, z) {
+  let deepest = 0;
+  for (let i = 0; i < snakeRunPath.length - 1; i++) {
+    const a = snakeRunPath[i], b = snakeRunPath[i + 1];
+    const vx = b.x - a.x, vz = b.z - a.z;
+    const t = THREE.MathUtils.clamp(((x - a.x) * vx + (z - a.z) * vz) / (vx * vx + vz * vz), 0, 1);
+    const px = a.x + vx * t, pz = a.z + vz * t;
+    const width = THREE.MathUtils.lerp(a.width, b.width, t);
+    const depth = THREE.MathUtils.lerp(a.depth, b.depth, t);
+    const d = Math.hypot(x - px, z - pz);
+    const profile = smooth01((width - d) / (width * 0.72));
+    deepest = Math.max(deepest, depth * profile);
+  }
+  return deepest;
+}
 function baseGroundHeight(x, z) {
-  // Raised platform is confined to the north-west corner, blending into
-  // the wide berm from X=-20 to X=0.
-  const xT = THREE.MathUtils.clamp((x + 20) / 20, 0, 1);
-  const xFade = xT * xT * (3 - 2 * xT);
-  const zStartT = THREE.MathUtils.clamp((z - 22) / 3, 0, 1);
-  const zStart = zStartT * zStartT * (3 - 2 * zStartT);
-  const zEndT = THREE.MathUtils.clamp((63 - z) / 3, 0, 1);
-  const zEnd = zEndT * zEndT * (3 - 2 * zEndT);
-  const platformZFade = zStart * zEnd;
-  const secondLevel = 3.2 * (1 - xFade);
-  const raisedPlatformExtra = 1.8 * platformZFade * (1 - xFade);
-  return secondLevel + raisedPlatformExtra;
+  if (!insidePark(x, z)) return -0.58;
+  let depression = 0;
+  // Deep Pool: large upper-right kidney pool, approximately nine feet deep.
+  depression = Math.max(depression, ellipseBowl(x, z, 17.5, -24, 13.5, 10.8, 2.74, -0.18, 0.30));
+  // Flow Bowl: smaller linked pool below and left of the deep pool.
+  depression = Math.max(depression, ellipseBowl(x, z, 7.5, -3, 10.0, 8.0, 1.55, 0.18, 0.24));
+  // The long, undulating snake run links several transitions and terminates
+  // in shallow/deep pockets rather than becoming a straight trench.
+  depression = Math.max(depression, snakeRunDepth(x, z));
+  depression = Math.max(depression, ellipseBowl(x, z, 8.5, 8.0, 6.8, 5.2, 1.45, 0.30, 0.25));
+  depression = Math.max(depression, ellipseBowl(x, z, 19.5, 43.0, 7.2, 5.4, 1.55, -0.15, 0.24));
+  // The outer coping/deck remains at grade; only the riding surface drops.
+  return -depression;
 }
-function terrainHeightAt(x, z) {
-  return baseGroundHeight(x, z);
-}
+function terrainHeightAt(x, z) { return baseGroundHeight(x, z); }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
 // Return the vertical correction needed for the lowest part of the board to
 // meet the terrain. Positive means the board has penetrated the ground;
@@ -566,6 +609,9 @@ for (let iz = 0; iz <= terrainSegments; iz++) {
   }
 }
 for (let iz = 0; iz < terrainSegments; iz++) for (let ix = 0; ix < terrainSegments; ix++) {
+  const x = terrainMin + (ix + 0.5) * (terrainMax - terrainMin) / terrainSegments;
+  const z = terrainMin + (iz + 0.5) * (terrainMax - terrainMin) / terrainSegments;
+  if (!insidePark(x, z)) continue;
   const a = iz * (terrainSegments + 1) + ix, b = a + terrainSegments + 1;
   terrainIndices.push(a, b, a + 1, b, b + 1, a + 1);
 }
@@ -576,6 +622,76 @@ terrainGeometry.setIndex(terrainIndices);
 terrainGeometry.computeVertexNormals();
 const terrain = new THREE.Mesh(terrainGeometry, mats.concrete);
 terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
+
+// Pale beach sand frames the concrete footprint. The park itself is a
+// separate clipped mesh, so its irregular edge reads clearly from the air.
+const beach = new THREE.Mesh(
+  new THREE.PlaneGeometry(180, 180),
+  new THREE.MeshStandardMaterial({ color: 0xc8b58f, roughness: 1 })
+);
+beach.rotation.x = -Math.PI / 2;
+beach.position.set(0, -0.61, 0);
+beach.receiveShadow = true;
+scene.add(beach);
+
+// Circular south entrance plaza with a planted centre island.
+const entryPad = new THREE.Mesh(new THREE.CircleGeometry(7.5, 64), mats.concrete);
+entryPad.rotation.x = -Math.PI / 2;
+entryPad.position.set(-5, -0.56, 51);
+entryPad.receiveShadow = true;
+scene.add(entryPad);
+const planter = new THREE.Mesh(
+  new THREE.CylinderGeometry(3.0, 3.15, 0.42, 48),
+  new THREE.MeshStandardMaterial({ color: 0x777a70, roughness: 0.95 })
+);
+planter.position.set(-5, -0.36, 51);
+planter.castShadow = true; planter.receiveShadow = true; scene.add(planter);
+const planterSoil = new THREE.Mesh(
+  new THREE.CircleGeometry(2.82, 40),
+  new THREE.MeshStandardMaterial({ color: 0x51483a, roughness: 1 })
+);
+planterSoil.rotation.x = -Math.PI / 2;
+planterSoil.position.set(-5, -0.135, 51);
+scene.add(planterSoil);
+
+// Street plaza: an L-shaped field of low ledges, banks, stairs and rails.
+// All dimensions are deliberately kept low and skateable, not giant blocks.
+outlinedBox(scene, 9.0, 0.34, 1.15, mats.concrete, -22, 0.17, -28);
+outlinedBox(scene, 1.15, 0.42, 7.0, mats.concrete, -27, 0.21, -21);
+outlinedBox(scene, 6.5, 0.30, 1.0, mats.concrete, -18, 0.15, -13);
+outlinedBox(scene, 1.0, 0.38, 6.0, mats.concrete, -25, 0.19, -4);
+outlinedBox(scene, 8.0, 0.28, 1.0, mats.concrete, -18, 0.14, 4);
+outlinedBox(scene, 6.0, 0.36, 1.1, mats.concrete, -22, 0.18, 19);
+outlinedBox(scene, 1.0, 0.42, 6.5, mats.concrete, -27, 0.21, 25);
+
+// Low street banks at the upper and lower plaza boundaries.
+ramp(8.5, 0.62, 4.2, -13.5, -34.5, -0.12);
+ramp(7.5, 0.55, 3.8, -14.5, 31.0, 0.13);
+
+// Two stair sets with individual steps and a central handrail.
+for (let i = 0; i < 5; i++) {
+  const rise = 0.12 + i * 0.105;
+  outlinedBox(scene, 4.8, rise, 0.72, mats.concrete, -13.5, rise / 2, 11.0 + i * 0.72);
+  outlinedBox(scene, 4.0, rise, 0.66, mats.concrete, -21.0, rise / 2, -8.0 + i * 0.66);
+}
+rail(-13.5, 12.45, 4.1, 0.72);
+rail(-21.0, -6.68, 3.5, 0.68);
+
+// A pair of low parallel grind edges and a compact manual pad.
+rail(-8.0, -22.0, 8.0, 0.58);
+rail(-6.0, 22.0, 7.0, 0.62);
+outlinedBox(scene, 3.2, 0.42, 2.0, mats.concrete, -8.5, 0.21, -11.0);
+
+// The shell-like quarter transition on the far left edge of the plaza.
+const shellBank = new THREE.Mesh(
+  new THREE.CylinderGeometry(8.2, 8.2, 0.22, 64, 1, false, Math.PI * 0.18, Math.PI * 0.64),
+  mats.concrete
+);
+shellBank.rotation.x = Math.PI / 2;
+shellBank.position.set(-26.0, 0.02, 10.0);
+shellBank.scale.set(1, 1, 0.72);
+shellBank.receiveShadow = true; shellBank.castShadow = true; scene.add(shellBank);
+
 function addConcreteJoints() {
   const jointMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true, roughness: 1, metalness: 0
