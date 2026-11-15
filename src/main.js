@@ -557,6 +557,8 @@ function ellipseBowl(x, z, cx, cz, rx, rz, depth, rotation = 0, floorRatio = 0.2
   return depth * t;
 }
 function smoothUnionDepth(a, b, radius = 0.7) {
+  if (a <= 0) return b;
+  if (b <= 0) return a;
   const h = Math.max(radius - Math.abs(a - b), 0) / radius;
   return Math.max(a, b) + h * h * radius * 0.25;
 }
