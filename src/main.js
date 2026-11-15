@@ -437,6 +437,32 @@ function addGrindEdge(start, end, y, kind = 'ledge') {
   return target;
 }
 
+function addSurfaceGrid(parent, width, depth, spacing = 1, y = 0.012, opacity = 0.18) {
+  // Subtle concrete panel joints. One batched LineSegments object keeps the
+  // park light while avoiding hundreds of individual line meshes.
+  const positions = [];
+  const halfW = width / 2;
+  const halfD = depth / 2;
+  for (let x = -halfW; x <= halfW + 0.0001; x += spacing) {
+    positions.push(x, y, -halfD, x, y, halfD);
+  }
+  for (let z = -halfD; z <= halfD + 0.0001; z += spacing) {
+    positions.push(-halfW, y, z, halfW, y, z);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  const material = new THREE.LineBasicMaterial({
+    color: 0x46504f,
+    transparent: true,
+    opacity: Math.min(0.3, opacity / 20),
+    depthWrite: false
+  });
+  const grid = new THREE.LineSegments(geometry, material);
+  grid.renderOrder = 2;
+  parent.add(grid);
+  return grid;
+}
+
 function outlinedBox(parent, w, h, d, mat, x, y, z) {
   const geometry = new THREE.BoxGeometry(w, h, d);
   const mesh = new THREE.Mesh(geometry, mat);
