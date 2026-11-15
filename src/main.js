@@ -273,8 +273,8 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   return texture;
 }
 const concreteTexture = makeWeatheredConcreteTexture(
-  '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
-  ['#929799', '#858b8e', '#777e81'], 1024, true
+  '#777b7d', ['#4b5053', '#555a5d', '#606669', '#686e71'],
+  ['#a0a4a5', '#929799', '#858b8e'], 1024, false
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
@@ -775,6 +775,17 @@ rail(-21.0, -6.68, 3.5, 0.68);
 rail(-8.0, -22.0, 8.0, 0.58);
 rail(-6.0, 22.0, 7.0, 0.62);
 outlinedBox(scene, 3.2, 0.42, 2.0, mats.concrete, -8.5, 0.21, -11.0);
+
+// Rebuild the missing central street section so the riding area is not an
+// enormous empty slab. These are deliberately low, skateable concrete forms.
+outlinedBox(scene, 6.2, 0.38, 1.05, mats.concrete, -5.0, 0.19, -31.0);
+outlinedBox(scene, 1.05, 0.48, 5.8, mats.concrete, 1.0, 0.24, -25.0);
+outlinedBox(scene, 4.8, 0.32, 1.0, mats.concrete, 6.5, 0.16, -17.5);
+outlinedBox(scene, 5.4, 0.42, 1.15, mats.concrete, 3.5, 0.21, 14.0);
+outlinedBox(scene, 1.0, 0.36, 5.2, mats.concrete, 10.0, 0.18, 20.0);
+rail(3.0, -8.0, 7.0, 0.68);
+rail(8.0, 29.0, 8.0, 0.72);
+rail(-3.5, 5.0, 6.5, 0.62);
 
 // The shell-like quarter transition on the far left edge of the plaza.
 const shellBank = new THREE.Mesh(
@@ -1417,7 +1428,7 @@ for (const x of [-0.69, 0.69]) {
     }
   }
 }
-board.position.set(0, 0, 1.5);
+board.position.set(-17, 0, -39);
 board.rotation.order = 'YXZ';
 
 // Unified rigid-body skateboard physics. The deck is kinematic while riding
@@ -2161,7 +2172,7 @@ function deckTouchLocalPoint(clientX, clientY) {
   );
   board.updateMatrixWorld(true);
   touchRaycaster.setFromCamera(touchNdc, camera);
-  const hit = touchRaycaster.intersectObject(deck, false)[0];
+  const hit = touchRaycaster.intersectObject(board, true)[0];
   if (!hit) return null;
   return board.worldToLocal(hit.point.clone());
 }
@@ -2205,6 +2216,8 @@ canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   canvas.setPointerCapture?.(event.pointerId);
   const initialDeckPoint = deckTouchLocalPoint(event.clientX, event.clientY);
+  // Catch on any visible part of the board, including the trucks and wheels.
+  // Cancel angular velocity on the very first touch frame, before drag input.
   if (initialDeckPoint && airborne) boardPhysics.stopSpin();
   gesture = {
     id: event.pointerId,
