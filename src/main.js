@@ -3269,6 +3269,7 @@ function animate() {
   const errorPanel = document.getElementById('load-error');
   if (errorPanel) errorPanel.style.display = 'none';
 }
+window.__HARDLINE_STARTED__ = true;
 animate();
 
 addEventListener('resize', () => {
