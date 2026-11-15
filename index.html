@@ -10,7 +10,7 @@
     body{touch-action:none;overscroll-behavior:none}
     #game{position:fixed;inset:0}
     canvas{display:block;width:100%;height:100%;outline:none}
-    #load-error{position:fixed;inset:0;display:none;place-items:center;padding:28px;color:#eee;background:#202020;font:14px/1.5 system-ui;text-align:center}
+    #load-error{position:fixed;inset:0;z-index:10001;display:none;place-items:center;padding:28px;color:#eee;background:#202020;font:14px/1.5 system-ui;text-align:center;white-space:pre-wrap}
     #hardline-loader{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;overflow:hidden;padding:24px;box-sizing:border-box;background:radial-gradient(ellipse at 16% 16%,#16c9cb66 0,transparent 32%),radial-gradient(ellipse at 84% 25%,#ec26a866 0,transparent 36%),radial-gradient(ellipse at 52% 90%,#6338d866 0,transparent 38%),linear-gradient(145deg,#07151c 0%,#101b2c 48%,#160c20 100%);transition:opacity .6s ease,visibility .6s ease}
     #hardline-loader:before{content:"";position:absolute;inset:0;opacity:.32;background-image:radial-gradient(circle,#fff .7px,transparent 1.4px),radial-gradient(circle,#31e8e1 1px,transparent 2px),radial-gradient(circle,#ff3ca8 1px,transparent 2px);background-size:31px 29px,67px 73px,91px 83px;background-position:0 0,18px 24px,42px 12px}
     #hardline-loader .hl-load-content{position:relative;width:min(100%,650px);text-align:center;animation:hlLoadIn .8s cubic-bezier(.2,.8,.2,1) both}
@@ -33,20 +33,29 @@
   </div>
   <main id="game" aria-label="3D skatepark"></main>
   <div id="load-error" role="alert"></div>
-  <script type="module" src="./src/main.js?v=hardline-original-logo-20261115"></script>
+  <script type="module" src="./src/main.js?v=hardline-startup-fix-20261115"></script>
   <script>
-    window.addEventListener('error', function(e) {
+    function showStartupError(message) {
       var box = document.getElementById('load-error');
-      if (!box || box.style.display === 'grid') return;
-      box.textContent = 'The 3D game could not start: ' + (e.message || 'JavaScript loading error');
+      var loader = document.getElementById('hardline-loader');
+      if (!box) return;
+      box.textContent = 'The 3D game could not start:\\n' + message;
       box.style.display = 'grid';
+      if (loader) loader.style.display = 'none';
+    }
+    window.addEventListener('error', function(e) {
+      showStartupError(e.message || 'JavaScript loading error');
     });
     window.addEventListener('unhandledrejection', function(e) {
-      var box = document.getElementById('load-error');
-      if (!box || box.style.display === 'grid') return;
-      box.textContent = 'The 3D game could not start: ' + (e.reason && e.reason.message ? e.reason.message : 'Module loading error');
-      box.style.display = 'grid';
+      var reason = e.reason;
+      showStartupError(reason && reason.message ? reason.message : String(reason || 'Module loading error'));
     });
+    // Never leave the decorative loading screen covering a failed or stalled boot.
+    window.setTimeout(function() {
+      if (!window.__HARDLINE_STARTED__) {
+        showStartupError('Startup timed out after 35 seconds. Check your connection and reload; a required game module may not have loaded.');
+      }
+    }, 35000);
   </script>
 </body>
 </html>
