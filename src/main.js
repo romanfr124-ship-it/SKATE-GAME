@@ -710,21 +710,24 @@ const deckVisualGroup = new THREE.Group();
 board.add(deckVisualGroup);
 
 const deckShape = new THREE.Shape();
-// Traditional symmetrical popsicle outline: a gently pinched waist,
-// fuller shoulders, and broad rounded nose and tail.
-deckShape.moveTo(-1.13, 0);
-deckShape.bezierCurveTo(-1.12, 0.105, -1.075, 0.215, -0.985, 0.267);
-deckShape.bezierCurveTo(-0.91, 0.305, -0.82, 0.305, -0.70, 0.298);
-deckShape.bezierCurveTo(-0.43, 0.282, -0.28, 0.272, 0, 0.272);
-deckShape.bezierCurveTo(0.28, 0.272, 0.43, 0.282, 0.70, 0.298);
-deckShape.bezierCurveTo(0.82, 0.305, 0.91, 0.305, 0.985, 0.267);
-deckShape.bezierCurveTo(1.075, 0.215, 1.12, 0.105, 1.13, 0);
-deckShape.bezierCurveTo(1.12, -0.105, 1.075, -0.215, 0.985, -0.267);
-deckShape.bezierCurveTo(0.91, -0.305, 0.82, -0.305, 0.70, -0.298);
-deckShape.bezierCurveTo(0.43, -0.282, 0.28, -0.272, 0, -0.272);
-deckShape.bezierCurveTo(-0.28, -0.272, -0.43, -0.282, -0.70, -0.298);
-deckShape.bezierCurveTo(-0.82, -0.305, -0.91, -0.305, -0.985, -0.267);
-deckShape.bezierCurveTo(-1.075, -0.215, -1.12, -0.105, -1.13, 0);
+// Reference deck: a symmetrical, rounded popsicle outline with fuller,
+// softly squared nose/tail caps and a subtle waist. The ends stay broad
+// rather than tapering to the pointed tips of the previous model.
+deckShape.moveTo(-1.13, -0.135);
+deckShape.bezierCurveTo(-1.13, -0.235, -1.065, -0.292, -0.965, -0.300);
+deckShape.bezierCurveTo(-0.825, -0.312, -0.700, -0.296, -0.550, -0.284);
+deckShape.bezierCurveTo(-0.285, -0.263, -0.145, -0.258, 0, -0.258);
+deckShape.bezierCurveTo(0.145, -0.258, 0.285, -0.263, 0.550, -0.284);
+deckShape.bezierCurveTo(0.700, -0.296, 0.825, -0.312, 0.965, -0.300);
+deckShape.bezierCurveTo(1.065, -0.292, 1.13, -0.235, 1.13, -0.135);
+deckShape.bezierCurveTo(1.13, -0.035, 1.13, 0.035, 1.13, 0.135);
+deckShape.bezierCurveTo(1.13, 0.235, 1.065, 0.292, 0.965, 0.300);
+deckShape.bezierCurveTo(0.825, 0.312, 0.700, 0.296, 0.550, 0.284);
+deckShape.bezierCurveTo(0.285, 0.263, 0.145, 0.258, 0, 0.258);
+deckShape.bezierCurveTo(-0.145, 0.258, -0.285, 0.263, -0.550, 0.284);
+deckShape.bezierCurveTo(-0.700, 0.296, -0.825, 0.312, -0.965, 0.300);
+deckShape.bezierCurveTo(-1.065, 0.292, -1.13, 0.235, -1.13, 0.135);
+deckShape.bezierCurveTo(-1.13, 0.035, -1.13, -0.035, -1.13, -0.135);
 
 const deckGeometry = new THREE.ExtrudeGeometry(deckShape, {
   depth: 0.10,
