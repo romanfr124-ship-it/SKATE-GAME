@@ -9,7 +9,7 @@ const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91d9f2);
 scene.fog = new THREE.Fog(0x91d9f2, 42, 112);
-const camera = new THREE.PerspectiveCamera(54, innerWidth / innerHeight, 0.1, 180);
+const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 220);
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
@@ -2366,9 +2366,9 @@ function updateFollowCamera(dt) {
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
   const currentSpeed = velocity.length();
-  const followDistance = 5.65 + Math.min(currentSpeed, 12) * 0.045;
-  const cameraHeight = 2.65 + Math.min(currentSpeed, 12) * 0.02;
-  const lookAhead = 7.7 + Math.min(currentSpeed, 12) * 0.15;
+  const followDistance = 14.2 + Math.min(currentSpeed, 12) * 0.07;
+  const cameraHeight = 8.2 + Math.min(currentSpeed, 12) * 0.025;
+  const lookAhead = 8.5 + Math.min(currentSpeed, 12) * 0.10;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
@@ -2385,8 +2385,8 @@ function updateFollowCamera(dt) {
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 2.65, -5.65);
-camera.lookAt(0, -1.0, 7.7);
+camera.position.set(0, 8.2, -14.2);
+camera.lookAt(0, -1.0, 8.5);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
