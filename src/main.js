@@ -114,7 +114,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Visible but fine aggregate grain, like exposed sand and tiny stone in old concrete.
-  for (let i = 0; i < 110000; i++) {
+  for (let i = 0; i < 28000; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.12 + random() * 0.22;
     ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
@@ -224,7 +224,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
       }
     }
     // Grainy flecks make the green staining look embedded and organic.
-    for (let i = 0; i < 26000; i++) {
+    for (let i = 0; i < 7000; i++) {
       const x = random() * size, y = random() * size;
       ctx.globalAlpha = 0.10 + random() * 0.22;
       ctx.fillStyle = random() > 0.48 ? '#82915a' : '#354d32';
@@ -235,7 +235,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Heavier, irregular scratches and dragged wheel scuffs.
-  for (let i = 0; i < 4600; i++) {
+  for (let i = 0; i < 1600; i++) {
     const x = random() * size, y = random() * size;
     const length = 4 + random() * 68;
     ctx.globalAlpha = 0.13 + random() * 0.25;
@@ -274,7 +274,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
 }
 const concreteTexture = makeWeatheredConcreteTexture(
   '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
-  ['#929799', '#858b8e', '#777e81'], 4096, true
+  ['#929799', '#858b8e', '#777e81'], 2048, true
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
@@ -604,7 +604,7 @@ function groundContactCorrection() {
 }
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
-const terrainSegments = 448, terrainMin = -60, terrainMax = 60;
+const terrainSegments = 256, terrainMin = -60, terrainMax = 60;
 for (let iz = 0; iz <= terrainSegments; iz++) {
   const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
   for (let ix = 0; ix <= terrainSegments; ix++) {
@@ -1391,7 +1391,7 @@ const boardPhysics = (() => {
   deckBody.setAngularDamping(0.02);
 
   // Collision terrain uses the same height function as the visible park.
-  const terrainCollisionSegments = 448;
+  const terrainCollisionSegments = 256;
   const terrainCollisionVertices = [];
   const terrainCollisionIndices = [];
   for (let iz = 0; iz <= terrainCollisionSegments; iz++) {
