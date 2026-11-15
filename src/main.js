@@ -114,7 +114,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Visible but fine aggregate grain, like exposed sand and tiny stone in old concrete.
-  for (let i = 0; i < 28000; i++) {
+  for (let i = 0; i < 8000; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.12 + random() * 0.22;
     ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
@@ -224,7 +224,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
       }
     }
     // Grainy flecks make the green staining look embedded and organic.
-    for (let i = 0; i < 7000; i++) {
+    for (let i = 0; i < 2200; i++) {
       const x = random() * size, y = random() * size;
       ctx.globalAlpha = 0.10 + random() * 0.22;
       ctx.fillStyle = random() > 0.48 ? '#82915a' : '#354d32';
@@ -235,7 +235,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Heavier, irregular scratches and dragged wheel scuffs.
-  for (let i = 0; i < 1600; i++) {
+  for (let i = 0; i < 500; i++) {
     const x = random() * size, y = random() * size;
     const length = 4 + random() * 68;
     ctx.globalAlpha = 0.13 + random() * 0.25;
@@ -274,12 +274,12 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
 }
 const concreteTexture = makeWeatheredConcreteTexture(
   '#696e71', ['#343a3d', '#41474a', '#4b5154', '#555b5e'],
-  ['#929799', '#858b8e', '#777e81'], 2048, true
+  ['#929799', '#858b8e', '#777e81'], 1024, true
 );
 const asphaltTexture = concreteTexture;
 const obstacleTexture = makeWeatheredConcreteTexture(
   '#c87943', ['#754a35', '#89563d', '#a66b4b'],
-  ['#e0a477', '#d18d60', '#bd7950'], 2048
+  ['#e0a477', '#d18d60', '#bd7950'], 1024
 );
 // Obstacle UVs are local 0–1, so use the full texture once per surface.
 obstacleTexture.repeat.set(1, 1);
