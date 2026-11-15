@@ -2354,8 +2354,9 @@ const cameraOffset = new THREE.Vector3();
 const cameraTarget = new THREE.Vector3();
 let cameraHeading = heading;
 function updateFollowCamera(dt) {
-  // Reference-matched close rear POV: the board fills more of the lower
-  // frame, while the steeper downward view keeps the next obstacle readable.
+  // Rear follow framing matched to the reference gameplay: a longer camera
+  // distance prevents the near tail from ballooning in perspective, while
+  // the lower aim point places the deck in the lower-middle of the frame.
   const targetHeading = heading + (travelSign < 0 ? Math.PI : 0);
   const angleDelta = Math.atan2(
     Math.sin(targetHeading - cameraHeading),
@@ -2365,9 +2366,9 @@ function updateFollowCamera(dt) {
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
   const currentSpeed = velocity.length();
-  const followDistance = 2.48 + Math.min(currentSpeed, 12) * 0.035;
-  const cameraHeight = 1.42 + Math.min(currentSpeed, 12) * 0.018;
-  const lookAhead = 3.45 + Math.min(currentSpeed, 12) * 0.10;
+  const followDistance = 5.65 + Math.min(currentSpeed, 12) * 0.045;
+  const cameraHeight = 2.65 + Math.min(currentSpeed, 12) * 0.02;
+  const lookAhead = 7.7 + Math.min(currentSpeed, 12) * 0.15;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
@@ -2376,7 +2377,7 @@ function updateFollowCamera(dt) {
   );
   cameraTarget.set(
     board.position.x + forwardX * lookAhead,
-    board.position.y + 0.015,
+    board.position.y - 1.0,
     board.position.z + forwardZ * lookAhead
   );
   // Keep the camera planted behind the deck without a delayed, floaty chase.
@@ -2384,8 +2385,8 @@ function updateFollowCamera(dt) {
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 1.42, -2.5);
-camera.lookAt(0, 0.015, 3.45);
+camera.position.set(0, 2.65, -5.65);
+camera.lookAt(0, -1.0, 7.7);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
