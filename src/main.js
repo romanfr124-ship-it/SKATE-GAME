@@ -9,7 +9,7 @@ const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91d9f2);
 scene.fog = new THREE.Fog(0x91d9f2, 42, 112);
-const camera = new THREE.PerspectiveCamera(62, innerWidth / innerHeight, 0.1, 220);
+const camera = new THREE.PerspectiveCamera(56, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
@@ -553,8 +553,10 @@ function ellipseBowl(x, z, cx, cz, rx, rz, depth, rotation = 0, floorRatio = 0.2
   // the generic perfect-oval depression used by the first pass.
   const contour = 1 + kidney * Math.sin(angle - 0.55) + 0.025 * Math.sin(2 * angle + 0.4);
   const radius = Math.sqrt(lx * lx + lz * lz) / contour;
+  // A steeper, continuous bowl transition: shallow at the coping,
+  // progressively steeper down the wall, then a broad flat riding floor.
   const t = smooth01((1 - radius) / (1 - floorRatio));
-  return depth * t;
+  return depth * Math.pow(t, 0.72);
 }
 function smoothUnionDepth(a, b, radius = 0.7) {
   if (a <= 0) return b;
@@ -643,7 +645,7 @@ function groundContactCorrection() {
 }
 function rampAngleAt() { return 0; }
 const terrainPositions = [], terrainUvs = [], terrainIndices = [];
-const terrainSegments = 256, terrainMin = -60, terrainMax = 60;
+const terrainSegments = 384, terrainMin = -60, terrainMax = 60;
 for (let iz = 0; iz <= terrainSegments; iz++) {
   const z = terrainMin + (terrainMax - terrainMin) * iz / terrainSegments;
   for (let ix = 0; ix <= terrainSegments; ix++) {
@@ -840,7 +842,8 @@ function addConcreteJoints() {
 
 
 }
-addConcreteJoints();
+// Removed the world-spanning joint overlay: it drew continuous lines across
+// the park and beach instead of discrete concrete seams.
 
 // Raised moss growth: thousands of small, irregular cushions grouped into
 // natural colonies. Instancing keeps the extra surface detail inexpensive.
@@ -909,7 +912,7 @@ function addRaisedGroundMoss() {
   wetPatches.instanceMatrix.needsUpdate = true;
   scene.add(wetPatches);
 }
-addRaisedGroundMoss();
+// Ground wear is baked into the concrete texture; avoid floating moss clumps.
 // No obstacle constructors are called in this foundation build.
 // Detailed skateboard model: rounded deck, grip surface, trucks and wheels.
 const board = new THREE.Group();
@@ -1702,6 +1705,13 @@ const boardPhysics = (() => {
     deckBody.applyImpulseAtPoint(toRapierVector(impulse), toRapierVector(worldPoint), true);
   }
 
+  // Finger contact on the deck is an intentional catch: cancel angular
+  // momentum immediately without changing the board's current orientation.
+  function stopSpin() {
+    if (!deckIsDynamic) return;
+    deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
+  }
+
   function applyTorqueImpulse(localTorque) {
     if (!deckIsDynamic) return;
     const worldTorque = localTorque.clone().applyQuaternion(board.quaternion);
@@ -1741,6 +1751,7 @@ const boardPhysics = (() => {
     forceKinematic,
     applyPopTorque,
     applyFingerImpulse,
+    stopSpin,
     applyTorqueImpulse,
     getMotion() {
       return { linear: deckBody.linvel(), angular: deckBody.angvel() };
@@ -2194,6 +2205,7 @@ canvas.addEventListener('pointerdown', event => {
   if (event.pointerType === 'mouse' && event.button !== 0) return;
   canvas.setPointerCapture?.(event.pointerId);
   const initialDeckPoint = deckTouchLocalPoint(event.clientX, event.clientY);
+  if (initialDeckPoint && airborne) boardPhysics.stopSpin();
   gesture = {
     id: event.pointerId,
     x: event.clientX,
@@ -2367,9 +2379,9 @@ function updateFollowCamera(dt) {
   const forwardZ = Math.cos(cameraHeading);
   const currentSpeed = velocity.length();
   // Fixed framing: do not zoom or alter perspective as speed changes.
-  const followDistance = 16.5;
-  const cameraHeight = 9.5;
-  const lookAhead = 9.0;
+  const followDistance = 5.0;
+  const cameraHeight = 2.65;
+  const lookAhead = 4.8;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
@@ -2386,8 +2398,8 @@ function updateFollowCamera(dt) {
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 9.5, -16.5);
-camera.lookAt(0, -1.0, 9.0);
+camera.position.set(0, 2.65, -5.0);
+camera.lookAt(0, -1.0, 4.8);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
