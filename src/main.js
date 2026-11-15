@@ -726,13 +726,21 @@ function addBowlCoping(cx, cz, rx, rz, rotation = 0, kidney = 0.085) {
   // The grind solver expects a straight edge with a real tangent, so each
   // curved section follows the coping without turning the whole bowl into
   // one misleading straight line.
+  const copingEdges = [];
   for (let i = 0; i < points.length - 1; i++) {
-    addGrindEdge(
+    const edge = addGrindEdge(
       { x: points[i].x, z: points[i].z },
       { x: points[i + 1].x, z: points[i + 1].z },
       0.045,
       'bowl-coping'
     );
+    if (edge) copingEdges.push(edge);
+  }
+  // The grind controller advances from edge to edge. Link the short curved
+  // sections in both directions so a grind can travel around the full lip.
+  for (let i = 0; i < copingEdges.length; i++) {
+    copingEdges[i].previous = copingEdges[i - 1] || null;
+    copingEdges[i].next = copingEdges[i + 1] || null;
   }
 }
 addBowlCoping(17.5, -24, 13.5, 10.8, -0.18, 0.105);
