@@ -2382,7 +2382,12 @@ function updateFollowCamera(dt) {
   // Rear follow framing matched to the reference gameplay: a longer camera
   // distance prevents the near tail from ballooning in perspective, while
   // the lower aim point places the deck in the lower-middle of the frame.
-  const targetHeading = heading + (travelSign < 0 ? Math.PI : 0);
+  // Keep the camera's yaw independent of the board's trick rotation.
+  // During flips, hold the take-off heading so the world does not spin around
+  // the player; while riding, smoothly follow the actual travel direction.
+  const targetHeading = airborne
+    ? cameraHeading
+    : heading + (travelSign < 0 ? Math.PI : 0);
   const angleDelta = Math.atan2(
     Math.sin(targetHeading - cameraHeading),
     Math.cos(targetHeading - cameraHeading)
@@ -2390,20 +2395,22 @@ function updateFollowCamera(dt) {
   cameraHeading += angleDelta * (1 - Math.exp(-7.2 * dt));
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
-  const currentSpeed = velocity.length();
-  // Fixed framing: do not zoom or alter perspective as speed changes.
+  // Fixed framing and a ground-anchored camera: jumps no longer lift the
+  // entire viewpoint into the sky and hide the skatepark.
   const followDistance = 5.0;
-  const cameraHeight = 2.65;
+  const groundY = groundHeightAt(board.position.x, board.position.z);
+  const jumpHeight = Math.max(0, board.position.y - groundY);
+  const cameraHeight = 2.65 + Math.min(jumpHeight, 1.2) * 0.25;
   const lookAhead = 4.8;
 
   cameraOffset.set(
     board.position.x - forwardX * followDistance,
-    board.position.y + cameraHeight,
+    groundY + cameraHeight,
     board.position.z - forwardZ * (followDistance + 0.12)
   );
   cameraTarget.set(
     board.position.x + forwardX * lookAhead,
-    board.position.y - 1.0,
+    board.position.y - 0.75,
     board.position.z + forwardZ * lookAhead
   );
   // Keep the camera planted behind the deck without a delayed, floaty chase.
