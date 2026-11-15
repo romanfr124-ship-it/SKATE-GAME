@@ -59,7 +59,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
 
   // Large soft-edged patches of grime and water staining, not speckled grain.
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 55; i++) {
     const x = random() * size, y = random() * size;
     const rx = 18 + random() * 115, ry = 12 + random() * 82;
     const tone = darkTones[Math.floor(random() * darkTones.length)];
@@ -114,7 +114,7 @@ function makeWeatheredConcreteTexture(base, darkTones, lightTones, size = 2048, 
   ctx.globalAlpha = 1;
 
   // Visible but fine aggregate grain, like exposed sand and tiny stone in old concrete.
-  for (let i = 0; i < 8000; i++) {
+  for (let i = 0; i < 4200; i++) {
     const x = random() * size, y = random() * size;
     ctx.globalAlpha = 0.12 + random() * 0.22;
     ctx.fillStyle = random() > 0.5 ? '#c2c6c5' : '#343a3c';
@@ -672,6 +672,11 @@ terrain.receiveShadow = true; terrain.castShadow = true; scene.add(terrain);
 // Pale beach sand frames the concrete footprint. The park itself is a
 // separate clipped mesh, so its irregular edge reads clearly from the air.
 const sandMaterial = new THREE.MeshStandardMaterial({ color: 0xc8b58f, roughness: 1 });
+const sandFoundation = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), sandMaterial);
+sandFoundation.rotation.x = -Math.PI / 2;
+sandFoundation.position.set(0, -0.68, 0);
+sandFoundation.receiveShadow = true;
+scene.add(sandFoundation);
 function addSandPatch(width, depth, x, z) {
   const sand = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), sandMaterial);
   sand.rotation.x = -Math.PI / 2;
@@ -1472,8 +1477,8 @@ const boardPhysics = (() => {
       .setFriction(0.85),
     deckBody
   );
-  deckBody.setLinearDamping(0.015);
-  deckBody.setAngularDamping(0.02);
+  deckBody.setLinearDamping(0.055);
+  deckBody.setAngularDamping(0.11);
 
   // Collision terrain uses the same height function as the visible park.
   const terrainCollisionSegments = 256;
@@ -1498,7 +1503,7 @@ const boardPhysics = (() => {
     RAPIER.ColliderDesc.trimesh(
       new Float32Array(terrainCollisionVertices),
       new Uint32Array(terrainCollisionIndices)
-    ).setFriction(4.5).setRestitution(0.02),
+    ).setFriction(1.35).setRestitution(0),
     terrainBody
   );
 
@@ -1517,8 +1522,8 @@ const boardPhysics = (() => {
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.18, boardWorldPosition.z)
         .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
-        .setLinearDamping(0.08)
-        .setAngularDamping(0.22)
+        .setLinearDamping(0.16)
+        .setAngularDamping(0.38)
         .enabledRotations(true, true, true)
     );
     world.createCollider(
@@ -1542,7 +1547,7 @@ const boardPhysics = (() => {
     // Soft but controlled bushing return: allow a useful lean angle,
     // then progressively resist the hanger and bring it back toward centre.
     truckJoint.setLimits(-0.24, 0.24);
-    truckJoint.configureMotorPosition(0, 12, 1.8);
+    truckJoint.configureMotorPosition(0, 8, 3.2);
     setJointContactsOff(truckJoint);
     trucks.push(truckBody);
 
@@ -1551,8 +1556,8 @@ const boardPhysics = (() => {
         RAPIER.RigidBodyDesc.dynamic()
           .setTranslation(boardWorldPosition.x + x, boardWorldPosition.y + 0.145, boardWorldPosition.z + z)
           .setRotation({ x: boardWorldRotation.x, y: boardWorldRotation.y, z: boardWorldRotation.z, w: boardWorldRotation.w })
-          .setLinearDamping(0.02)
-          .setAngularDamping(0.03)
+          .setLinearDamping(0.12)
+          .setAngularDamping(0.28)
           .enabledRotations(true, true, true)
       );
       const axleRotation = { x: Math.SQRT1_2, y: 0, z: 0, w: Math.SQRT1_2 };
@@ -1560,8 +1565,8 @@ const boardPhysics = (() => {
         RAPIER.ColliderDesc.cylinder(0.055, 0.145)
           .setRotation(axleRotation)
           .setDensity(20)
-          .setFriction(5.0)
-          .setRestitution(0.04),
+          .setFriction(1.6)
+          .setRestitution(0),
         wheelBody
       );
       wheelColliders.push(wheelCollider);
@@ -1723,6 +1728,35 @@ const boardPhysics = (() => {
     deckBody.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }
 
+  function dampenWheelLanding() {
+    if (!deckIsDynamic) return false;
+    let groundedWheels = 0;
+    for (const wheelCollider of wheelColliders) {
+      let touching = false;
+      world.contactPairsWith(wheelCollider, otherCollider => {
+        if (otherCollider.handle === terrainCollider.handle) touching = true;
+      });
+      if (touching) groundedWheels++;
+    }
+    if (groundedWheels < 3) return false;
+    const rotation = deckBody.rotation();
+    const upY = new THREE.Vector3(0, 1, 0).applyQuaternion(
+      new THREE.Quaternion(rotation.x, rotation.y, rotation.z, rotation.w)
+    ).y;
+    if (upY < Math.cos(38 * Math.PI / 180)) return false;
+
+    const linear = deckBody.linvel();
+    const angular = deckBody.angvel();
+    // Absorb vertical rebound through the four wheel contacts. Keep horizontal
+    // speed and yaw rotation so a clean landing still rolls away naturally.
+    linear.y = Math.abs(linear.y) < 1.0 ? 0 : Math.min(0, linear.y) * 0.28;
+    angular.x *= 0.72;
+    angular.z *= 0.72;
+    deckBody.setLinvel(linear, true);
+    deckBody.setAngvel(angular, true);
+    return true;
+  }
+
   function applyTorqueImpulse(localTorque) {
     if (!deckIsDynamic) return;
     const worldTorque = localTorque.clone().applyQuaternion(board.quaternion);
@@ -1763,6 +1797,7 @@ const boardPhysics = (() => {
     applyPopTorque,
     applyFingerImpulse,
     stopSpin,
+    dampenWheelLanding,
     applyTorqueImpulse,
     getMotion() {
       return { linear: deckBody.linvel(), angular: deckBody.angvel() };
@@ -3279,10 +3314,12 @@ function animate() {
         // not count as a rideable landing.
         if (landing.groundedWheels >= 3 && landing.upright) {
           landingContacted = true;
-          landingSettleTimer = 0.30;
+          landingSettleTimer = 0.22;
+          boardPhysics.dampenWheelLanding();
         }
       }
       if (landingContacted) {
+        boardPhysics.dampenWheelLanding();
         const landing = boardPhysics.getLandingState();
         const stableLanding =
           landing.groundedWheels >= 3 &&
