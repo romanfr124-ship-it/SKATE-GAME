@@ -550,6 +550,11 @@ function snakeRunDepth(x, z) {
 function baseGroundHeight(x, z) {
   if (!insidePark(x, z)) return -0.58;
   let depression = 0;
+  // Fade the concrete down at the irregular perimeter instead of ending in
+  // an abrupt vertical edge.
+  const mainMargin = 1.02 - (Math.pow(Math.abs((x + 1) / 33), 4) + Math.pow(Math.abs((z + 1) / 46), 4));
+  const entryMargin = 7.7 - Math.hypot(x + 5, z - 51);
+  const edgeFade = smooth01(Math.max(mainMargin * 8, entryMargin * 0.5));
   // Deep Pool: large upper-right kidney pool, approximately nine feet deep.
   depression = Math.max(depression, ellipseBowl(x, z, 17.5, -24, 13.5, 10.8, 2.74, -0.18, 0.30));
   // Flow Bowl: smaller linked pool below and left of the deep pool.
@@ -560,7 +565,7 @@ function baseGroundHeight(x, z) {
   depression = Math.max(depression, ellipseBowl(x, z, 8.5, 8.0, 6.8, 5.2, 1.45, 0.30, 0.25));
   depression = Math.max(depression, ellipseBowl(x, z, 19.5, 43.0, 7.2, 5.4, 1.55, -0.15, 0.24));
   // The outer coping/deck remains at grade; only the riding surface drops.
-  return -depression;
+  return -depression * edgeFade - 0.58 * (1 - edgeFade);
 }
 function terrainHeightAt(x, z) { return baseGroundHeight(x, z); }
 function groundHeightAt(x, z) { return terrainHeightAt(x, z); }
@@ -637,22 +642,38 @@ scene.add(beach);
 // Circular south entrance plaza with a planted centre island.
 const entryPad = new THREE.Mesh(new THREE.CircleGeometry(7.5, 64), mats.concrete);
 entryPad.rotation.x = -Math.PI / 2;
-entryPad.position.set(-5, -0.56, 51);
+entryPad.position.set(-5, 0.006, 51);
 entryPad.receiveShadow = true;
 scene.add(entryPad);
 const planter = new THREE.Mesh(
   new THREE.CylinderGeometry(3.0, 3.15, 0.42, 48),
   new THREE.MeshStandardMaterial({ color: 0x777a70, roughness: 0.95 })
 );
-planter.position.set(-5, -0.36, 51);
+planter.position.set(-5, 0.21, 51);
 planter.castShadow = true; planter.receiveShadow = true; scene.add(planter);
 const planterSoil = new THREE.Mesh(
   new THREE.CircleGeometry(2.82, 40),
   new THREE.MeshStandardMaterial({ color: 0x51483a, roughness: 1 })
 );
 planterSoil.rotation.x = -Math.PI / 2;
-planterSoil.position.set(-5, -0.135, 51);
+planterSoil.position.set(-5, 0.431, 51);
 scene.add(planterSoil);
+
+// Steel coping traces the lips of the two principal pools.
+function addBowlCoping(cx, cz, rx, rz, rotation = 0) {
+  const coping = new THREE.Mesh(
+    new THREE.TorusGeometry(1, 0.055, 8, 128),
+    mats.metal
+  );
+  coping.rotation.x = Math.PI / 2;
+  coping.rotation.z = rotation;
+  coping.scale.set(rx, rz, 1);
+  coping.position.set(cx, 0.035, cz);
+  coping.castShadow = true; coping.receiveShadow = true;
+  scene.add(coping);
+}
+addBowlCoping(17.5, -24, 13.5, 10.8, -0.18);
+addBowlCoping(7.5, -3, 10.0, 8.0, 0.18);
 
 // Street plaza: an L-shaped field of low ledges, banks, stairs and rails.
 // All dimensions are deliberately kept low and skateable, not giant blocks.
