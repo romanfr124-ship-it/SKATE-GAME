@@ -545,12 +545,20 @@ function insidePark(x, z) {
   const entry = Math.hypot(x + 5, z - 51) <= 7.7;
   return roundedMain || entry;
 }
-function ellipseBowl(x, z, cx, cz, rx, rz, depth, rotation = 0, floorRatio = 0.28) {
+function ellipseBowl(x, z, cx, cz, rx, rz, depth, rotation = 0, floorRatio = 0.28, kidney = 0.085) {
   const dx = x - cx, dz = z - cz, c = Math.cos(rotation), sn = Math.sin(rotation);
   const lx = (dx * c - dz * sn) / rx, lz = (dx * sn + dz * c) / rz;
-  const radius = Math.sqrt(lx * lx + lz * lz);
+  const angle = Math.atan2(lz, lx);
+  // A subtle inward lobe gives the pool a real kidney outline rather than
+  // the generic perfect-oval depression used by the first pass.
+  const contour = 1 + kidney * Math.sin(angle - 0.55) + 0.025 * Math.sin(2 * angle + 0.4);
+  const radius = Math.sqrt(lx * lx + lz * lz) / contour;
   const t = smooth01((1 - radius) / (1 - floorRatio));
   return depth * t;
+}
+function smoothUnionDepth(a, b, radius = 0.7) {
+  const h = Math.max(radius - Math.abs(a - b), 0) / radius;
+  return Math.max(a, b) + h * h * radius * 0.25;
 }
 const snakeRunPath = [
   { x: 4, z: -1, width: 5.5, depth: 1.45 },
@@ -586,14 +594,13 @@ function baseGroundHeight(x, z) {
   const entryMargin = 7.7 - Math.hypot(x + 5, z - 51);
   const edgeFade = smooth01(Math.max(mainMargin * 8, entryMargin * 0.5));
   // Deep Pool: large upper-right kidney pool, approximately nine feet deep.
-  depression = Math.max(depression, ellipseBowl(x, z, 17.5, -24, 13.5, 10.8, 2.74, -0.18, 0.30));
-  // Flow Bowl: smaller linked pool below and left of the deep pool.
-  depression = Math.max(depression, ellipseBowl(x, z, 7.5, -3, 10.0, 8.0, 1.55, 0.18, 0.24));
-  // The long, undulating snake run links several transitions and terminates
-  // in shallow/deep pockets rather than becoming a straight trench.
-  depression = Math.max(depression, snakeRunDepth(x, z));
-  depression = Math.max(depression, ellipseBowl(x, z, 8.5, 8.0, 6.8, 5.2, 1.45, 0.30, 0.25));
-  depression = Math.max(depression, ellipseBowl(x, z, 19.5, 43.0, 7.2, 5.4, 1.55, -0.15, 0.24));
+  // Blend the connected pool transitions instead of stacking hard-edged
+  // oval height fields. This keeps the concrete continuous where bowls meet.
+  depression = smoothUnionDepth(depression, ellipseBowl(x, z, 17.5, -24, 13.5, 10.8, 2.74, -0.18, 0.30, 0.105));
+  depression = smoothUnionDepth(depression, ellipseBowl(x, z, 7.5, -3, 10.0, 8.0, 1.55, 0.18, 0.24, 0.07));
+  depression = smoothUnionDepth(depression, snakeRunDepth(x, z), 0.55);
+  depression = smoothUnionDepth(depression, ellipseBowl(x, z, 8.5, 8.0, 6.8, 5.2, 1.45, 0.30, 0.25, 0.06));
+  depression = smoothUnionDepth(depression, ellipseBowl(x, z, 19.5, 43.0, 7.2, 5.4, 1.55, -0.15, 0.24, 0.07));
   // The outer coping/deck remains at grade; only the riding surface drops.
   return -depression * edgeFade - 0.58 * (1 - edgeFade);
 }
@@ -696,20 +703,25 @@ planterSoil.position.set(-5, 0.431, 51);
 scene.add(planterSoil);
 
 // Steel coping traces the lips of the two principal pools.
-function addBowlCoping(cx, cz, rx, rz, rotation = 0) {
-  const coping = new THREE.Mesh(
-    new THREE.TorusGeometry(1, 0.055, 8, 128),
-    mats.metal
-  );
-  coping.rotation.x = Math.PI / 2;
-  coping.rotation.y = rotation;
-  coping.scale.set(rx, rz, 1);
-  coping.position.set(cx, 0.035, cz);
+function addBowlCoping(cx, cz, rx, rz, rotation = 0, kidney = 0.085) {
+  const points = [];
+  const c = Math.cos(rotation), sn = Math.sin(rotation);
+  const segments = 192;
+  for (let i = 0; i <= segments; i++) {
+    const a = i / segments * Math.PI * 2;
+    const contour = 1 + kidney * Math.sin(a - 0.55) + 0.025 * Math.sin(2 * a + 0.4);
+    const lx = Math.cos(a) * contour * rx;
+    const lz = Math.sin(a) * contour * rz;
+    points.push(new THREE.Vector3(cx + lx * c + lz * sn, 0.045, cz - lx * sn + lz * c));
+  }
+  const curve = new THREE.CatmullRomCurve3(points, false, 'centripetal');
+  const coping = new THREE.Mesh(new THREE.TubeGeometry(curve, segments, 0.055, 8, false), mats.metal);
   coping.castShadow = true; coping.receiveShadow = true;
+  coping.userData.isBowlCoping = true;
   scene.add(coping);
 }
-addBowlCoping(17.5, -24, 13.5, 10.8, -0.18);
-addBowlCoping(7.5, -3, 10.0, 8.0, 0.18);
+addBowlCoping(17.5, -24, 13.5, 10.8, -0.18, 0.105);
+addBowlCoping(7.5, -3, 10.0, 8.0, 0.18, 0.07);
 
 // Street plaza: an L-shaped field of low ledges, banks, stairs and rails.
 // All dimensions are deliberately kept low and skateable, not giant blocks.
