@@ -9,7 +9,7 @@ const mount = document.getElementById('game');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x91d9f2);
 scene.fog = new THREE.Fog(0x91d9f2, 42, 112);
-const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 180);
+const camera = new THREE.PerspectiveCamera(58, innerWidth / innerHeight, 0.1, 180);
 let renderer;
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'default', failIfMajorPerformanceCaveat: false });
@@ -2143,32 +2143,39 @@ const cameraOffset = new THREE.Vector3();
 const cameraTarget = new THREE.Vector3();
 let cameraHeading = heading;
 function updateFollowCamera(dt) {
-  // Rotate the camera through the full half-turn when momentum changes
-  // direction, rather than abruptly flipping its position.
+  // Close, low trailing chase camera inspired by the reference gameplay:
+  // the deck stays large and readable while the park opens up ahead.
   const targetHeading = heading + (travelSign < 0 ? Math.PI : 0);
   const angleDelta = Math.atan2(
     Math.sin(targetHeading - cameraHeading),
     Math.cos(targetHeading - cameraHeading)
   );
-  cameraHeading += angleDelta * (1 - Math.exp(-4.8 * dt));
+  cameraHeading += angleDelta * (1 - Math.exp(-5.8 * dt));
   const forwardX = Math.sin(cameraHeading);
   const forwardZ = Math.cos(cameraHeading);
+  const currentSpeed = velocity.length();
+  const followDistance = 3.15 + Math.min(currentSpeed, 12) * 0.055;
+  const cameraHeight = 2.05 + Math.min(currentSpeed, 12) * 0.025;
+  const lookAhead = 2.65 + Math.min(currentSpeed, 12) * 0.12;
+
   cameraOffset.set(
-    board.position.x - forwardX * 4.4,
-    board.position.y + 4.4,
-    board.position.z - forwardZ * 4.8
+    board.position.x - forwardX * followDistance,
+    board.position.y + cameraHeight,
+    board.position.z - forwardZ * (followDistance + 0.15)
   );
   cameraTarget.set(
-    board.position.x + forwardX * 4.5,
-    board.position.y - 0.75,
-    board.position.z + forwardZ * 4.5
+    board.position.x + forwardX * lookAhead,
+    board.position.y + 0.02,
+    board.position.z + forwardZ * lookAhead
   );
-  const smooth = 1 - Math.exp(-6.5 * dt);
+  // A little more damping than the old camera prevents snapping on quick
+  // turns, while still keeping up with ollies, bowls and fast transitions.
+  const smooth = 1 - Math.exp(-8.2 * dt);
   camera.position.lerp(cameraOffset, smooth);
   camera.lookAt(cameraTarget);
 }
-camera.position.set(0, 4.4, -4.8);
-camera.lookAt(0, -0.75, 6.0);
+camera.position.set(0, 2.05, -3.3);
+camera.lookAt(0, 0.02, 2.65);
 
 // The park map remains available inside the pause menu rather than on the HUD.
 let gamePaused = true;
